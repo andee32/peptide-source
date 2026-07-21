@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
-    "seed": "tsx ./src/seed.ts",
-    "seed:subscriptions": "tsx ./src/seedSubscriptions.ts",
+    "seed": "node --env-file-if-exists=../.env --import tsx ./src/seed.ts",
+    "seed:subscriptions": "node --env-file-if-exists=../.env --import tsx ./src/seedSubscriptions.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
