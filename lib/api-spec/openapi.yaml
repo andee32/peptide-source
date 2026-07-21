@@ -16,6 +16,8 @@ tags:
     description: Batch and COA verification operations
   - name: accounts
     description: B2B wholesale account application and approval operations
+  - name: retail
+    description: Public B2C retail catalog operations (single-vial variants)
 paths:
   /healthz:
     get:
@@ -77,6 +79,56 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProductDetail"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /retail/products:
+    get:
+      operationId: listRetailProducts
+      tags: [retail]
+      summary: List retail products
+      description: >-
+        Returns published, non-blocked products for the public B2C retail
+        storefront, each with only its single-vial variants and retail pricing.
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of retail products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RetailProduct"
+
+  /retail/products/{slug}:
+    get:
+      operationId: getRetailProduct
+      tags: [retail]
+      summary: Get retail product by slug
+      description: Returns a single retail product with its single-vial variants.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Retail product detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RetailProductDetail"
         "404":
           description: Product not found
           content:
@@ -2500,6 +2552,83 @@ components:
         - complianceStatus
         - sourcingPath
         - variants
+
+    RetailVariant:
+      type: object
+      description: A single-vial (unitType=vial) variant sold on the B2C retail storefront.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        concentration:
+          type: string
+        priceCents:
+          type: integer
+        sku:
+          type: string
+        inStock:
+          type: boolean
+      required:
+        - id
+        - name
+        - concentration
+        - priceCents
+        - sku
+        - inStock
+
+    RetailProduct:
+      type: object
+      description: A retail catalog product with only its single-vial variants and retail pricing.
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        category:
+          type: string
+        complianceStatus:
+          $ref: "#/components/schemas/ComplianceStatus"
+        shortDescription:
+          type: string
+        featured:
+          type: boolean
+        imageUrl:
+          type: string
+          nullable: true
+        startingPriceCents:
+          type: integer
+        variants:
+          type: array
+          items:
+            $ref: "#/components/schemas/RetailVariant"
+      required:
+        - id
+        - name
+        - slug
+        - category
+        - complianceStatus
+        - shortDescription
+        - featured
+        - startingPriceCents
+        - variants
+
+    RetailProductDetail:
+      allOf:
+        - $ref: "#/components/schemas/RetailProduct"
+        - type: object
+          properties:
+            longDescription:
+              type: string
+            researchUses:
+              type: array
+              items:
+                type: string
+          required:
+            - longDescription
+            - researchUses
 
     PatchProductRequest:
       type: object

@@ -29,6 +29,11 @@ import { WholesaleApplyPage } from "@/pages/WholesaleApplyPage";
 import { WholesaleAccountPage } from "@/pages/WholesaleAccountPage";
 import { ContactPage } from "@/pages/ContactPage";
 
+// Retail (B2C) portal
+import { RetailShopPage } from "@/pages/retail/RetailShopPage";
+import { RetailProductPage } from "@/pages/retail/RetailProductPage";
+import { AgeGate } from "@/components/retail/AgeGate";
+
 const queryClient = new QueryClient();
 
 function StorefrontRouter() {
@@ -40,6 +45,16 @@ function StorefrontRouter() {
           <Route path="/" component={HomePage} />
           <Route path="/shop" component={ProductsPage} />
           <Route path="/shop/:slug" component={ProductDetailPage} />
+          <Route path="/retail">
+            <AgeGate>
+              <RetailShopPage />
+            </AgeGate>
+          </Route>
+          <Route path="/retail/:slug">
+            <AgeGate>
+              <RetailProductPage />
+            </AgeGate>
+          </Route>
           <Route path="/verify" component={VerifyPage} />
           <Route path="/verify/:id" component={VerifyPage} />
           <Route path="/checkout" component={CheckoutPage} />

@@ -132,6 +132,99 @@ export const GetProductResponse = zod
   );
 
 /**
+ * Returns published, non-blocked products for the public B2C retail storefront, each with only its single-vial variants and retail pricing.
+ * @summary List retail products
+ */
+export const ListRetailProductsQueryParams = zod.object({
+  category: zod.coerce.string().optional(),
+});
+
+export const ListRetailProductsResponseItem = zod
+  .object({
+    id: zod.number(),
+    name: zod.string(),
+    slug: zod.string(),
+    category: zod.string(),
+    complianceStatus: zod
+      .enum(["blocked", "restricted", "cleared"])
+      .describe(
+        "Per-SKU compliance gate. blocked = unlisted + unsellable; restricted = listed and orderable (reserved for later); cleared = normal.",
+      ),
+    shortDescription: zod.string(),
+    featured: zod.boolean(),
+    imageUrl: zod.string().nullish(),
+    startingPriceCents: zod.number(),
+    variants: zod.array(
+      zod
+        .object({
+          id: zod.number(),
+          name: zod.string(),
+          concentration: zod.string(),
+          priceCents: zod.number(),
+          sku: zod.string(),
+          inStock: zod.boolean(),
+        })
+        .describe(
+          "A single-vial (unitType=vial) variant sold on the B2C retail storefront.",
+        ),
+    ),
+  })
+  .describe(
+    "A retail catalog product with only its single-vial variants and retail pricing.",
+  );
+export const ListRetailProductsResponse = zod.array(
+  ListRetailProductsResponseItem,
+);
+
+/**
+ * Returns a single retail product with its single-vial variants.
+ * @summary Get retail product by slug
+ */
+export const GetRetailProductParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const GetRetailProductResponse = zod
+  .object({
+    id: zod.number(),
+    name: zod.string(),
+    slug: zod.string(),
+    category: zod.string(),
+    complianceStatus: zod
+      .enum(["blocked", "restricted", "cleared"])
+      .describe(
+        "Per-SKU compliance gate. blocked = unlisted + unsellable; restricted = listed and orderable (reserved for later); cleared = normal.",
+      ),
+    shortDescription: zod.string(),
+    featured: zod.boolean(),
+    imageUrl: zod.string().nullish(),
+    startingPriceCents: zod.number(),
+    variants: zod.array(
+      zod
+        .object({
+          id: zod.number(),
+          name: zod.string(),
+          concentration: zod.string(),
+          priceCents: zod.number(),
+          sku: zod.string(),
+          inStock: zod.boolean(),
+        })
+        .describe(
+          "A single-vial (unitType=vial) variant sold on the B2C retail storefront.",
+        ),
+    ),
+  })
+  .describe(
+    "A retail catalog product with only its single-vial variants and retail pricing.",
+  )
+  .and(
+    zod.object({
+      longDescription: zod.string(),
+      researchUses: zod.array(zod.string()),
+    }),
+  );
+
+/**
  * Returns batches, optionally filtered by product ID
  * @summary List batches
  */

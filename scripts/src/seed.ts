@@ -10,6 +10,14 @@ import {
 import { sql } from "drizzle-orm";
 
 type VariantSeed = { name: string; priceCents: number; sku: string };
+
+// Retail (B2C) single-vial price from the wholesale kit price. Take ~38% of the
+// kit price (a healthy retail markup over the ~per-vial wholesale cost) then
+// round UP to the nearest value ending in 99 cents (e.g. 7500 -> 2850 -> 2899).
+function retailVialCents(kitPriceCents: number): number {
+  const base = Math.round(kitPriceCents * 0.38);
+  return base + ((99 - (base % 100) + 100) % 100);
+}
 type ProductSeed = {
   name: string;
   slug: string;
@@ -455,19 +463,33 @@ async function seed() {
   const productIdBySlug = new Map(products.map((p) => [p.slug, p.id]));
   console.log(`Inserted ${products.length} products`);
 
-  // --- Variants (every one is a 10-vial kit) ---
+  // --- Variants: each catalog entry becomes a 10-vial wholesale KIT plus a
+  // single-vial RETAIL variant (unitType='vial', sku suffixed '-V', retail price).
   const variantValues = CATALOG.flatMap((p) =>
-    p.variants.map((v) => ({
-      productId: productIdBySlug.get(p.slug)!,
-      name: v.name,
-      concentration: `${v.name}/vial`,
-      sizeml: 1,
-      priceCents: v.priceCents,
-      sku: v.sku,
-      unitType: "kit" as const,
-      vialsPerUnit: 10,
-      inStock: true,
-    }))
+    p.variants.flatMap((v) => [
+      {
+        productId: productIdBySlug.get(p.slug)!,
+        name: v.name,
+        concentration: `${v.name}/vial`,
+        sizeml: 1,
+        priceCents: v.priceCents,
+        sku: v.sku,
+        unitType: "kit" as const,
+        vialsPerUnit: 10,
+        inStock: true,
+      },
+      {
+        productId: productIdBySlug.get(p.slug)!,
+        name: v.name,
+        concentration: `${v.name}/vial`,
+        sizeml: 1,
+        priceCents: retailVialCents(v.priceCents),
+        sku: `${v.sku}-V`,
+        unitType: "vial" as const,
+        vialsPerUnit: 1,
+        inStock: true,
+      },
+    ])
   );
 
   const variants = await db
@@ -492,7 +514,10 @@ async function seed() {
   // Standard: NONE (falls back to base variant price).
   // Preferred: round(base * 0.92) for every kit variant.
   // Distributor: round(base * 0.85) for every kit variant.
-  const entryValues = variants.flatMap((v) => [
+  // Tiers are a wholesale-only construct — retail vial variants are excluded.
+  const entryValues = variants
+    .filter((v) => v.unitType === "kit")
+    .flatMap((v) => [
     {
       priceTierId: tierBySlug.get("preferred")!,
       variantId: v.id,

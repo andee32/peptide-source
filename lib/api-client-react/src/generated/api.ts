@@ -47,6 +47,7 @@ import type {
   HealthStatus,
   ListBatchesParams,
   ListProductsParams,
+  ListRetailProductsParams,
   ListSubscriptionsParams,
   MoqError,
   OrderDetail,
@@ -60,6 +61,8 @@ import type {
   Product,
   ProductDetail,
   ProductVariant,
+  RetailProduct,
+  RetailProductDetail,
   ReviewerSubmission,
   ReviewerSubmissionCreated,
   ReviewerSubmissionPatched,
@@ -333,6 +336,192 @@ export function useGetProduct<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetProductQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns published, non-blocked products for the public B2C retail storefront, each with only its single-vial variants and retail pricing.
+ * @summary List retail products
+ */
+export const getListRetailProductsUrl = (params?: ListRetailProductsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/retail/products?${stringifiedParams}`
+    : `/api/retail/products`;
+};
+
+export const listRetailProducts = async (
+  params?: ListRetailProductsParams,
+  options?: RequestInit,
+): Promise<RetailProduct[]> => {
+  return customFetch<RetailProduct[]>(getListRetailProductsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListRetailProductsQueryKey = (
+  params?: ListRetailProductsParams,
+) => {
+  return [`/api/retail/products`, ...(params ? [params] : [])] as const;
+};
+
+export const getListRetailProductsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listRetailProducts>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListRetailProductsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRetailProducts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListRetailProductsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listRetailProducts>>
+  > = ({ signal }) => listRetailProducts(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listRetailProducts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListRetailProductsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listRetailProducts>>
+>;
+export type ListRetailProductsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List retail products
+ */
+
+export function useListRetailProducts<
+  TData = Awaited<ReturnType<typeof listRetailProducts>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListRetailProductsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listRetailProducts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListRetailProductsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns a single retail product with its single-vial variants.
+ * @summary Get retail product by slug
+ */
+export const getGetRetailProductUrl = (slug: string) => {
+  return `/api/retail/products/${slug}`;
+};
+
+export const getRetailProduct = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<RetailProductDetail> => {
+  return customFetch<RetailProductDetail>(getGetRetailProductUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetRetailProductQueryKey = (slug: string) => {
+  return [`/api/retail/products/${slug}`] as const;
+};
+
+export const getGetRetailProductQueryOptions = <
+  TData = Awaited<ReturnType<typeof getRetailProduct>>,
+  TError = ErrorType<ApiError>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRetailProduct>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetRetailProductQueryKey(slug);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getRetailProduct>>
+  > = ({ signal }) => getRetailProduct(slug, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getRetailProduct>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetRetailProductQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getRetailProduct>>
+>;
+export type GetRetailProductQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Get retail product by slug
+ */
+
+export function useGetRetailProduct<
+  TData = Awaited<ReturnType<typeof getRetailProduct>>,
+  TError = ErrorType<ApiError>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getRetailProduct>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetRetailProductQueryOptions(slug, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

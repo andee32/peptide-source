@@ -825,6 +825,39 @@ export interface CatalogProduct {
   variants: CatalogVariant[];
 }
 
+/**
+ * A single-vial (unitType=vial) variant sold on the B2C retail storefront.
+ */
+export interface RetailVariant {
+  id: number;
+  name: string;
+  concentration: string;
+  priceCents: number;
+  sku: string;
+  inStock: boolean;
+}
+
+/**
+ * A retail catalog product with only its single-vial variants and retail pricing.
+ */
+export interface RetailProduct {
+  id: number;
+  name: string;
+  slug: string;
+  category: string;
+  complianceStatus: ComplianceStatus;
+  shortDescription: string;
+  featured: boolean;
+  imageUrl?: string | null;
+  startingPriceCents: number;
+  variants: RetailVariant[];
+}
+
+export type RetailProductDetail = RetailProduct & {
+  longDescription: string;
+  researchUses: string[];
+};
+
 export type PatchProductRequestSourcingPath =
   | (typeof PatchProductRequestSourcingPath)[keyof typeof PatchProductRequestSourcingPath]
   | null;
@@ -855,6 +888,10 @@ export interface PatchVariantRequest {
 export type ListProductsParams = {
   category?: string;
   featured?: boolean;
+};
+
+export type ListRetailProductsParams = {
+  category?: string;
 };
 
 export type ListBatchesParams = {

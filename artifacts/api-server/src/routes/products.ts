@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, asc, desc } from "drizzle-orm";
+import { eq, and, asc, desc } from "drizzle-orm";
 import { db } from "@atlab/db";
 import {
   productsTable,
@@ -58,7 +58,10 @@ router.get("/products", async (req, res) => {
     const result = await Promise.all(
       products.map(async (product) => {
         const variants = await db.query.productVariantsTable.findMany({
-          where: eq(productVariantsTable.productId, product.id),
+          where: and(
+            eq(productVariantsTable.productId, product.id),
+            eq(productVariantsTable.unitType, "kit"),
+          ),
           orderBy: [asc(productVariantsTable.priceCents)],
         });
 

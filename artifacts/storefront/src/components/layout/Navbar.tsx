@@ -13,6 +13,7 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/shop", label: "Catalog" },
+    { href: "/retail", label: "Shop (Retail)" },
     { href: "/verify", label: "COA Verification" },
     { href: "/wholesale", label: "Wholesale / Apply" },
     { href: "/wholesale/account", label: "Account" },
