@@ -671,6 +671,187 @@ export interface ConfirmAchResponse {
   paymentStatus: ConfirmAchResponsePaymentStatus;
 }
 
+export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
+
+export const OrderStatus = {
+  pending: "pending",
+  awaiting_payment: "awaiting_payment",
+  confirmed: "confirmed",
+  failed: "failed",
+  expired: "expired",
+  refunded: "refunded",
+} as const;
+
+/**
+ * Count of orders per status. Every OrderStatus key is present (0 when none).
+ */
+export type AdminStatsOrdersByStatus = { [key: string]: number };
+
+/**
+ * Server-derived operational counters for the admin dashboard.
+ */
+export interface AdminStats {
+  pendingAccounts: number;
+  /** Count of orders per status. Every OrderStatus key is present (0 when none). */
+  ordersByStatus: AdminStatsOrdersByStatus;
+  /** Sum of totalCents across confirmed orders. (fulfilled/shipped are not statuses in this schema, so only confirmed contributes.) */
+  revenueCentsConfirmed: number;
+  outOfStockVariants: number;
+  /** Count of products with complianceStatus=blocked. */
+  blockedSkus: number;
+  totalProducts: number;
+  totalAccounts: number;
+}
+
+export type AdminOrderSummaryChannel =
+  (typeof AdminOrderSummaryChannel)[keyof typeof AdminOrderSummaryChannel];
+
+export const AdminOrderSummaryChannel = {
+  retail: "retail",
+  wholesale: "wholesale",
+} as const;
+
+export interface AdminOrderSummary {
+  id: string;
+  createdAt: string;
+  channel: AdminOrderSummaryChannel;
+  status: OrderStatus;
+  totalCents: number;
+  shippingName: string;
+  shippingEmail: string;
+  accountId: string | null;
+  paymentMethod: PaymentMethod;
+}
+
+/**
+ * The server-side RUO attestation record of record for an order.
+ */
+export interface AdminOrderAttestation {
+  id: number;
+  orderId: string;
+  accountId?: string | null;
+  attestationVersion: string;
+  attestationText: string;
+  ruoAffirmed: boolean;
+  signerName: string;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  createdAt: string;
+}
+
+export type AdminOrderDetailChannel =
+  (typeof AdminOrderDetailChannel)[keyof typeof AdminOrderDetailChannel];
+
+export const AdminOrderDetailChannel = {
+  retail: "retail",
+  wholesale: "wholesale",
+} as const;
+
+/**
+ * Full order row plus related records. payments/attestations/account are present on GET detail; status-only mutations (PATCH, refund) return the order row without them.
+ */
+export interface AdminOrderDetail {
+  id: string;
+  sessionId: string;
+  lineItems: OrderLineItem[];
+  subtotalCents: number;
+  discountCents: number;
+  totalCents: number;
+  paymentMethod: PaymentMethod;
+  channel: AdminOrderDetailChannel;
+  accountId: string | null;
+  status: OrderStatus;
+  shippingName: string;
+  shippingEmail: string;
+  shippingAddress1: string;
+  shippingAddress2?: string | null;
+  shippingCity: string;
+  shippingState: string;
+  shippingZip: string;
+  shippingCountry: string;
+  trackingNumber: string | null;
+  carrier: string | null;
+  createdAt: string;
+  updatedAt: string;
+  payments?: PaymentRecord[];
+  attestations?: AdminOrderAttestation[];
+  account?: Account | null;
+}
+
+/**
+ * At least one field must be provided.
+ */
+export interface PatchOrderRequest {
+  status?: OrderStatus;
+  /** @maxLength 200 */
+  trackingNumber?: string | null;
+  /** @maxLength 100 */
+  carrier?: string | null;
+}
+
+export type CatalogVariantUnitType =
+  (typeof CatalogVariantUnitType)[keyof typeof CatalogVariantUnitType];
+
+export const CatalogVariantUnitType = {
+  vial: "vial",
+  kit: "kit",
+} as const;
+
+export interface CatalogVariant {
+  id: number;
+  sku: string;
+  priceCents: number;
+  inStock: boolean;
+  unitType: CatalogVariantUnitType;
+}
+
+export type CatalogProductSourcingPath =
+  | (typeof CatalogProductSourcingPath)[keyof typeof CatalogProductSourcingPath]
+  | null;
+
+export const CatalogProductSourcingPath = {
+  usa_domestic: "usa_domestic",
+  asia_warehouse: "asia_warehouse",
+} as const;
+
+export interface CatalogProduct {
+  id: number;
+  name: string;
+  slug: string;
+  category: string;
+  featured: boolean;
+  complianceStatus: ComplianceStatus;
+  sourcingPath: CatalogProductSourcingPath;
+  variants: CatalogVariant[];
+}
+
+export type PatchProductRequestSourcingPath =
+  | (typeof PatchProductRequestSourcingPath)[keyof typeof PatchProductRequestSourcingPath]
+  | null;
+
+export const PatchProductRequestSourcingPath = {
+  usa_domestic: "usa_domestic",
+  asia_warehouse: "asia_warehouse",
+} as const;
+
+/**
+ * Merchandising / compliance controls. At least one field must be provided.
+ */
+export interface PatchProductRequest {
+  featured?: boolean;
+  complianceStatus?: ComplianceStatus;
+  sourcingPath?: PatchProductRequestSourcingPath;
+}
+
+/**
+ * Price / stock controls. At least one field must be provided.
+ */
+export interface PatchVariantRequest {
+  /** @minimum 1 */
+  priceCents?: number;
+  inStock?: boolean;
+}
+
 export type ListProductsParams = {
   category?: string;
   featured?: boolean;
@@ -738,6 +919,19 @@ export type GetAccountParams = {
 export type AdminListAccountsParams = {
   status?: AccountStatus;
 };
+
+export type AdminListOrdersParams = {
+  channel?: AdminListOrdersChannel;
+  status?: OrderStatus;
+};
+
+export type AdminListOrdersChannel =
+  (typeof AdminListOrdersChannel)[keyof typeof AdminListOrdersChannel];
+
+export const AdminListOrdersChannel = {
+  retail: "retail",
+  wholesale: "wholesale",
+} as const;
 
 export type HandleBtcpayWebhook200 = {
   received?: boolean;

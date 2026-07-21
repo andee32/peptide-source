@@ -911,6 +911,262 @@ paths:
         "401":
           description: Admin key required
 
+  /admin/stats:
+    get:
+      operationId: adminGetStats
+      tags: [admin]
+      summary: Admin — dashboard stats
+      description: Server-derived operational counters and confirmed revenue. Requires x-admin-key header.
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+        "401":
+          description: Admin key required
+
+  /admin/orders:
+    get:
+      operationId: adminListOrders
+      tags: [admin]
+      summary: Admin — list orders
+      description: Lists orders newest-first, optionally filtered by channel and/or status. Requires x-admin-key header.
+      parameters:
+        - name: channel
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [retail, wholesale]
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/OrderStatus"
+      responses:
+        "200":
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminOrderSummary"
+        "400":
+          description: Invalid filter value
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Admin key required
+
+  /admin/orders/{id}:
+    get:
+      operationId: adminGetOrder
+      tags: [admin]
+      summary: Admin — full order detail
+      description: Returns the order plus its line items, payment records, RUO attestations, and linked wholesale account (if any). Requires x-admin-key header.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrderDetail"
+        "401":
+          description: Admin key required
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      operationId: adminPatchOrder
+      tags: [admin]
+      summary: Admin — update order status and/or shipment tracking
+      description: Updates status (blocked from leaving a terminal status) and/or trackingNumber + carrier. Requires x-admin-key header.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchOrderRequest"
+      responses:
+        "200":
+          description: Updated order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrderDetail"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Admin key required
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Order is in a terminal status and cannot be changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /admin/orders/{id}/refund:
+    post:
+      operationId: adminRefundOrder
+      tags: [admin]
+      summary: Admin — mark an order refunded
+      description: Sets order status to refunded. This is the record of record only; the actual crypto refund is performed off-platform per CRYPTO_REFUND_GUIDE. Requires x-admin-key header.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Refunded order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOrderDetail"
+        "401":
+          description: Admin key required
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Order is already refunded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /admin/catalog:
+    get:
+      operationId: adminGetCatalog
+      tags: [admin]
+      summary: Admin — full catalog including blocked products
+      description: Returns all products (including complianceStatus=blocked) with their variants. Requires x-admin-key header.
+      responses:
+        "200":
+          description: Catalog
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CatalogProduct"
+        "401":
+          description: Admin key required
+
+  /admin/products/{id}:
+    patch:
+      operationId: adminPatchProduct
+      tags: [admin]
+      summary: Admin — edit product merchandising / compliance controls
+      description: Updates featured, complianceStatus, and/or sourcingPath. complianceStatus is a dormant control — flipping it does not auto-block anything. Requires x-admin-key header.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchProductRequest"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductDetail"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Admin key required
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /admin/variants/{id}:
+    patch:
+      operationId: adminPatchVariant
+      tags: [admin]
+      summary: Admin — edit variant price / stock
+      description: Updates priceCents and/or inStock. Requires x-admin-key header.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchVariantRequest"
+      responses:
+        "200":
+          description: Updated variant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductVariant"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Admin key required
+        "404":
+          description: Variant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
   /webhooks/btcpay:
     post:
       operationId: handleBtcpayWebhook
@@ -1976,3 +2232,294 @@ components:
         - paymentRecordId
         - orderStatus
         - paymentStatus
+
+    OrderStatus:
+      type: string
+      enum: [pending, awaiting_payment, confirmed, failed, expired, refunded]
+
+    AdminStats:
+      type: object
+      description: Server-derived operational counters for the admin dashboard.
+      properties:
+        pendingAccounts:
+          type: integer
+        ordersByStatus:
+          type: object
+          description: Count of orders per status. Every OrderStatus key is present (0 when none).
+          additionalProperties:
+            type: integer
+        revenueCentsConfirmed:
+          type: integer
+          description: Sum of totalCents across confirmed orders. (fulfilled/shipped are not statuses in this schema, so only confirmed contributes.)
+        outOfStockVariants:
+          type: integer
+        blockedSkus:
+          type: integer
+          description: Count of products with complianceStatus=blocked.
+        totalProducts:
+          type: integer
+        totalAccounts:
+          type: integer
+      required:
+        - pendingAccounts
+        - ordersByStatus
+        - revenueCentsConfirmed
+        - outOfStockVariants
+        - blockedSkus
+        - totalProducts
+        - totalAccounts
+
+    AdminOrderSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        channel:
+          type: string
+          enum: [retail, wholesale]
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        totalCents:
+          type: integer
+        shippingName:
+          type: string
+        shippingEmail:
+          type: string
+        accountId:
+          type: string
+          nullable: true
+        paymentMethod:
+          $ref: "#/components/schemas/PaymentMethod"
+      required:
+        - id
+        - createdAt
+        - channel
+        - status
+        - totalCents
+        - shippingName
+        - shippingEmail
+        - accountId
+        - paymentMethod
+
+    AdminOrderAttestation:
+      type: object
+      description: The server-side RUO attestation record of record for an order.
+      properties:
+        id:
+          type: integer
+        orderId:
+          type: string
+        accountId:
+          type: string
+          nullable: true
+        attestationVersion:
+          type: string
+        attestationText:
+          type: string
+        ruoAffirmed:
+          type: boolean
+        signerName:
+          type: string
+        ipAddress:
+          type: string
+          nullable: true
+        userAgent:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - orderId
+        - attestationVersion
+        - attestationText
+        - ruoAffirmed
+        - signerName
+        - createdAt
+
+    AdminOrderDetail:
+      type: object
+      description: Full order row plus related records. payments/attestations/account are present on GET detail; status-only mutations (PATCH, refund) return the order row without them.
+      properties:
+        id:
+          type: string
+        sessionId:
+          type: string
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderLineItem"
+        subtotalCents:
+          type: integer
+        discountCents:
+          type: integer
+        totalCents:
+          type: integer
+        paymentMethod:
+          $ref: "#/components/schemas/PaymentMethod"
+        channel:
+          type: string
+          enum: [retail, wholesale]
+        accountId:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        shippingName:
+          type: string
+        shippingEmail:
+          type: string
+        shippingAddress1:
+          type: string
+        shippingAddress2:
+          type: string
+          nullable: true
+        shippingCity:
+          type: string
+        shippingState:
+          type: string
+        shippingZip:
+          type: string
+        shippingCountry:
+          type: string
+        trackingNumber:
+          type: string
+          nullable: true
+        carrier:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        payments:
+          type: array
+          items:
+            $ref: "#/components/schemas/PaymentRecord"
+        attestations:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminOrderAttestation"
+        account:
+          $ref: "#/components/schemas/Account"
+          nullable: true
+      required:
+        - id
+        - sessionId
+        - lineItems
+        - subtotalCents
+        - discountCents
+        - totalCents
+        - paymentMethod
+        - channel
+        - accountId
+        - status
+        - shippingName
+        - shippingEmail
+        - shippingAddress1
+        - shippingCity
+        - shippingState
+        - shippingZip
+        - shippingCountry
+        - trackingNumber
+        - carrier
+        - createdAt
+        - updatedAt
+
+    PatchOrderRequest:
+      type: object
+      description: At least one field must be provided.
+      properties:
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        trackingNumber:
+          type: string
+          maxLength: 200
+          nullable: true
+        carrier:
+          type: string
+          maxLength: 100
+          nullable: true
+
+    CatalogVariant:
+      type: object
+      properties:
+        id:
+          type: integer
+        sku:
+          type: string
+        priceCents:
+          type: integer
+        inStock:
+          type: boolean
+        unitType:
+          type: string
+          enum: [vial, kit]
+      required:
+        - id
+        - sku
+        - priceCents
+        - inStock
+        - unitType
+
+    CatalogProduct:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        category:
+          type: string
+        featured:
+          type: boolean
+        complianceStatus:
+          $ref: "#/components/schemas/ComplianceStatus"
+        sourcingPath:
+          type: string
+          enum: [usa_domestic, asia_warehouse]
+          nullable: true
+        variants:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogVariant"
+      required:
+        - id
+        - name
+        - slug
+        - category
+        - featured
+        - complianceStatus
+        - sourcingPath
+        - variants
+
+    PatchProductRequest:
+      type: object
+      description: Merchandising / compliance controls. At least one field must be provided.
+      properties:
+        featured:
+          type: boolean
+        complianceStatus:
+          $ref: "#/components/schemas/ComplianceStatus"
+        sourcingPath:
+          type: string
+          enum: [usa_domestic, asia_warehouse]
+          nullable: true
+
+    PatchVariantRequest:
+      type: object
+      description: Price / stock controls. At least one field must be provided.
+      properties:
+        priceCents:
+          type: integer
+          minimum: 1
+        inStock:
+          type: boolean

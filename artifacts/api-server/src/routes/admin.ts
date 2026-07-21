@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and, asc, desc } from "drizzle-orm";
+import { eq, and, asc, desc, count, sql } from "drizzle-orm";
 import { pbkdf2Sync, timingSafeEqual } from "crypto";
 import { db } from "@atlab/db";
 import {
@@ -11,10 +11,15 @@ import {
   priceTiersTable,
   ordersTable,
   paymentRecordsTable,
+  orderAttestationsTable,
   categoryEnum,
   batchStatusEnum,
   testTypeEnum,
   accountStatusEnum,
+  orderStatusEnum,
+  orderChannelEnum,
+  complianceStatusEnum,
+  sourcingPathEnum,
 } from "@atlab/db/schema";
 import { z } from "zod/v4";
 
@@ -711,6 +716,345 @@ router.post("/admin/orders/:id/confirm-ach", async (req, res) => {
     });
   } catch (err) {
     console.error("admin confirmAch error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+// ── Dashboard ────────────────────────────────────────────────────────────────
+router.get("/admin/stats", async (_req, res) => {
+  try {
+    const [
+      pendingAccountsRows,
+      totalAccountsRows,
+      totalProductsRows,
+      blockedSkusRows,
+      outOfStockRows,
+      statusRows,
+      revenueRows,
+    ] = await Promise.all([
+      db.select({ c: count() }).from(customerAccountsTable).where(eq(customerAccountsTable.status, "pending")),
+      db.select({ c: count() }).from(customerAccountsTable),
+      db.select({ c: count() }).from(productsTable),
+      db.select({ c: count() }).from(productsTable).where(eq(productsTable.complianceStatus, "blocked")),
+      db.select({ c: count() }).from(productVariantsTable).where(eq(productVariantsTable.inStock, false)),
+      db.select({ status: ordersTable.status, c: count() }).from(ordersTable).groupBy(ordersTable.status),
+      // Only "confirmed" exists among {confirmed, fulfilled, shipped} in orderStatusEnum.
+      db
+        .select({ total: sql<string>`coalesce(sum(${ordersTable.totalCents}), 0)` })
+        .from(ordersTable)
+        .where(eq(ordersTable.status, "confirmed")),
+    ]);
+
+    const ordersByStatus: Record<string, number> = {};
+    for (const s of orderStatusEnum.enumValues) ordersByStatus[s] = 0;
+    for (const row of statusRows) ordersByStatus[row.status] = row.c;
+
+    res.json({
+      pendingAccounts: pendingAccountsRows[0]?.c ?? 0,
+      ordersByStatus,
+      revenueCentsConfirmed: Number(revenueRows[0]?.total ?? 0),
+      outOfStockVariants: outOfStockRows[0]?.c ?? 0,
+      blockedSkus: blockedSkusRows[0]?.c ?? 0,
+      totalProducts: totalProductsRows[0]?.c ?? 0,
+      totalAccounts: totalAccountsRows[0]?.c ?? 0,
+    });
+  } catch (err) {
+    console.error("admin stats error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+// ── Orders ops ───────────────────────────────────────────────────────────────
+router.get("/admin/orders", async (req, res) => {
+  try {
+    const filters = [];
+
+    const channelRaw = req.query.channel;
+    if (typeof channelRaw === "string" && channelRaw.length > 0) {
+      if (!(orderChannelEnum.enumValues as readonly string[]).includes(channelRaw)) {
+        res.status(400).json({
+          error: "bad_request",
+          message: `Invalid channel. Must be one of: ${orderChannelEnum.enumValues.join(", ")}`,
+        });
+        return;
+      }
+      filters.push(eq(ordersTable.channel, channelRaw as (typeof orderChannelEnum.enumValues)[number]));
+    }
+
+    const statusRaw = req.query.status;
+    if (typeof statusRaw === "string" && statusRaw.length > 0) {
+      if (!(orderStatusEnum.enumValues as readonly string[]).includes(statusRaw)) {
+        res.status(400).json({
+          error: "bad_request",
+          message: `Invalid status. Must be one of: ${orderStatusEnum.enumValues.join(", ")}`,
+        });
+        return;
+      }
+      filters.push(eq(ordersTable.status, statusRaw as (typeof orderStatusEnum.enumValues)[number]));
+    }
+
+    const orders = await db.query.ordersTable.findMany({
+      where: filters.length ? and(...filters) : undefined,
+      orderBy: [desc(ordersTable.createdAt)],
+    });
+
+    res.json(
+      orders.map((o) => ({
+        id: o.id,
+        createdAt: o.createdAt,
+        channel: o.channel,
+        status: o.status,
+        totalCents: o.totalCents,
+        shippingName: o.shippingName,
+        shippingEmail: o.shippingEmail,
+        accountId: o.accountId ?? null,
+        paymentMethod: o.paymentMethod,
+      }))
+    );
+  } catch (err) {
+    console.error("admin listOrders error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+router.get("/admin/orders/:id", async (req, res) => {
+  try {
+    const order = await db.query.ordersTable.findFirst({
+      where: eq(ordersTable.id, req.params.id),
+    });
+    if (!order) {
+      res.status(404).json({ error: "not_found", message: "Order not found" });
+      return;
+    }
+
+    const [payments, attestations] = await Promise.all([
+      db.query.paymentRecordsTable.findMany({
+        where: eq(paymentRecordsTable.orderId, order.id),
+        orderBy: [desc(paymentRecordsTable.createdAt)],
+      }),
+      db.query.orderAttestationsTable.findMany({
+        where: eq(orderAttestationsTable.orderId, order.id),
+        orderBy: [asc(orderAttestationsTable.createdAt)],
+      }),
+    ]);
+
+    let account = null;
+    if (order.accountId) {
+      account = (await db.query.customerAccountsTable.findFirst({
+        where: eq(customerAccountsTable.id, order.accountId),
+      })) ?? null;
+      if (account) {
+        const { accessToken: _at, ...safe } = account;
+        account = safe as typeof account;
+      }
+    }
+
+    res.json({ ...order, payments, attestations, account });
+  } catch (err) {
+    console.error("admin getOrder error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+// Terminal states cannot transition to a different status.
+const TERMINAL_ORDER_STATUSES: readonly string[] = ["refunded"];
+
+const PatchOrderSchema = z
+  .object({
+    status: z.enum(orderStatusEnum.enumValues).optional(),
+    trackingNumber: z.string().max(200).nullable().optional(),
+    carrier: z.string().max(100).nullable().optional(),
+  })
+  .refine((v) => v.status !== undefined || v.trackingNumber !== undefined || v.carrier !== undefined, {
+    message: "At least one of status, trackingNumber, or carrier is required",
+  });
+
+router.patch("/admin/orders/:id", async (req, res) => {
+  const parsed = PatchOrderSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "bad_request", message: parsed.error.message });
+    return;
+  }
+  try {
+    const order = await db.query.ordersTable.findFirst({
+      where: eq(ordersTable.id, req.params.id),
+    });
+    if (!order) {
+      res.status(404).json({ error: "not_found", message: "Order not found" });
+      return;
+    }
+
+    if (
+      parsed.data.status !== undefined &&
+      parsed.data.status !== order.status &&
+      TERMINAL_ORDER_STATUSES.includes(order.status)
+    ) {
+      res.status(409).json({
+        error: "conflict",
+        message: `Order is in terminal status "${order.status}" and cannot be changed`,
+      });
+      return;
+    }
+
+    const updates: Partial<typeof ordersTable.$inferInsert> = { updatedAt: new Date() };
+    if (parsed.data.status !== undefined) updates.status = parsed.data.status;
+    if (parsed.data.trackingNumber !== undefined) updates.trackingNumber = parsed.data.trackingNumber;
+    if (parsed.data.carrier !== undefined) updates.carrier = parsed.data.carrier;
+
+    const [updated] = await db.transaction(async (tx) =>
+      tx.update(ordersTable).set(updates).where(eq(ordersTable.id, order.id)).returning()
+    );
+
+    res.json(updated);
+  } catch (err) {
+    console.error("admin patchOrder error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+// Records a refund. The actual crypto refund is performed off-platform per
+// CRYPTO_REFUND_GUIDE.md — this endpoint only sets the order's status of record.
+router.post("/admin/orders/:id/refund", async (req, res) => {
+  try {
+    const order = await db.query.ordersTable.findFirst({
+      where: eq(ordersTable.id, req.params.id),
+    });
+    if (!order) {
+      res.status(404).json({ error: "not_found", message: "Order not found" });
+      return;
+    }
+    if (order.status === "refunded") {
+      res.status(409).json({ error: "conflict", message: "Order is already refunded" });
+      return;
+    }
+
+    const [updated] = await db
+      .update(ordersTable)
+      .set({ status: "refunded", updatedAt: new Date() })
+      .where(eq(ordersTable.id, order.id))
+      .returning();
+
+    res.json(updated);
+  } catch (err) {
+    console.error("admin refundOrder error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+// ── Catalog edit ─────────────────────────────────────────────────────────────
+// Full catalog including blocked products (unlike the public listing).
+router.get("/admin/catalog", async (_req, res) => {
+  try {
+    const products = await db.query.productsTable.findMany({
+      orderBy: [asc(productsTable.name)],
+      with: { variants: { orderBy: [asc(productVariantsTable.name)] } },
+    });
+
+    res.json(
+      products.map((p) => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        category: p.category,
+        featured: p.featured,
+        complianceStatus: p.complianceStatus,
+        sourcingPath: p.sourcingPath ?? null,
+        variants: p.variants.map((v) => ({
+          id: v.id,
+          sku: v.sku,
+          priceCents: v.priceCents,
+          inStock: v.inStock,
+          unitType: v.unitType,
+        })),
+      }))
+    );
+  } catch (err) {
+    console.error("admin catalog error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+// Compliance / merchandising controls. complianceStatus is a dormant admin
+// control — flipping it here does not auto-block anything downstream.
+const PatchProductComplianceSchema = z
+  .object({
+    featured: z.boolean().optional(),
+    complianceStatus: z.enum(complianceStatusEnum.enumValues).optional(),
+    sourcingPath: z.enum(sourcingPathEnum.enumValues).nullable().optional(),
+  })
+  .refine(
+    (v) => v.featured !== undefined || v.complianceStatus !== undefined || v.sourcingPath !== undefined,
+    { message: "At least one of featured, complianceStatus, or sourcingPath is required" }
+  );
+
+router.patch("/admin/products/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "bad_request", message: "Invalid product ID" });
+    return;
+  }
+  const parsed = PatchProductComplianceSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "bad_request", message: parsed.error.message });
+    return;
+  }
+  try {
+    const existing = await db.query.productsTable.findFirst({
+      where: eq(productsTable.id, id),
+    });
+    if (!existing) {
+      res.status(404).json({ error: "not_found", message: "Product not found" });
+      return;
+    }
+    const updates: Partial<typeof productsTable.$inferInsert> = { updatedAt: new Date() };
+    if (parsed.data.featured !== undefined) updates.featured = parsed.data.featured;
+    if (parsed.data.complianceStatus !== undefined) updates.complianceStatus = parsed.data.complianceStatus;
+    if (parsed.data.sourcingPath !== undefined) updates.sourcingPath = parsed.data.sourcingPath;
+
+    const [updated] = await db.update(productsTable).set(updates).where(eq(productsTable.id, id)).returning();
+    res.json(updated);
+  } catch (err) {
+    console.error("admin patchProduct error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+const PatchVariantPricingSchema = z
+  .object({
+    priceCents: z.number().int().positive().optional(),
+    inStock: z.boolean().optional(),
+  })
+  .refine((v) => v.priceCents !== undefined || v.inStock !== undefined, {
+    message: "At least one of priceCents or inStock is required",
+  });
+
+router.patch("/admin/variants/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    res.status(400).json({ error: "bad_request", message: "Invalid variant ID" });
+    return;
+  }
+  const parsed = PatchVariantPricingSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "bad_request", message: parsed.error.message });
+    return;
+  }
+  try {
+    const existing = await db.query.productVariantsTable.findFirst({
+      where: eq(productVariantsTable.id, id),
+    });
+    if (!existing) {
+      res.status(404).json({ error: "not_found", message: "Variant not found" });
+      return;
+    }
+    const updates: Partial<typeof productVariantsTable.$inferInsert> = {};
+    if (parsed.data.priceCents !== undefined) updates.priceCents = parsed.data.priceCents;
+    if (parsed.data.inStock !== undefined) updates.inStock = parsed.data.inStock;
+
+    const [updated] = await db.update(productVariantsTable).set(updates).where(eq(productVariantsTable.id, id)).returning();
+    res.json(updated);
+  } catch (err) {
+    console.error("admin patchVariant error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });
   }
 });

@@ -59,11 +59,14 @@ import {
   type Account,
   type AccountStatus,
 } from "@atlab/api-client-react";
+import { DashboardPanel } from "@/components/admin/DashboardPanel";
+import { OrdersPanel } from "@/components/admin/OrdersPanel";
+import { CatalogPanel } from "@/components/admin/CatalogPanel";
 
 type BatchStatus = "pending" | "released" | "quarantined";
 type TestType = "purity" | "endotoxin" | "sterility" | "heavyMetals";
 type ReviewerStatus = "pending" | "approved" | "rejected";
-type AdminTab = "batches" | "reviewers" | "subscriptions" | "products" | "accounts";
+type AdminTab = "dashboard" | "orders" | "catalog" | "batches" | "reviewers" | "subscriptions" | "products" | "accounts";
 
 type ReviewerSubmission = {
   id: number;
@@ -1140,7 +1143,7 @@ function ReviewerSubmissionsPanel({ adminKey }: { adminKey: string }) {
   );
 }
 
-function Dashboard({ adminKey, onLogout, initialTab = "batches" }: { adminKey: string; onLogout: () => void; initialTab?: AdminTab }) {
+function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey: string; onLogout: () => void; initialTab?: AdminTab }) {
   const [batches, setBatches] = useState<AdminBatch[]>([]);
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1216,6 +1219,9 @@ function Dashboard({ adminKey, onLogout, initialTab = "batches" }: { adminKey: s
       <div className="border-b border-border/50 bg-card/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex gap-0">
           {([
+            { key: "dashboard", label: "Dashboard" },
+            { key: "orders", label: "Orders" },
+            { key: "catalog", label: "Catalog" },
             { key: "batches", label: "Batch Management" },
             { key: "reviewers", label: "Reviewer Submissions" },
             { key: "subscriptions", label: "Subscriptions" },
@@ -1238,7 +1244,13 @@ function Dashboard({ adminKey, onLogout, initialTab = "batches" }: { adminKey: s
       </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {activeTab === "products" ? (
+        {activeTab === "dashboard" ? (
+          <DashboardPanel adminKey={adminKey} />
+        ) : activeTab === "orders" ? (
+          <OrdersPanel adminKey={adminKey} />
+        ) : activeTab === "catalog" ? (
+          <CatalogPanel adminKey={adminKey} />
+        ) : activeTab === "products" ? (
           <ProductsPanel adminKey={adminKey} />
         ) : activeTab === "accounts" ? (
           <AccountsPanel adminKey={adminKey} />
@@ -2390,7 +2402,7 @@ export function AdminPage() {
       : typeof window !== "undefined" &&
           window.location.pathname.includes("subscriptions")
         ? "subscriptions"
-        : "batches";
+        : "dashboard";
 
   const handleLogin = (key: string) => {
     setAdminKey(key);

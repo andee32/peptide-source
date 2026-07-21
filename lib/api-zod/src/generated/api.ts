@@ -887,6 +887,613 @@ export const AdminListPriceTiersResponse = zod.array(
 );
 
 /**
+ * Server-derived operational counters and confirmed revenue. Requires x-admin-key header.
+ * @summary Admin — dashboard stats
+ */
+export const AdminGetStatsResponse = zod
+  .object({
+    pendingAccounts: zod.number(),
+    ordersByStatus: zod
+      .record(zod.string(), zod.number())
+      .describe(
+        "Count of orders per status. Every OrderStatus key is present (0 when none).",
+      ),
+    revenueCentsConfirmed: zod
+      .number()
+      .describe(
+        "Sum of totalCents across confirmed orders. (fulfilled\/shipped are not statuses in this schema, so only confirmed contributes.)",
+      ),
+    outOfStockVariants: zod.number(),
+    blockedSkus: zod
+      .number()
+      .describe("Count of products with complianceStatus=blocked."),
+    totalProducts: zod.number(),
+    totalAccounts: zod.number(),
+  })
+  .describe("Server-derived operational counters for the admin dashboard.");
+
+/**
+ * Lists orders newest-first, optionally filtered by channel and/or status. Requires x-admin-key header.
+ * @summary Admin — list orders
+ */
+export const AdminListOrdersQueryParams = zod.object({
+  channel: zod.enum(["retail", "wholesale"]).optional(),
+  status: zod
+    .enum([
+      "pending",
+      "awaiting_payment",
+      "confirmed",
+      "failed",
+      "expired",
+      "refunded",
+    ])
+    .optional(),
+});
+
+export const AdminListOrdersResponseItem = zod.object({
+  id: zod.string(),
+  createdAt: zod.date(),
+  channel: zod.enum(["retail", "wholesale"]),
+  status: zod.enum([
+    "pending",
+    "awaiting_payment",
+    "confirmed",
+    "failed",
+    "expired",
+    "refunded",
+  ]),
+  totalCents: zod.number(),
+  shippingName: zod.string(),
+  shippingEmail: zod.string(),
+  accountId: zod.string().nullable(),
+  paymentMethod: zod
+    .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
+    .describe(
+      "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
+    ),
+});
+export const AdminListOrdersResponse = zod.array(AdminListOrdersResponseItem);
+
+/**
+ * Returns the order plus its line items, payment records, RUO attestations, and linked wholesale account (if any). Requires x-admin-key header.
+ * @summary Admin — full order detail
+ */
+export const AdminGetOrderParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const AdminGetOrderResponse = zod
+  .object({
+    id: zod.string(),
+    sessionId: zod.string(),
+    lineItems: zod.array(
+      zod.object({
+        variantId: zod.number(),
+        productName: zod.string(),
+        variantName: zod.string(),
+        quantity: zod.number(),
+        unitPriceCents: zod.number(),
+      }),
+    ),
+    subtotalCents: zod.number(),
+    discountCents: zod.number(),
+    totalCents: zod.number(),
+    paymentMethod: zod
+      .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
+      .describe(
+        "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
+      ),
+    channel: zod.enum(["retail", "wholesale"]),
+    accountId: zod.string().nullable(),
+    status: zod.enum([
+      "pending",
+      "awaiting_payment",
+      "confirmed",
+      "failed",
+      "expired",
+      "refunded",
+    ]),
+    shippingName: zod.string(),
+    shippingEmail: zod.string(),
+    shippingAddress1: zod.string(),
+    shippingAddress2: zod.string().nullish(),
+    shippingCity: zod.string(),
+    shippingState: zod.string(),
+    shippingZip: zod.string(),
+    shippingCountry: zod.string(),
+    trackingNumber: zod.string().nullable(),
+    carrier: zod.string().nullable(),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+    payments: zod
+      .array(
+        zod.object({
+          id: zod.string(),
+          orderId: zod.string(),
+          btcpayInvoiceId: zod.string().nullish(),
+          currency: zod.string(),
+          amount: zod.string(),
+          amountCents: zod.number(),
+          paymentAddress: zod.string().nullish(),
+          paymentUrl: zod.string().nullish(),
+          txHash: zod.string().nullish(),
+          confirmedAt: zod.date().nullish(),
+          expiresAt: zod.date(),
+          status: zod.enum(["pending", "confirmed", "expired", "failed"]),
+        }),
+      )
+      .optional(),
+    attestations: zod
+      .array(
+        zod
+          .object({
+            id: zod.number(),
+            orderId: zod.string(),
+            accountId: zod.string().nullish(),
+            attestationVersion: zod.string(),
+            attestationText: zod.string(),
+            ruoAffirmed: zod.boolean(),
+            signerName: zod.string(),
+            ipAddress: zod.string().nullish(),
+            userAgent: zod.string().nullish(),
+            createdAt: zod.date(),
+          })
+          .describe(
+            "The server-side RUO attestation record of record for an order.",
+          ),
+      )
+      .optional(),
+    account: zod
+      .object({
+        id: zod.string(),
+        businessName: zod.string(),
+        contactName: zod.string(),
+        email: zod.string(),
+        phone: zod.string().nullish(),
+        businessType: zod.string().nullish(),
+        taxId: zod.string().nullish(),
+        resaleCertUrl: zod.string().nullish(),
+        status: zod.enum(["pending", "approved", "rejected", "suspended"]),
+        priceTierId: zod.number().nullish(),
+        priceTier: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            slug: zod.string(),
+            isDefault: zod.boolean(),
+            createdAt: zod.date(),
+          })
+          .nullish(),
+        kybNotes: zod.string().nullish(),
+        approvedAt: zod.date().nullish(),
+        createdAt: zod.date(),
+      })
+      .nullish(),
+  })
+  .describe(
+    "Full order row plus related records. payments\/attestations\/account are present on GET detail; status-only mutations (PATCH, refund) return the order row without them.",
+  );
+
+/**
+ * Updates status (blocked from leaving a terminal status) and/or trackingNumber + carrier. Requires x-admin-key header.
+ * @summary Admin — update order status and/or shipment tracking
+ */
+export const AdminPatchOrderParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const adminPatchOrderBodyTrackingNumberMax = 200;
+
+export const adminPatchOrderBodyCarrierMax = 100;
+
+export const AdminPatchOrderBody = zod
+  .object({
+    status: zod
+      .enum([
+        "pending",
+        "awaiting_payment",
+        "confirmed",
+        "failed",
+        "expired",
+        "refunded",
+      ])
+      .optional(),
+    trackingNumber: zod
+      .string()
+      .max(adminPatchOrderBodyTrackingNumberMax)
+      .nullish(),
+    carrier: zod.string().max(adminPatchOrderBodyCarrierMax).nullish(),
+  })
+  .describe("At least one field must be provided.");
+
+export const AdminPatchOrderResponse = zod
+  .object({
+    id: zod.string(),
+    sessionId: zod.string(),
+    lineItems: zod.array(
+      zod.object({
+        variantId: zod.number(),
+        productName: zod.string(),
+        variantName: zod.string(),
+        quantity: zod.number(),
+        unitPriceCents: zod.number(),
+      }),
+    ),
+    subtotalCents: zod.number(),
+    discountCents: zod.number(),
+    totalCents: zod.number(),
+    paymentMethod: zod
+      .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
+      .describe(
+        "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
+      ),
+    channel: zod.enum(["retail", "wholesale"]),
+    accountId: zod.string().nullable(),
+    status: zod.enum([
+      "pending",
+      "awaiting_payment",
+      "confirmed",
+      "failed",
+      "expired",
+      "refunded",
+    ]),
+    shippingName: zod.string(),
+    shippingEmail: zod.string(),
+    shippingAddress1: zod.string(),
+    shippingAddress2: zod.string().nullish(),
+    shippingCity: zod.string(),
+    shippingState: zod.string(),
+    shippingZip: zod.string(),
+    shippingCountry: zod.string(),
+    trackingNumber: zod.string().nullable(),
+    carrier: zod.string().nullable(),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+    payments: zod
+      .array(
+        zod.object({
+          id: zod.string(),
+          orderId: zod.string(),
+          btcpayInvoiceId: zod.string().nullish(),
+          currency: zod.string(),
+          amount: zod.string(),
+          amountCents: zod.number(),
+          paymentAddress: zod.string().nullish(),
+          paymentUrl: zod.string().nullish(),
+          txHash: zod.string().nullish(),
+          confirmedAt: zod.date().nullish(),
+          expiresAt: zod.date(),
+          status: zod.enum(["pending", "confirmed", "expired", "failed"]),
+        }),
+      )
+      .optional(),
+    attestations: zod
+      .array(
+        zod
+          .object({
+            id: zod.number(),
+            orderId: zod.string(),
+            accountId: zod.string().nullish(),
+            attestationVersion: zod.string(),
+            attestationText: zod.string(),
+            ruoAffirmed: zod.boolean(),
+            signerName: zod.string(),
+            ipAddress: zod.string().nullish(),
+            userAgent: zod.string().nullish(),
+            createdAt: zod.date(),
+          })
+          .describe(
+            "The server-side RUO attestation record of record for an order.",
+          ),
+      )
+      .optional(),
+    account: zod
+      .object({
+        id: zod.string(),
+        businessName: zod.string(),
+        contactName: zod.string(),
+        email: zod.string(),
+        phone: zod.string().nullish(),
+        businessType: zod.string().nullish(),
+        taxId: zod.string().nullish(),
+        resaleCertUrl: zod.string().nullish(),
+        status: zod.enum(["pending", "approved", "rejected", "suspended"]),
+        priceTierId: zod.number().nullish(),
+        priceTier: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            slug: zod.string(),
+            isDefault: zod.boolean(),
+            createdAt: zod.date(),
+          })
+          .nullish(),
+        kybNotes: zod.string().nullish(),
+        approvedAt: zod.date().nullish(),
+        createdAt: zod.date(),
+      })
+      .nullish(),
+  })
+  .describe(
+    "Full order row plus related records. payments\/attestations\/account are present on GET detail; status-only mutations (PATCH, refund) return the order row without them.",
+  );
+
+/**
+ * Sets order status to refunded. This is the record of record only; the actual crypto refund is performed off-platform per CRYPTO_REFUND_GUIDE. Requires x-admin-key header.
+ * @summary Admin — mark an order refunded
+ */
+export const AdminRefundOrderParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const AdminRefundOrderResponse = zod
+  .object({
+    id: zod.string(),
+    sessionId: zod.string(),
+    lineItems: zod.array(
+      zod.object({
+        variantId: zod.number(),
+        productName: zod.string(),
+        variantName: zod.string(),
+        quantity: zod.number(),
+        unitPriceCents: zod.number(),
+      }),
+    ),
+    subtotalCents: zod.number(),
+    discountCents: zod.number(),
+    totalCents: zod.number(),
+    paymentMethod: zod
+      .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
+      .describe(
+        "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
+      ),
+    channel: zod.enum(["retail", "wholesale"]),
+    accountId: zod.string().nullable(),
+    status: zod.enum([
+      "pending",
+      "awaiting_payment",
+      "confirmed",
+      "failed",
+      "expired",
+      "refunded",
+    ]),
+    shippingName: zod.string(),
+    shippingEmail: zod.string(),
+    shippingAddress1: zod.string(),
+    shippingAddress2: zod.string().nullish(),
+    shippingCity: zod.string(),
+    shippingState: zod.string(),
+    shippingZip: zod.string(),
+    shippingCountry: zod.string(),
+    trackingNumber: zod.string().nullable(),
+    carrier: zod.string().nullable(),
+    createdAt: zod.date(),
+    updatedAt: zod.date(),
+    payments: zod
+      .array(
+        zod.object({
+          id: zod.string(),
+          orderId: zod.string(),
+          btcpayInvoiceId: zod.string().nullish(),
+          currency: zod.string(),
+          amount: zod.string(),
+          amountCents: zod.number(),
+          paymentAddress: zod.string().nullish(),
+          paymentUrl: zod.string().nullish(),
+          txHash: zod.string().nullish(),
+          confirmedAt: zod.date().nullish(),
+          expiresAt: zod.date(),
+          status: zod.enum(["pending", "confirmed", "expired", "failed"]),
+        }),
+      )
+      .optional(),
+    attestations: zod
+      .array(
+        zod
+          .object({
+            id: zod.number(),
+            orderId: zod.string(),
+            accountId: zod.string().nullish(),
+            attestationVersion: zod.string(),
+            attestationText: zod.string(),
+            ruoAffirmed: zod.boolean(),
+            signerName: zod.string(),
+            ipAddress: zod.string().nullish(),
+            userAgent: zod.string().nullish(),
+            createdAt: zod.date(),
+          })
+          .describe(
+            "The server-side RUO attestation record of record for an order.",
+          ),
+      )
+      .optional(),
+    account: zod
+      .object({
+        id: zod.string(),
+        businessName: zod.string(),
+        contactName: zod.string(),
+        email: zod.string(),
+        phone: zod.string().nullish(),
+        businessType: zod.string().nullish(),
+        taxId: zod.string().nullish(),
+        resaleCertUrl: zod.string().nullish(),
+        status: zod.enum(["pending", "approved", "rejected", "suspended"]),
+        priceTierId: zod.number().nullish(),
+        priceTier: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            slug: zod.string(),
+            isDefault: zod.boolean(),
+            createdAt: zod.date(),
+          })
+          .nullish(),
+        kybNotes: zod.string().nullish(),
+        approvedAt: zod.date().nullish(),
+        createdAt: zod.date(),
+      })
+      .nullish(),
+  })
+  .describe(
+    "Full order row plus related records. payments\/attestations\/account are present on GET detail; status-only mutations (PATCH, refund) return the order row without them.",
+  );
+
+/**
+ * Returns all products (including complianceStatus=blocked) with their variants. Requires x-admin-key header.
+ * @summary Admin — full catalog including blocked products
+ */
+export const AdminGetCatalogResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  slug: zod.string(),
+  category: zod.string(),
+  featured: zod.boolean(),
+  complianceStatus: zod
+    .enum(["blocked", "restricted", "cleared"])
+    .describe(
+      "Per-SKU compliance gate. blocked = unlisted + unsellable; restricted = listed and orderable (reserved for later); cleared = normal.",
+    ),
+  sourcingPath: zod.enum(["usa_domestic", "asia_warehouse"]).nullable(),
+  variants: zod.array(
+    zod.object({
+      id: zod.number(),
+      sku: zod.string(),
+      priceCents: zod.number(),
+      inStock: zod.boolean(),
+      unitType: zod.enum(["vial", "kit"]),
+    }),
+  ),
+});
+export const AdminGetCatalogResponse = zod.array(AdminGetCatalogResponseItem);
+
+/**
+ * Updates featured, complianceStatus, and/or sourcingPath. complianceStatus is a dormant control — flipping it does not auto-block anything. Requires x-admin-key header.
+ * @summary Admin — edit product merchandising / compliance controls
+ */
+export const AdminPatchProductParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminPatchProductBody = zod
+  .object({
+    featured: zod.boolean().optional(),
+    complianceStatus: zod
+      .enum(["blocked", "restricted", "cleared"])
+      .optional()
+      .describe(
+        "Per-SKU compliance gate. blocked = unlisted + unsellable; restricted = listed and orderable (reserved for later); cleared = normal.",
+      ),
+    sourcingPath: zod.enum(["usa_domestic", "asia_warehouse"]).nullish(),
+  })
+  .describe(
+    "Merchandising \/ compliance controls. At least one field must be provided.",
+  );
+
+export const AdminPatchProductResponse = zod
+  .object({
+    id: zod.number(),
+    name: zod.string(),
+    slug: zod.string(),
+    category: zod.string(),
+    complianceStatus: zod
+      .enum(["blocked", "restricted", "cleared"])
+      .describe(
+        "Per-SKU compliance gate. blocked = unlisted + unsellable; restricted = listed and orderable (reserved for later); cleared = normal.",
+      ),
+    shortDescription: zod.string(),
+    featured: zod.boolean(),
+    imageUrl: zod.string().nullish(),
+    startingPriceCents: zod.number(),
+    latestBatchId: zod.string().nullish(),
+    latestBatchStatus: zod.string().nullish(),
+    latestBatchPurity: zod.number().nullish(),
+  })
+  .and(
+    zod.object({
+      longDescription: zod.string(),
+      researchUses: zod.array(zod.string()),
+      variants: zod.array(
+        zod.object({
+          id: zod.number(),
+          name: zod.string(),
+          concentration: zod.string(),
+          sizeml: zod.number(),
+          priceCents: zod.number(),
+          sku: zod.string(),
+          inStock: zod.boolean(),
+        }),
+      ),
+      latestBatch: zod
+        .object({
+          id: zod.string(),
+          productId: zod.number(),
+          productName: zod.string(),
+          productionDate: zod.date(),
+          status: zod.enum(["pending", "released", "quarantined"]),
+          purityPercent: zod.number().nullish(),
+        })
+        .and(
+          zod.object({
+            coaResults: zod.array(
+              zod.object({
+                id: zod.string(),
+                testType: zod.enum([
+                  "purity",
+                  "endotoxin",
+                  "sterility",
+                  "heavyMetals",
+                ]),
+                purityPercent: zod.number().nullish(),
+                endotoxinEuPerMl: zod.number().nullish(),
+                sterilityPass: zod.boolean().nullish(),
+                heavyMetals: zod
+                  .array(
+                    zod.object({
+                      element: zod.string(),
+                      resultPpm: zod.number(),
+                      limitPpm: zod.number(),
+                      pass: zod.boolean(),
+                    }),
+                  )
+                  .nullish(),
+                labName: zod.string(),
+                testedAt: zod.date(),
+                janoshikTaskId: zod.string().nullish(),
+              }),
+            ),
+            notes: zod.string().nullish(),
+          }),
+        )
+        .nullish(),
+    }),
+  );
+
+/**
+ * Updates priceCents and/or inStock. Requires x-admin-key header.
+ * @summary Admin — edit variant price / stock
+ */
+export const AdminPatchVariantParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminPatchVariantBody = zod
+  .object({
+    priceCents: zod.number().min(1).optional(),
+    inStock: zod.boolean().optional(),
+  })
+  .describe("Price \/ stock controls. At least one field must be provided.");
+
+export const AdminPatchVariantResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  concentration: zod.string(),
+  sizeml: zod.number(),
+  priceCents: zod.number(),
+  sku: zod.string(),
+  inStock: zod.boolean(),
+});
+
+/**
  * Receives InvoiceSettled, InvoiceExpired, and InvoiceInvalid events from BTCPayServer and updates order status
  * @summary BTCPayServer webhook receiver
  */

@@ -21,7 +21,11 @@ import type {
   AccountCreated,
   AchInstructions,
   AdminListAccountsParams,
+  AdminListOrdersParams,
+  AdminOrderDetail,
+  AdminOrderSummary,
   AdminPatchSubscriptionStatusBody,
+  AdminStats,
   AdminSubscriptionsOverview,
   ApiError,
   ApplyAccountRequest,
@@ -29,6 +33,7 @@ import type {
   BatchSummary,
   BtcpayWebhookEvent,
   CancelSubscriptionParams,
+  CatalogProduct,
   ConfirmAchRequest,
   ConfirmAchResponse,
   CreateOrderRequest,
@@ -47,10 +52,14 @@ import type {
   OrderDetail,
   OrderSummary,
   PatchAccountRequest,
+  PatchOrderRequest,
+  PatchProductRequest,
   PatchReviewerSubmissionRequest,
+  PatchVariantRequest,
   PriceTier,
   Product,
   ProductDetail,
+  ProductVariant,
   ReviewerSubmission,
   ReviewerSubmissionCreated,
   ReviewerSubmissionPatched,
@@ -2826,6 +2835,690 @@ export function useAdminListPriceTiers<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Server-derived operational counters and confirmed revenue. Requires x-admin-key header.
+ * @summary Admin — dashboard stats
+ */
+export const getAdminGetStatsUrl = () => {
+  return `/api/admin/stats`;
+};
+
+export const adminGetStats = async (
+  options?: RequestInit,
+): Promise<AdminStats> => {
+  return customFetch<AdminStats>(getAdminGetStatsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetStatsQueryKey = () => {
+  return [`/api/admin/stats`] as const;
+};
+
+export const getAdminGetStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetStats>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminGetStatsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof adminGetStats>>> = ({
+    signal,
+  }) => adminGetStats({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetStats>>
+>;
+export type AdminGetStatsQueryError = ErrorType<void>;
+
+/**
+ * @summary Admin — dashboard stats
+ */
+
+export function useAdminGetStats<
+  TData = Awaited<ReturnType<typeof adminGetStats>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetStatsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Lists orders newest-first, optionally filtered by channel and/or status. Requires x-admin-key header.
+ * @summary Admin — list orders
+ */
+export const getAdminListOrdersUrl = (params?: AdminListOrdersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/orders?${stringifiedParams}`
+    : `/api/admin/orders`;
+};
+
+export const adminListOrders = async (
+  params?: AdminListOrdersParams,
+  options?: RequestInit,
+): Promise<AdminOrderSummary[]> => {
+  return customFetch<AdminOrderSummary[]>(getAdminListOrdersUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListOrdersQueryKey = (params?: AdminListOrdersParams) => {
+  return [`/api/admin/orders`, ...(params ? [params] : [])] as const;
+};
+
+export const getAdminListOrdersQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListOrders>>,
+  TError = ErrorType<ApiError | void>,
+>(
+  params?: AdminListOrdersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListOrders>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminListOrdersQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof adminListOrders>>> = ({
+    signal,
+  }) => adminListOrders(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListOrders>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListOrdersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListOrders>>
+>;
+export type AdminListOrdersQueryError = ErrorType<ApiError | void>;
+
+/**
+ * @summary Admin — list orders
+ */
+
+export function useAdminListOrders<
+  TData = Awaited<ReturnType<typeof adminListOrders>>,
+  TError = ErrorType<ApiError | void>,
+>(
+  params?: AdminListOrdersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListOrders>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListOrdersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns the order plus its line items, payment records, RUO attestations, and linked wholesale account (if any). Requires x-admin-key header.
+ * @summary Admin — full order detail
+ */
+export const getAdminGetOrderUrl = (id: string) => {
+  return `/api/admin/orders/${id}`;
+};
+
+export const adminGetOrder = async (
+  id: string,
+  options?: RequestInit,
+): Promise<AdminOrderDetail> => {
+  return customFetch<AdminOrderDetail>(getAdminGetOrderUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetOrderQueryKey = (id: string) => {
+  return [`/api/admin/orders/${id}`] as const;
+};
+
+export const getAdminGetOrderQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetOrder>>,
+  TError = ErrorType<void | ApiError>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminGetOrder>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminGetOrderQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof adminGetOrder>>> = ({
+    signal,
+  }) => adminGetOrder(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetOrder>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetOrderQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetOrder>>
+>;
+export type AdminGetOrderQueryError = ErrorType<void | ApiError>;
+
+/**
+ * @summary Admin — full order detail
+ */
+
+export function useAdminGetOrder<
+  TData = Awaited<ReturnType<typeof adminGetOrder>>,
+  TError = ErrorType<void | ApiError>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminGetOrder>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetOrderQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Updates status (blocked from leaving a terminal status) and/or trackingNumber + carrier. Requires x-admin-key header.
+ * @summary Admin — update order status and/or shipment tracking
+ */
+export const getAdminPatchOrderUrl = (id: string) => {
+  return `/api/admin/orders/${id}`;
+};
+
+export const adminPatchOrder = async (
+  id: string,
+  patchOrderRequest: PatchOrderRequest,
+  options?: RequestInit,
+): Promise<AdminOrderDetail> => {
+  return customFetch<AdminOrderDetail>(getAdminPatchOrderUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(patchOrderRequest),
+  });
+};
+
+export const getAdminPatchOrderMutationOptions = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchOrder>>,
+    TError,
+    { id: string; data: BodyType<PatchOrderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminPatchOrder>>,
+  TError,
+  { id: string; data: BodyType<PatchOrderRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminPatchOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminPatchOrder>>,
+    { id: string; data: BodyType<PatchOrderRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminPatchOrder(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminPatchOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminPatchOrder>>
+>;
+export type AdminPatchOrderMutationBody = BodyType<PatchOrderRequest>;
+export type AdminPatchOrderMutationError = ErrorType<ApiError | void>;
+
+/**
+ * @summary Admin — update order status and/or shipment tracking
+ */
+export const useAdminPatchOrder = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchOrder>>,
+    TError,
+    { id: string; data: BodyType<PatchOrderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminPatchOrder>>,
+  TError,
+  { id: string; data: BodyType<PatchOrderRequest> },
+  TContext
+> => {
+  return useMutation(getAdminPatchOrderMutationOptions(options));
+};
+
+/**
+ * Sets order status to refunded. This is the record of record only; the actual crypto refund is performed off-platform per CRYPTO_REFUND_GUIDE. Requires x-admin-key header.
+ * @summary Admin — mark an order refunded
+ */
+export const getAdminRefundOrderUrl = (id: string) => {
+  return `/api/admin/orders/${id}/refund`;
+};
+
+export const adminRefundOrder = async (
+  id: string,
+  options?: RequestInit,
+): Promise<AdminOrderDetail> => {
+  return customFetch<AdminOrderDetail>(getAdminRefundOrderUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminRefundOrderMutationOptions = <
+  TError = ErrorType<void | ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRefundOrder>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminRefundOrder>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["adminRefundOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminRefundOrder>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminRefundOrder(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminRefundOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminRefundOrder>>
+>;
+
+export type AdminRefundOrderMutationError = ErrorType<void | ApiError>;
+
+/**
+ * @summary Admin — mark an order refunded
+ */
+export const useAdminRefundOrder = <
+  TError = ErrorType<void | ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminRefundOrder>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminRefundOrder>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getAdminRefundOrderMutationOptions(options));
+};
+
+/**
+ * Returns all products (including complianceStatus=blocked) with their variants. Requires x-admin-key header.
+ * @summary Admin — full catalog including blocked products
+ */
+export const getAdminGetCatalogUrl = () => {
+  return `/api/admin/catalog`;
+};
+
+export const adminGetCatalog = async (
+  options?: RequestInit,
+): Promise<CatalogProduct[]> => {
+  return customFetch<CatalogProduct[]>(getAdminGetCatalogUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetCatalogQueryKey = () => {
+  return [`/api/admin/catalog`] as const;
+};
+
+export const getAdminGetCatalogQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetCatalog>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetCatalog>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminGetCatalogQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof adminGetCatalog>>> = ({
+    signal,
+  }) => adminGetCatalog({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetCatalog>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetCatalogQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetCatalog>>
+>;
+export type AdminGetCatalogQueryError = ErrorType<void>;
+
+/**
+ * @summary Admin — full catalog including blocked products
+ */
+
+export function useAdminGetCatalog<
+  TData = Awaited<ReturnType<typeof adminGetCatalog>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetCatalog>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetCatalogQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Updates featured, complianceStatus, and/or sourcingPath. complianceStatus is a dormant control — flipping it does not auto-block anything. Requires x-admin-key header.
+ * @summary Admin — edit product merchandising / compliance controls
+ */
+export const getAdminPatchProductUrl = (id: number) => {
+  return `/api/admin/products/${id}`;
+};
+
+export const adminPatchProduct = async (
+  id: number,
+  patchProductRequest: PatchProductRequest,
+  options?: RequestInit,
+): Promise<ProductDetail> => {
+  return customFetch<ProductDetail>(getAdminPatchProductUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(patchProductRequest),
+  });
+};
+
+export const getAdminPatchProductMutationOptions = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchProduct>>,
+    TError,
+    { id: number; data: BodyType<PatchProductRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminPatchProduct>>,
+  TError,
+  { id: number; data: BodyType<PatchProductRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminPatchProduct"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminPatchProduct>>,
+    { id: number; data: BodyType<PatchProductRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminPatchProduct(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminPatchProductMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminPatchProduct>>
+>;
+export type AdminPatchProductMutationBody = BodyType<PatchProductRequest>;
+export type AdminPatchProductMutationError = ErrorType<ApiError | void>;
+
+/**
+ * @summary Admin — edit product merchandising / compliance controls
+ */
+export const useAdminPatchProduct = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchProduct>>,
+    TError,
+    { id: number; data: BodyType<PatchProductRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminPatchProduct>>,
+  TError,
+  { id: number; data: BodyType<PatchProductRequest> },
+  TContext
+> => {
+  return useMutation(getAdminPatchProductMutationOptions(options));
+};
+
+/**
+ * Updates priceCents and/or inStock. Requires x-admin-key header.
+ * @summary Admin — edit variant price / stock
+ */
+export const getAdminPatchVariantUrl = (id: number) => {
+  return `/api/admin/variants/${id}`;
+};
+
+export const adminPatchVariant = async (
+  id: number,
+  patchVariantRequest: PatchVariantRequest,
+  options?: RequestInit,
+): Promise<ProductVariant> => {
+  return customFetch<ProductVariant>(getAdminPatchVariantUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(patchVariantRequest),
+  });
+};
+
+export const getAdminPatchVariantMutationOptions = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchVariant>>,
+    TError,
+    { id: number; data: BodyType<PatchVariantRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminPatchVariant>>,
+  TError,
+  { id: number; data: BodyType<PatchVariantRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminPatchVariant"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminPatchVariant>>,
+    { id: number; data: BodyType<PatchVariantRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminPatchVariant(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminPatchVariantMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminPatchVariant>>
+>;
+export type AdminPatchVariantMutationBody = BodyType<PatchVariantRequest>;
+export type AdminPatchVariantMutationError = ErrorType<ApiError | void>;
+
+/**
+ * @summary Admin — edit variant price / stock
+ */
+export const useAdminPatchVariant = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchVariant>>,
+    TError,
+    { id: number; data: BodyType<PatchVariantRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminPatchVariant>>,
+  TError,
+  { id: number; data: BodyType<PatchVariantRequest> },
+  TContext
+> => {
+  return useMutation(getAdminPatchVariantMutationOptions(options));
+};
 
 /**
  * Receives InvoiceSettled, InvoiceExpired, and InvoiceInvalid events from BTCPayServer and updates order status

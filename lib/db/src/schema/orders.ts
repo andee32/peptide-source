@@ -54,6 +54,8 @@ export const ordersTable = pgTable("orders", {
   shippingState: text("shipping_state").notNull(),
   shippingZip: text("shipping_zip").notNull(),
   shippingCountry: text("shipping_country").notNull().default("US"),
+  trackingNumber: text("tracking_number"),
+  carrier: text("carrier"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
