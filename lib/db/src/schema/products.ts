@@ -20,11 +20,19 @@ export const categoryEnum = pgEnum("category", [
   "other",
 ]);
 
+export const sourcingPathEnum = pgEnum("sourcing_path", [
+  "usa_domestic",
+  "asia_warehouse",
+]);
+
+export const unitTypeEnum = pgEnum("unit_type", ["vial", "kit"]);
+
 export const productsTable = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").notNull().unique(),
   category: categoryEnum("category").notNull().default("other"),
+  sourcingPath: sourcingPathEnum("sourcing_path"),
   shortDescription: text("short_description").notNull(),
   longDescription: text("long_description").notNull().default(""),
   featured: boolean("featured").notNull().default(false),
@@ -53,6 +61,8 @@ export const productVariantsTable = pgTable("product_variants", {
   sizeml: real("size_ml").notNull(),
   priceCents: integer("price_cents").notNull(),
   sku: text("sku").notNull().unique(),
+  unitType: unitTypeEnum("unit_type").notNull().default("vial"),
+  vialsPerUnit: integer("vials_per_unit").notNull().default(1),
   inStock: boolean("in_stock").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

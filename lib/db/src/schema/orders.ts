@@ -8,12 +8,15 @@ import {
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { customerAccountsTable } from "./customerAccounts";
 
 export const paymentMethodEnum = pgEnum("payment_method", [
   "card",
   "crypto_btc",
   "crypto_usdc",
 ]);
+
+export const orderChannelEnum = pgEnum("order_channel", ["retail", "wholesale"]);
 
 export const orderStatusEnum = pgEnum("order_status", [
   "pending",
@@ -38,6 +41,8 @@ export const ordersTable = pgTable("orders", {
   discountCents: integer("discount_cents").notNull().default(0),
   totalCents: integer("total_cents").notNull(),
   paymentMethod: paymentMethodEnum("payment_method").notNull(),
+  channel: orderChannelEnum("channel").notNull().default("retail"),
+  accountId: text("account_id").references(() => customerAccountsTable.id),
   status: orderStatusEnum("status").notNull().default("pending"),
   shippingName: text("shipping_name").notNull(),
   shippingEmail: text("shipping_email").notNull(),
