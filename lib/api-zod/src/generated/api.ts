@@ -29,6 +29,11 @@ export const ListProductsResponseItem = zod.object({
   name: zod.string(),
   slug: zod.string(),
   category: zod.string(),
+  complianceStatus: zod
+    .enum(["blocked", "restricted", "cleared"])
+    .describe(
+      "Per-SKU compliance gate. blocked = unlisted + unsellable; restricted = listed and orderable (reserved for later); cleared = normal.",
+    ),
   shortDescription: zod.string(),
   featured: zod.boolean(),
   imageUrl: zod.string().nullish(),
@@ -53,6 +58,11 @@ export const GetProductResponse = zod
     name: zod.string(),
     slug: zod.string(),
     category: zod.string(),
+    complianceStatus: zod
+      .enum(["blocked", "restricted", "cleared"])
+      .describe(
+        "Per-SKU compliance gate. blocked = unlisted + unsellable; restricted = listed and orderable (reserved for later); cleared = normal.",
+      ),
     shortDescription: zod.string(),
     featured: zod.boolean(),
     imageUrl: zod.string().nullish(),
@@ -203,6 +213,8 @@ export const GetBatchResponse = zod
  */
 export const createOrderBodyLineItemsItemQuantityMax = 100;
 
+export const createOrderBodySignerNameMax = 200;
+
 export const createOrderBodyShippingCountryDefault = `US`;
 
 export const CreateOrderBody = zod.object({
@@ -234,7 +246,23 @@ export const CreateOrderBody = zod.object({
         ),
     )
     .min(1),
-  paymentMethod: zod.enum(["card", "crypto_btc", "crypto_usdc"]),
+  paymentMethod: zod
+    .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
+    .describe(
+      "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
+    ),
+  ruoAffirmed: zod
+    .boolean()
+    .describe(
+      "Must be true. Server-side RUO (Research Use Only) affirmation; the order is rejected (400) when not exactly true.",
+    ),
+  signerName: zod
+    .string()
+    .min(1)
+    .max(createOrderBodySignerNameMax)
+    .describe(
+      "Name of the person affirming the RUO attestation. Snapshotted into the order_attestations record.",
+    ),
   shippingName: zod.string(),
   shippingEmail: zod.string().email(),
   shippingAddress1: zod.string(),
@@ -259,13 +287,18 @@ export const GetOrderResponse = zod
     subtotalCents: zod.number(),
     discountCents: zod.number(),
     totalCents: zod.number(),
-    paymentMethod: zod.enum(["card", "crypto_btc", "crypto_usdc"]),
+    paymentMethod: zod
+      .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
+      .describe(
+        "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
+      ),
     status: zod.enum([
       "pending",
       "awaiting_payment",
       "confirmed",
       "failed",
       "expired",
+      "refunded",
     ]),
     channel: zod.enum(["retail", "wholesale"]),
   })
@@ -338,6 +371,73 @@ export const CreateCryptoInvoiceResponse = zod.object({
  */
 export const GetOrderPaymentQrParams = zod.object({
   id: zod.coerce.string(),
+});
+
+/**
+ * Returns bank wire / ACH instructions and a unique reference code, and creates (or returns an existing) pending payment_records row with method=ach. Only valid for orders whose paymentMethod is ach or wire.
+ * @summary Get ACH / wire payment instructions for an order
+ */
+export const CreateAchInstructionsParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const CreateAchInstructionsResponse = zod
+  .object({
+    paymentRecordId: zod.string(),
+    orderId: zod.string(),
+    referenceCode: zod
+      .string()
+      .describe(
+        "Unique memo\/reference code the customer must include with the transfer so it can be reconciled.",
+      ),
+    amountCents: zod.number(),
+    amount: zod
+      .string()
+      .describe('USD amount as a decimal string (e.g. \"375.00\").'),
+    currency: zod.enum(["USD"]),
+    status: zod.enum(["pending"]),
+    expiresAt: zod.date(),
+    instructions: zod
+      .object({
+        beneficiaryName: zod.string(),
+        bankName: zod.string(),
+        routingNumber: zod.string(),
+        accountNumber: zod.string(),
+        accountType: zod.string(),
+        memo: zod
+          .string()
+          .describe("The referenceCode, restated for the transfer memo field."),
+      })
+      .describe(
+        "Beneficiary bank details for ACH \/ wire transfers. PLACEHOLDER values until real banking is provisioned.",
+      ),
+  })
+  .describe(
+    "Bank wire \/ ACH payment instructions for an order, plus a unique reference code the customer must include in the transfer memo.",
+  );
+
+/**
+ * Settles the order's pending ACH payment_records row (status=confirmed) and sets the order status to confirmed. Requires x-admin-key header.
+ * @summary Admin — confirm an ACH / wire payment as received
+ */
+export const AdminConfirmAchParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const AdminConfirmAchBody = zod.object({
+  bankLast4: zod
+    .string()
+    .nullish()
+    .describe(
+      "Optional last 4 digits of the originating account, recorded on the payment record.",
+    ),
+});
+
+export const AdminConfirmAchResponse = zod.object({
+  orderId: zod.string(),
+  paymentRecordId: zod.string(),
+  orderStatus: zod.enum(["confirmed"]),
+  paymentStatus: zod.enum(["confirmed"]),
 });
 
 /**

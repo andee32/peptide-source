@@ -9,7 +9,7 @@ import {
   ShoppingBag,
   ArrowLeft,
   Bitcoin,
-  CreditCard,
+  Landmark,
   Copy,
   Check,
   Clock,
@@ -18,7 +18,12 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-type PaymentMethod = "crypto_btc" | "crypto_usdc" | "card";
+type PaymentMethod = "crypto_btc" | "crypto_usdc" | "ach";
+
+// RUO attestation snapshot shown to the buyer. The server persists its own
+// authoritative copy per order (see api-server routes/orders.ts).
+const RUO_ATTESTATION_LABEL =
+  "I affirm that all products in this order are purchased strictly for laboratory research use only (RUO) — not for human or veterinary use — and that I am authorized to make this purchase.";
 
 interface ShippingForm {
   name: string;
@@ -42,15 +47,40 @@ interface CryptoInvoice {
   qrPaymentUri: string;
 }
 
+interface AchInstructions {
+  paymentRecordId: string;
+  orderId: string;
+  referenceCode: string;
+  amountCents: number;
+  amount: string;
+  currency: string;
+  status: string;
+  expiresAt: string;
+  instructions: {
+    beneficiaryName: string;
+    bankName: string;
+    routingNumber: string;
+    accountNumber: string;
+    accountType: string;
+    memo: string;
+  };
+}
+
 type CheckoutStep =
   | "form"
   | "awaiting_payment"
+  | "awaiting_ach"
   | "confirmed"
   | "expired"
   | "failed";
 
 const CRYPTO_DISCOUNT_RATE = 0.1;
 const POLL_INTERVAL_MS = 6000;
+
+// ACH / wire is off by default — crypto is the primary, working rail. Only expose
+// it once real bank details are provisioned (backend gates the same way). Buyers
+// must never see placeholder bank details.
+const ACH_ENABLED = import.meta.env.VITE_ACH_ENABLED === "true";
 
 function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -128,7 +158,7 @@ function OrderSummaryPanel({
 }) {
   const { cartItems } = useCart();
   const totalCents = subtotalCents - discountCents;
-  const isCrypto = paymentMethod !== "card";
+  const isCrypto = paymentMethod === "crypto_btc" || paymentMethod === "crypto_usdc";
 
   return (
     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 sticky top-6">
@@ -208,11 +238,17 @@ export function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [invoice, setInvoice] = useState<CryptoInvoice | null>(null);
+  const [ach, setAch] = useState<AchInstructions | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // RUO attestation — must be affirmed and signed to place an order.
+  const [signerName, setSignerName] = useState("");
+  const [ruoAffirmed, setRuoAffirmed] = useState(false);
+  const [attestErrors, setAttestErrors] = useState<{ signerName?: string; ruo?: string }>({});
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const isCrypto = paymentMethod !== "card";
+  const isCrypto = paymentMethod === "crypto_btc" || paymentMethod === "crypto_usdc";
   const subtotalCents = totalCents;
   const discountCents = isCrypto
     ? Math.round(subtotalCents * CRYPTO_DISCOUNT_RATE)
@@ -229,7 +265,13 @@ export function CheckoutPage() {
     if (!shipping.state.trim()) errs.state = "Required";
     if (!shipping.zip.trim()) errs.zip = "Required";
     setErrors(errs);
-    return Object.keys(errs).length === 0;
+
+    const aErrs: { signerName?: string; ruo?: string } = {};
+    if (!signerName.trim()) aErrs.signerName = "Required";
+    if (!ruoAffirmed) aErrs.ruo = "You must affirm the RUO attestation to continue";
+    setAttestErrors(aErrs);
+
+    return Object.keys(errs).length === 0 && Object.keys(aErrs).length === 0;
   }
 
   const pollOrder = useCallback(
@@ -281,6 +323,8 @@ export function CheckoutPage() {
         body: JSON.stringify({
           lineItems,
           paymentMethod,
+          ruoAffirmed,
+          signerName: signerName.trim(),
           shippingName: shipping.name,
           shippingEmail: shipping.email,
           shippingAddress1: shipping.address1,
@@ -380,8 +424,18 @@ export function CheckoutPage() {
           POLL_INTERVAL_MS
         );
       } else {
-        clearCart();
-        navigate(`/orders/${order.id}`);
+        // ACH / wire rail: fetch bank instructions + reference code and show them.
+        const achRes = await fetch(
+          `/api/orders/${order.id}/ach-instructions`,
+          { method: "POST" }
+        );
+        if (!achRes.ok) {
+          const err = (await achRes.json()) as { message?: string };
+          throw new Error(err.message ?? "Failed to create ACH instructions");
+        }
+        const achData = (await achRes.json()) as AchInstructions;
+        setAch(achData);
+        setStep("awaiting_ach");
       }
     } catch (err) {
       setSubmitError(
@@ -402,6 +456,7 @@ export function CheckoutPage() {
   function resetToForm() {
     setStep("form");
     setInvoice(null);
+    setAch(null);
     setOrderId(null);
     setSubmitError(null);
   }
@@ -515,6 +570,75 @@ export function CheckoutPage() {
     );
   }
 
+  if (step === "awaiting_ach" && ach && orderId) {
+    return (
+      <div className="min-h-screen bg-zinc-950 px-4 py-12">
+        <div className="max-w-2xl mx-auto">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 bg-teal-950 border border-teal-700 rounded-full px-4 py-1.5 text-sm text-teal-300 mb-4">
+              <Landmark className="w-4 h-4" />
+              Awaiting Bank Transfer
+            </div>
+            <h1 className="text-2xl font-semibold text-white mb-1">
+              Send your ACH / wire transfer to complete this order
+            </h1>
+            <p className="text-zinc-400 text-sm">
+              Include the reference code below in the transfer memo so we can match
+              your payment. Your order confirms once funds are received.
+            </p>
+          </div>
+
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">
+                  Amount Due
+                </p>
+                <p className="text-3xl font-mono font-bold text-white">
+                  {formatCents(ach.amountCents)}{" "}
+                  <span className="text-teal-400">{ach.currency}</span>
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">
+                Reference Code (include in memo)
+              </p>
+              <CopyableAddress address={ach.referenceCode} />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              {[
+                ["Beneficiary", ach.instructions.beneficiaryName],
+                ["Bank", ach.instructions.bankName],
+                ["Routing Number", ach.instructions.routingNumber],
+                ["Account Number", ach.instructions.accountNumber],
+                ["Account Type", ach.instructions.accountType],
+              ].map(([label, value]) => (
+                <div key={label} className="bg-zinc-950 border border-zinc-800 rounded-lg p-3">
+                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">
+                    {label}
+                  </p>
+                  <p className="text-zinc-200 font-mono break-all">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4 text-sm text-zinc-400 leading-relaxed">
+              After you send the transfer, our team confirms receipt and your order
+              status updates to confirmed. You can safely close this tab.
+            </div>
+          </div>
+
+          <p className="text-center text-xs text-zinc-600 mt-4">
+            Order ID: <span className="font-mono">{orderId}</span>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (step === "confirmed") {
     return (
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-center px-4">
@@ -541,8 +665,8 @@ export function CheckoutPage() {
           broadcast. Your cart is still intact.
         </p>
         <p className="text-zinc-500 text-sm mb-6 max-w-sm">
-          Please try again with a new crypto invoice, or check back later when
-          card payments become available.
+          Please try again with a new crypto invoice, or choose ACH / wire at
+          checkout.
         </p>
         <Button onClick={resetToForm}>Start New Order</Button>
       </div>
@@ -782,11 +906,11 @@ export function CheckoutPage() {
                         available: true,
                       },
                       {
-                        value: "card" as PaymentMethod,
-                        label: "Credit Card",
-                        sub: "Coming soon",
-                        icon: <CreditCard className="w-5 h-5" />,
-                        available: false,
+                        value: "ach" as PaymentMethod,
+                        label: "ACH / Wire",
+                        sub: ACH_ENABLED ? "Bank transfer" : "Unavailable",
+                        icon: <Landmark className="w-5 h-5" />,
+                        available: ACH_ENABLED,
                       },
                     ] as const
                   ).map((method) => {
@@ -820,7 +944,8 @@ export function CheckoutPage() {
                           </p>
                           <p
                             className={`text-xs ${
-                              method.available && method.value !== "card"
+                              method.value === "crypto_btc" ||
+                              method.value === "crypto_usdc"
                                 ? "text-emerald-400"
                                 : "text-zinc-500"
                             }`}
@@ -839,6 +964,54 @@ export function CheckoutPage() {
                 </div>
               </div>
 
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                <h2 className="text-base font-semibold text-white mb-5">
+                  Research Use Only (RUO) Attestation
+                </h2>
+
+                <div className="mb-4">
+                  <Label
+                    htmlFor="signerName"
+                    className="text-zinc-400 text-sm mb-1.5 block"
+                  >
+                    Signer Name
+                  </Label>
+                  <Input
+                    id="signerName"
+                    value={signerName}
+                    onChange={(e) => {
+                      setSignerName(e.target.value);
+                      if (attestErrors.signerName)
+                        setAttestErrors((prev) => ({ ...prev, signerName: undefined }));
+                    }}
+                    placeholder="Dr. Jane Smith"
+                    className="bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-600 focus-visible:ring-teal-600"
+                  />
+                  {attestErrors.signerName && (
+                    <p className="text-red-400 text-xs mt-1">{attestErrors.signerName}</p>
+                  )}
+                </div>
+
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={ruoAffirmed}
+                    onChange={(e) => {
+                      setRuoAffirmed(e.target.checked);
+                      if (attestErrors.ruo)
+                        setAttestErrors((prev) => ({ ...prev, ruo: undefined }));
+                    }}
+                    className="mt-1 h-4 w-4 shrink-0 accent-teal-600"
+                  />
+                  <span className="text-sm text-zinc-300 leading-relaxed">
+                    {RUO_ATTESTATION_LABEL}
+                  </span>
+                </label>
+                {attestErrors.ruo && (
+                  <p className="text-red-400 text-xs mt-2">{attestErrors.ruo}</p>
+                )}
+              </div>
+
               {submitError && (
                 <div className="flex items-start gap-3 bg-red-950/50 border border-red-800 rounded-xl p-4 text-sm text-red-300">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -848,7 +1021,7 @@ export function CheckoutPage() {
 
               <Button
                 type="submit"
-                disabled={submitting || paymentMethod === "card"}
+                disabled={submitting || !ruoAffirmed || !signerName.trim()}
                 className="w-full bg-teal-600 hover:bg-teal-500 text-white font-semibold py-3 h-auto rounded-xl disabled:opacity-50"
               >
                 {submitting ? (
@@ -861,7 +1034,7 @@ export function CheckoutPage() {
                     {isCrypto ? (
                       <Bitcoin className="w-4 h-4" />
                     ) : (
-                      <CreditCard className="w-4 h-4" />
+                      <Landmark className="w-4 h-4" />
                     )}
                     Place Order · {formatCents(finalCents)}
                     {isCrypto && (

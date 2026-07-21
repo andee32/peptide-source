@@ -11,8 +11,9 @@ paths:
 
 **Payment rails:** crypto-first via BTCPayServer + ACH/wire only. **Never add
 Stripe / PayPal / Square / Shopify Payments or generic card processing** — they
-prohibit this vertical and freeze funds. `card` is being removed from the payment
-enum in Phase 3.
+prohibit this vertical and freeze funds. `card` has been removed from the payment
+enum. ACH is gated off (`VITE_ACH_ENABLED`, backend 503) until real bank details
+are provisioned — never show placeholder bank info as authoritative.
 
 **Fail closed:**
 - `services/btcpay.ts` must never fabricate a pay-to address when unconfigured — it
@@ -21,9 +22,11 @@ enum in Phase 3.
   and never falls back to the API key; verify over the raw body with
   `timingSafeEqual`; reject before any DB mutation.
 
-**Compliance gate (Phase 3, HARD launch blocker):**
+**Compliance model:** everything is research-use-only.
 - Every order persists a server-side, timestamped RUO attestation record — not a
-  client checkbox.
-- Per-SKU `complianceStatus` (blocked | restricted | cleared): non-cleared SKUs are
-  unlisted and unsellable. **Retatrutide stays hard-blocked pending counsel.**
+  client checkbox. `ATTESTATION_TEXT` is placeholder-guarded (server refuses to
+  start in production until counsel-approved copy replaces it).
+- Per-SKU `complianceStatus` (blocked | restricted | cleared) exists as a dormant
+  admin control; per owner decision nothing is gated per-SKU (all `cleared`,
+  incl. Retatrutide). Do not re-block SKUs by default.
 - Prices are always server-derived; the client never sends a price.

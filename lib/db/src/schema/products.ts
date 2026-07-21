@@ -27,6 +27,12 @@ export const sourcingPathEnum = pgEnum("sourcing_path", [
 
 export const unitTypeEnum = pgEnum("unit_type", ["vial", "kit"]);
 
+export const complianceStatusEnum = pgEnum("compliance_status", [
+  "blocked",
+  "restricted",
+  "cleared",
+]);
+
 export const productsTable = pgTable("products", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -38,6 +44,9 @@ export const productsTable = pgTable("products", {
   featured: boolean("featured").notNull().default(false),
   imageUrl: text("image_url"),
   published: boolean("published").notNull().default(true),
+  complianceStatus: complianceStatusEnum("compliance_status")
+    .notNull()
+    .default("cleared"),
   researchUses: text("research_uses").array().notNull().default([]),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

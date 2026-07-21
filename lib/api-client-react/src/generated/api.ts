@@ -19,6 +19,7 @@ import type {
 import type {
   Account,
   AccountCreated,
+  AchInstructions,
   AdminListAccountsParams,
   AdminPatchSubscriptionStatusBody,
   AdminSubscriptionsOverview,
@@ -28,6 +29,8 @@ import type {
   BatchSummary,
   BtcpayWebhookEvent,
   CancelSubscriptionParams,
+  ConfirmAchRequest,
+  ConfirmAchResponse,
   CreateOrderRequest,
   CreateReviewerSubmissionRequest,
   CreateSubscriptionRequest,
@@ -53,6 +56,7 @@ import type {
   ReviewerSubmissionPatched,
   ReviewerSubmissionStats,
   SkipSubscriptionBody,
+  SkuNotAvailable,
   SubscriptionCancelled,
   SubscriptionCreated,
   SubscriptionDetail,
@@ -618,7 +622,7 @@ export const createOrder = async (
 };
 
 export const getCreateOrderMutationOptions = <
-  TError = ErrorType<ApiError | MoqError>,
+  TError = ErrorType<ApiError | MoqError | SkuNotAvailable>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -659,13 +663,15 @@ export type CreateOrderMutationResult = NonNullable<
   Awaited<ReturnType<typeof createOrder>>
 >;
 export type CreateOrderMutationBody = BodyType<CreateOrderRequest>;
-export type CreateOrderMutationError = ErrorType<ApiError | MoqError>;
+export type CreateOrderMutationError = ErrorType<
+  ApiError | MoqError | SkuNotAvailable
+>;
 
 /**
  * @summary Create a new order
  */
 export const useCreateOrder = <
-  TError = ErrorType<ApiError | MoqError>,
+  TError = ErrorType<ApiError | MoqError | SkuNotAvailable>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -942,6 +948,179 @@ export function useGetOrderPaymentQr<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Returns bank wire / ACH instructions and a unique reference code, and creates (or returns an existing) pending payment_records row with method=ach. Only valid for orders whose paymentMethod is ach or wire.
+ * @summary Get ACH / wire payment instructions for an order
+ */
+export const getCreateAchInstructionsUrl = (id: string) => {
+  return `/api/orders/${id}/ach-instructions`;
+};
+
+export const createAchInstructions = async (
+  id: string,
+  options?: RequestInit,
+): Promise<AchInstructions> => {
+  return customFetch<AchInstructions>(getCreateAchInstructionsUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getCreateAchInstructionsMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAchInstructions>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAchInstructions>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["createAchInstructions"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAchInstructions>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return createAchInstructions(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAchInstructionsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAchInstructions>>
+>;
+
+export type CreateAchInstructionsMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Get ACH / wire payment instructions for an order
+ */
+export const useCreateAchInstructions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAchInstructions>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAchInstructions>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getCreateAchInstructionsMutationOptions(options));
+};
+
+/**
+ * Settles the order's pending ACH payment_records row (status=confirmed) and sets the order status to confirmed. Requires x-admin-key header.
+ * @summary Admin — confirm an ACH / wire payment as received
+ */
+export const getAdminConfirmAchUrl = (id: string) => {
+  return `/api/admin/orders/${id}/confirm-ach`;
+};
+
+export const adminConfirmAch = async (
+  id: string,
+  confirmAchRequest?: ConfirmAchRequest,
+  options?: RequestInit,
+): Promise<ConfirmAchResponse> => {
+  return customFetch<ConfirmAchResponse>(getAdminConfirmAchUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(confirmAchRequest),
+  });
+};
+
+export const getAdminConfirmAchMutationOptions = <
+  TError = ErrorType<void | ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminConfirmAch>>,
+    TError,
+    { id: string; data: BodyType<ConfirmAchRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminConfirmAch>>,
+  TError,
+  { id: string; data: BodyType<ConfirmAchRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminConfirmAch"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminConfirmAch>>,
+    { id: string; data: BodyType<ConfirmAchRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminConfirmAch(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminConfirmAchMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminConfirmAch>>
+>;
+export type AdminConfirmAchMutationBody = BodyType<ConfirmAchRequest>;
+export type AdminConfirmAchMutationError = ErrorType<void | ApiError>;
+
+/**
+ * @summary Admin — confirm an ACH / wire payment as received
+ */
+export const useAdminConfirmAch = <
+  TError = ErrorType<void | ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminConfirmAch>>,
+    TError,
+    { id: string; data: BodyType<ConfirmAchRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminConfirmAch>>,
+  TError,
+  { id: string; data: BodyType<ConfirmAchRequest> },
+  TContext
+> => {
+  return useMutation(getAdminConfirmAchMutationOptions(options));
+};
 
 /**
  * Public endpoint — creates a reviewer submission in pending state. Validates Janoshik Task ID format.

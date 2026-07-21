@@ -17,6 +17,9 @@ type ProductSeed = {
   sourcingPath: "usa_domestic" | "asia_warehouse";
   shortDescription: string;
   featured?: boolean;
+  // Per-SKU compliance gate. Defaults to "cleared" when omitted. Flip a product
+  // to "blocked" (unlisted + unsellable) or "restricted" here — a one-line change.
+  complianceStatus?: "blocked" | "restricted" | "cleared";
   researchUses: string[];
   variants: VariantSeed[];
 };
@@ -51,6 +54,9 @@ const CATALOG: ProductSeed[] = [
     shortDescription:
       "Triple agonist (GLP-1/GIP/glucagon) 10-vial kit for in-vitro receptor characterization. For laboratory research use only.",
     featured: true,
+    // All products are research-use-only; not gating per-SKU. complianceStatus
+    // stays available as an admin control but defaults to cleared for everything.
+    complianceStatus: "cleared",
     researchUses: [
       "Triple receptor agonism mechanistic assays",
       "Comparative in-vitro incretin studies",
@@ -440,6 +446,7 @@ async function seed() {
         sourcingPath: p.sourcingPath,
         shortDescription: p.shortDescription,
         featured: p.featured ?? false,
+        complianceStatus: p.complianceStatus ?? "cleared",
         researchUses: p.researchUses,
       }))
     )

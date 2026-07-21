@@ -20,9 +20,13 @@ compliance gate (HARD launch blocker) · **4** B2C revival.
 - **Payments: crypto-first (BTCPay) + ACH/wire only. NEVER Stripe / PayPal / Square /
   Shopify Payments** — they prohibit this vertical and freeze funds. `card` is being
   removed from the payment enum in Phase 3.
-- **Compliance gates launch.** No public traffic until Phase 3 exit criteria are green:
-  server-side RUO attestation per order, per-SKU `complianceStatus`, blocked GLP-1 SKUs.
-  **Retatrutide stays hard-blocked pending counsel** (no legal compounding pathway).
+- **Everything is research-use-only (RUO) — not for human or animal consumption.** The
+  compliance model is a **server-side RUO attestation per order** (buyer affirms research
+  use; stored as the record-of-record), NOT per-SKU blocking. Per owner decision, we do
+  **not** gate individual products — `complianceStatus` stays as a dormant admin control
+  (defaults to `cleared` for all SKUs, incl. Retatrutide); do not re-block SKUs by default.
+  Before launch, counsel must approve the attestation text (`ATTESTATION_TEXT` in orders.ts)
+  and finance must provision real ACH bank details — both are placeholder-guarded.
 - **Never hand out a fabricated pay-to address.** `services/btcpay.ts` fails CLOSED (503)
   when unconfigured, and rejects unsigned/unconfigured webhooks. Do not reintroduce stubs.
 - **No secrets in the tree.** Env comes from `.env` (gitignored); see `.env.example`.

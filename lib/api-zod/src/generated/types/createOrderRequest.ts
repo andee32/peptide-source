@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateOrderLineItem } from "./createOrderLineItem";
-import type { CreateOrderRequestPaymentMethod } from "./createOrderRequestPaymentMethod";
+import type { PaymentMethod } from "./paymentMethod";
 
 export interface CreateOrderRequest {
   /** B2B wholesale account ID. When present with a valid token, the order is placed on the wholesale channel with tier-resolved pricing and kit/MOQ enforcement. */
@@ -16,7 +16,15 @@ export interface CreateOrderRequest {
   sessionId?: string | null;
   /** @minItems 1 */
   lineItems: CreateOrderLineItem[];
-  paymentMethod: CreateOrderRequestPaymentMethod;
+  paymentMethod: PaymentMethod;
+  /** Must be true. Server-side RUO (Research Use Only) affirmation; the order is rejected (400) when not exactly true. */
+  ruoAffirmed: boolean;
+  /**
+   * Name of the person affirming the RUO attestation. Snapshotted into the order_attestations record.
+   * @minLength 1
+   * @maxLength 200
+   */
+  signerName: string;
   shippingName: string;
   shippingEmail: string;
   shippingAddress1: string;

@@ -35,8 +35,8 @@ interface OrderDetail {
   subtotalCents: number;
   discountCents: number;
   totalCents: number;
-  paymentMethod: "card" | "crypto_btc" | "crypto_usdc";
-  status: "pending" | "awaiting_payment" | "confirmed" | "failed" | "expired";
+  paymentMethod: "crypto_btc" | "crypto_usdc" | "ach" | "wire";
+  status: "pending" | "awaiting_payment" | "confirmed" | "failed" | "expired" | "refunded";
   lineItems: OrderLineItem[];
   shippingName: string;
   shippingEmail: string;

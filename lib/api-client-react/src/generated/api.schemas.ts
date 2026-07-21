@@ -329,6 +329,22 @@ export interface MoqError {
   code: MoqErrorCode;
 }
 
+export type SkuNotAvailableCode =
+  (typeof SkuNotAvailableCode)[keyof typeof SkuNotAvailableCode];
+
+export const SkuNotAvailableCode = {
+  SKU_NOT_AVAILABLE: "SKU_NOT_AVAILABLE",
+} as const;
+
+/**
+ * A line item references a product whose complianceStatus is blocked (422). The SKU is unlisted and unsellable.
+ */
+export interface SkuNotAvailable {
+  error: string;
+  message: string;
+  code: SkuNotAvailableCode;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -337,6 +353,18 @@ export interface ApiError {
   error: string;
   message: string;
 }
+
+/**
+ * Per-SKU compliance gate. blocked = unlisted + unsellable; restricted = listed and orderable (reserved for later); cleared = normal.
+ */
+export type ComplianceStatus =
+  (typeof ComplianceStatus)[keyof typeof ComplianceStatus];
+
+export const ComplianceStatus = {
+  blocked: "blocked",
+  restricted: "restricted",
+  cleared: "cleared",
+} as const;
 
 export interface ProductVariant {
   id: number;
@@ -353,6 +381,7 @@ export interface Product {
   name: string;
   slug: string;
   category: string;
+  complianceStatus: ComplianceStatus;
   shortDescription: string;
   featured: boolean;
   imageUrl?: string | null;
@@ -441,13 +470,16 @@ export interface CreateOrderLineItem {
   quantity: number;
 }
 
-export type CreateOrderRequestPaymentMethod =
-  (typeof CreateOrderRequestPaymentMethod)[keyof typeof CreateOrderRequestPaymentMethod];
+/**
+ * Payment rail. Crypto-first (BTCPay) + ACH/wire only. Card is not supported.
+ */
+export type PaymentMethod = (typeof PaymentMethod)[keyof typeof PaymentMethod];
 
-export const CreateOrderRequestPaymentMethod = {
-  card: "card",
+export const PaymentMethod = {
   crypto_btc: "crypto_btc",
   crypto_usdc: "crypto_usdc",
+  ach: "ach",
+  wire: "wire",
 } as const;
 
 export interface CreateOrderRequest {
@@ -458,7 +490,15 @@ export interface CreateOrderRequest {
   sessionId?: string | null;
   /** @minItems 1 */
   lineItems: CreateOrderLineItem[];
-  paymentMethod: CreateOrderRequestPaymentMethod;
+  paymentMethod: PaymentMethod;
+  /** Must be true. Server-side RUO (Research Use Only) affirmation; the order is rejected (400) when not exactly true. */
+  ruoAffirmed: boolean;
+  /**
+   * Name of the person affirming the RUO attestation. Snapshotted into the order_attestations record.
+   * @minLength 1
+   * @maxLength 200
+   */
+  signerName: string;
   shippingName: string;
   shippingEmail: string;
   shippingAddress1: string;
@@ -469,15 +509,6 @@ export interface CreateOrderRequest {
   shippingCountry?: string;
 }
 
-export type OrderSummaryPaymentMethod =
-  (typeof OrderSummaryPaymentMethod)[keyof typeof OrderSummaryPaymentMethod];
-
-export const OrderSummaryPaymentMethod = {
-  card: "card",
-  crypto_btc: "crypto_btc",
-  crypto_usdc: "crypto_usdc",
-} as const;
-
 export type OrderSummaryStatus =
   (typeof OrderSummaryStatus)[keyof typeof OrderSummaryStatus];
 
@@ -487,6 +518,7 @@ export const OrderSummaryStatus = {
   confirmed: "confirmed",
   failed: "failed",
   expired: "expired",
+  refunded: "refunded",
 } as const;
 
 export type OrderSummaryChannel =
@@ -502,7 +534,7 @@ export interface OrderSummary {
   subtotalCents: number;
   discountCents: number;
   totalCents: number;
-  paymentMethod: OrderSummaryPaymentMethod;
+  paymentMethod: PaymentMethod;
   status: OrderSummaryStatus;
   channel: OrderSummaryChannel;
 }
@@ -567,6 +599,76 @@ export interface CryptoInvoice {
   expiresAt: string;
   /** BIP21 / EIP-681 URI for QR code encoding */
   qrPaymentUri: string;
+}
+
+export type AchInstructionsCurrency =
+  (typeof AchInstructionsCurrency)[keyof typeof AchInstructionsCurrency];
+
+export const AchInstructionsCurrency = {
+  USD: "USD",
+} as const;
+
+export type AchInstructionsStatus =
+  (typeof AchInstructionsStatus)[keyof typeof AchInstructionsStatus];
+
+export const AchInstructionsStatus = {
+  pending: "pending",
+} as const;
+
+/**
+ * Beneficiary bank details for ACH / wire transfers. PLACEHOLDER values until real banking is provisioned.
+ */
+export interface BankInstructions {
+  beneficiaryName: string;
+  bankName: string;
+  routingNumber: string;
+  accountNumber: string;
+  accountType: string;
+  /** The referenceCode, restated for the transfer memo field. */
+  memo: string;
+}
+
+/**
+ * Bank wire / ACH payment instructions for an order, plus a unique reference code the customer must include in the transfer memo.
+ */
+export interface AchInstructions {
+  paymentRecordId: string;
+  orderId: string;
+  /** Unique memo/reference code the customer must include with the transfer so it can be reconciled. */
+  referenceCode: string;
+  amountCents: number;
+  /** USD amount as a decimal string (e.g. "375.00"). */
+  amount: string;
+  currency: AchInstructionsCurrency;
+  status: AchInstructionsStatus;
+  expiresAt: string;
+  instructions: BankInstructions;
+}
+
+export interface ConfirmAchRequest {
+  /** Optional last 4 digits of the originating account, recorded on the payment record. */
+  bankLast4?: string | null;
+}
+
+export type ConfirmAchResponseOrderStatus =
+  (typeof ConfirmAchResponseOrderStatus)[keyof typeof ConfirmAchResponseOrderStatus];
+
+export const ConfirmAchResponseOrderStatus = {
+  confirmed: "confirmed",
+} as const;
+
+export type ConfirmAchResponsePaymentStatus =
+  (typeof ConfirmAchResponsePaymentStatus)[keyof typeof ConfirmAchResponsePaymentStatus];
+
+export const ConfirmAchResponsePaymentStatus = {
+  confirmed: "confirmed",
+} as const;
+
+export interface ConfirmAchResponse {
+  orderId: string;
+  paymentRecordId: string;
+  orderStatus: ConfirmAchResponseOrderStatus;
+  paymentStatus: ConfirmAchResponsePaymentStatus;
 }
 
 export type ListProductsParams = {

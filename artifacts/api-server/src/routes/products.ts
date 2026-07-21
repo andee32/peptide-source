@@ -42,8 +42,8 @@ router.get("/products", async (req, res) => {
       : undefined;
 
     const products = await db.query.productsTable.findMany({
-      where: (p, { eq: eqFn, and }) => {
-        const conditions = [eqFn(p.published, true)];
+      where: (p, { eq: eqFn, and, ne }) => {
+        const conditions = [eqFn(p.published, true), ne(p.complianceStatus, "blocked")];
         if (categoryFilter) {
           conditions.push(eqFn(p.category, categoryFilter));
         }
@@ -85,6 +85,7 @@ router.get("/products", async (req, res) => {
           name: product.name,
           slug: product.slug,
           category: product.category,
+          complianceStatus: product.complianceStatus,
           shortDescription: product.shortDescription,
           featured: product.featured,
           imageUrl: product.imageUrl ?? null,
@@ -114,7 +115,8 @@ router.get("/products/:id", async (req, res) => {
     const { id } = paramsResult.data;
 
     const product = await db.query.productsTable.findFirst({
-      where: (p, { eq: eqFn, and }) => and(eqFn(p.id, id), eqFn(p.published, true)),
+      where: (p, { eq: eqFn, and, ne }) =>
+        and(eqFn(p.id, id), eqFn(p.published, true), ne(p.complianceStatus, "blocked")),
     });
 
     if (!product) {
@@ -180,6 +182,7 @@ router.get("/products/:id", async (req, res) => {
       name: product.name,
       slug: product.slug,
       category: product.category,
+      complianceStatus: product.complianceStatus,
       shortDescription: product.shortDescription,
       longDescription: product.longDescription,
       featured: product.featured,

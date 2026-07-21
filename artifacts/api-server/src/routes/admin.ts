@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, asc, desc } from "drizzle-orm";
+import { eq, and, asc, desc } from "drizzle-orm";
 import { pbkdf2Sync, timingSafeEqual } from "crypto";
 import { db } from "@atlab/db";
 import {
@@ -9,6 +9,8 @@ import {
   productVariantsTable,
   customerAccountsTable,
   priceTiersTable,
+  ordersTable,
+  paymentRecordsTable,
   categoryEnum,
   batchStatusEnum,
   testTypeEnum,
@@ -640,6 +642,75 @@ router.get("/admin/price-tiers", async (_req, res) => {
     res.json(tiers);
   } catch (err) {
     console.error("admin listPriceTiers error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+// ── ACH / wire settlement ────────────────────────────────────────────────────
+// Manual reconciliation: an admin confirms an incoming transfer was received,
+// which settles the pending payment record and confirms the order. Mirrors the
+// BTCPay webhook settle path (routes/webhooks.ts).
+const ConfirmAchSchema = z.object({
+  bankLast4: z.string().max(4).nullable().optional(),
+});
+
+router.post("/admin/orders/:id/confirm-ach", async (req, res) => {
+  try {
+    const parsed = ConfirmAchSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      res.status(400).json({ error: "bad_request", message: parsed.error.message });
+      return;
+    }
+
+    const order = await db.query.ordersTable.findFirst({
+      where: eq(ordersTable.id, req.params.id),
+    });
+    if (!order) {
+      res.status(404).json({ error: "not_found", message: "Order not found" });
+      return;
+    }
+
+    const payment = await db.query.paymentRecordsTable.findFirst({
+      where: and(
+        eq(paymentRecordsTable.orderId, order.id),
+        eq(paymentRecordsTable.status, "pending")
+      ),
+    });
+    if (!payment) {
+      res.status(404).json({
+        error: "not_found",
+        message: "No pending ACH payment record found for this order",
+      });
+      return;
+    }
+
+    const paymentUpdates: Partial<typeof paymentRecordsTable.$inferInsert> = {
+      status: "confirmed",
+      confirmedAt: new Date(),
+    };
+    if (parsed.data.bankLast4 != null) paymentUpdates.bankLast4 = parsed.data.bankLast4;
+
+    // Settle the payment record and confirm the order atomically — mirrors the
+    // BTCPay webhook settle path; neither write should land without the other.
+    await db.transaction(async (tx) => {
+      await tx
+        .update(paymentRecordsTable)
+        .set(paymentUpdates)
+        .where(eq(paymentRecordsTable.id, payment.id));
+      await tx
+        .update(ordersTable)
+        .set({ status: "confirmed" })
+        .where(eq(ordersTable.id, order.id));
+    });
+
+    res.json({
+      orderId: order.id,
+      paymentRecordId: payment.id,
+      orderStatus: "confirmed",
+      paymentStatus: "confirmed",
+    });
+  } catch (err) {
+    console.error("admin confirmAch error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });
   }
 });

@@ -6,15 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { OrderSummaryChannel } from "./orderSummaryChannel";
-import type { OrderSummaryPaymentMethod } from "./orderSummaryPaymentMethod";
 import type { OrderSummaryStatus } from "./orderSummaryStatus";
+import type { PaymentMethod } from "./paymentMethod";
 
 export interface OrderSummary {
   id: string;
   subtotalCents: number;
   discountCents: number;
   totalCents: number;
-  paymentMethod: OrderSummaryPaymentMethod;
+  paymentMethod: PaymentMethod;
   status: OrderSummaryStatus;
   channel: OrderSummaryChannel;
 }

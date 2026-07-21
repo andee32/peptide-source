@@ -11,9 +11,10 @@ import { z } from "zod/v4";
 import { customerAccountsTable } from "./customerAccounts";
 
 export const paymentMethodEnum = pgEnum("payment_method", [
-  "card",
   "crypto_btc",
   "crypto_usdc",
+  "ach",
+  "wire",
 ]);
 
 export const orderChannelEnum = pgEnum("order_channel", ["retail", "wholesale"]);
@@ -24,6 +25,7 @@ export const orderStatusEnum = pgEnum("order_status", [
   "confirmed",
   "failed",
   "expired",
+  "refunded",
 ]);
 
 export const paymentRecordStatusEnum = pgEnum("payment_record_status", [
@@ -74,6 +76,9 @@ export const paymentRecordsTable = pgTable("payment_records", {
   amountCents: integer("amount_cents").notNull(),
   paymentAddress: text("payment_address"),
   paymentUrl: text("payment_url"),
+  method: text("method"),
+  referenceCode: text("reference_code"),
+  bankLast4: text("bank_last4"),
   txHash: text("tx_hash"),
   confirmedAt: timestamp("confirmed_at"),
   expiresAt: timestamp("expires_at").notNull(),

@@ -191,11 +191,13 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "422":
-          description: Wholesale order rule violation (kit-only or MOQ)
+          description: Order rule violation — wholesale kit-only/MOQ, or a line item whose SKU is compliance-blocked
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MoqError"
+                oneOf:
+                  - $ref: "#/components/schemas/MoqError"
+                  - $ref: "#/components/schemas/SkuNotAvailable"
 
   /orders/{id}:
     get:
@@ -277,6 +279,78 @@ paths:
                 format: binary
         "404":
           description: Payment record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /orders/{id}/ach-instructions:
+    post:
+      operationId: createAchInstructions
+      tags: [orders]
+      summary: Get ACH / wire payment instructions for an order
+      description: Returns bank wire / ACH instructions and a unique reference code, and creates (or returns an existing) pending payment_records row with method=ach. Only valid for orders whose paymentMethod is ach or wire.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Instructions created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AchInstructions"
+        "200":
+          description: Existing pending instructions returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AchInstructions"
+        "400":
+          description: Order does not use the ACH/wire rail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /admin/orders/{id}/confirm-ach:
+    post:
+      operationId: adminConfirmAch
+      tags: [orders]
+      summary: Admin — confirm an ACH / wire payment as received
+      description: Settles the order's pending ACH payment_records row (status=confirmed) and sets the order status to confirmed. Requires x-admin-key header.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmAchRequest"
+      responses:
+        "200":
+          description: Payment confirmed and order settled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfirmAchResponse"
+        "401":
+          description: Admin key required
+        "404":
+          description: Order or pending ACH payment record not found
           content:
             application/json:
               schema:
@@ -1339,6 +1413,22 @@ components:
         - message
         - code
 
+    SkuNotAvailable:
+      type: object
+      description: A line item references a product whose complianceStatus is blocked (422). The SKU is unlisted and unsellable.
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+          enum: [SKU_NOT_AVAILABLE]
+      required:
+        - error
+        - message
+        - code
+
     HealthStatus:
       type: object
       properties:
@@ -1357,6 +1447,11 @@ components:
       required:
         - error
         - message
+
+    ComplianceStatus:
+      type: string
+      description: Per-SKU compliance gate. blocked = unlisted + unsellable; restricted = listed and orderable (reserved for later); cleared = normal.
+      enum: [blocked, restricted, cleared]
 
     ProductVariant:
       type: object
@@ -1395,6 +1490,8 @@ components:
           type: string
         category:
           type: string
+        complianceStatus:
+          $ref: "#/components/schemas/ComplianceStatus"
         shortDescription:
           type: string
         featured:
@@ -1418,6 +1515,7 @@ components:
         - name
         - slug
         - category
+        - complianceStatus
         - shortDescription
         - featured
         - startingPriceCents
@@ -1592,8 +1690,15 @@ components:
             $ref: "#/components/schemas/CreateOrderLineItem"
           minItems: 1
         paymentMethod:
+          $ref: "#/components/schemas/PaymentMethod"
+        ruoAffirmed:
+          type: boolean
+          description: Must be true. Server-side RUO (Research Use Only) affirmation; the order is rejected (400) when not exactly true.
+        signerName:
           type: string
-          enum: [card, crypto_btc, crypto_usdc]
+          minLength: 1
+          maxLength: 200
+          description: Name of the person affirming the RUO attestation. Snapshotted into the order_attestations record.
         shippingName:
           type: string
         shippingEmail:
@@ -1616,12 +1721,19 @@ components:
       required:
         - lineItems
         - paymentMethod
+        - ruoAffirmed
+        - signerName
         - shippingName
         - shippingEmail
         - shippingAddress1
         - shippingCity
         - shippingState
         - shippingZip
+
+    PaymentMethod:
+      type: string
+      description: Payment rail. Crypto-first (BTCPay) + ACH/wire only. Card is not supported.
+      enum: [crypto_btc, crypto_usdc, ach, wire]
 
     OrderSummary:
       type: object
@@ -1635,11 +1747,10 @@ components:
         totalCents:
           type: integer
         paymentMethod:
-          type: string
-          enum: [card, crypto_btc, crypto_usdc]
+          $ref: "#/components/schemas/PaymentMethod"
         status:
           type: string
-          enum: [pending, awaiting_payment, confirmed, failed, expired]
+          enum: [pending, awaiting_payment, confirmed, failed, expired, refunded]
         channel:
           type: string
           enum: [retail, wholesale]
@@ -1774,3 +1885,94 @@ components:
         - amountCents
         - expiresAt
         - qrPaymentUri
+
+    AchInstructions:
+      type: object
+      description: Bank wire / ACH payment instructions for an order, plus a unique reference code the customer must include in the transfer memo.
+      properties:
+        paymentRecordId:
+          type: string
+        orderId:
+          type: string
+        referenceCode:
+          type: string
+          description: Unique memo/reference code the customer must include with the transfer so it can be reconciled.
+        amountCents:
+          type: integer
+        amount:
+          type: string
+          description: USD amount as a decimal string (e.g. "375.00").
+        currency:
+          type: string
+          enum: [USD]
+        status:
+          type: string
+          enum: [pending]
+        expiresAt:
+          type: string
+          format: date-time
+        instructions:
+          $ref: "#/components/schemas/BankInstructions"
+      required:
+        - paymentRecordId
+        - orderId
+        - referenceCode
+        - amountCents
+        - amount
+        - currency
+        - status
+        - expiresAt
+        - instructions
+
+    BankInstructions:
+      type: object
+      description: Beneficiary bank details for ACH / wire transfers. PLACEHOLDER values until real banking is provisioned.
+      properties:
+        beneficiaryName:
+          type: string
+        bankName:
+          type: string
+        routingNumber:
+          type: string
+        accountNumber:
+          type: string
+        accountType:
+          type: string
+        memo:
+          type: string
+          description: The referenceCode, restated for the transfer memo field.
+      required:
+        - beneficiaryName
+        - bankName
+        - routingNumber
+        - accountNumber
+        - accountType
+        - memo
+
+    ConfirmAchRequest:
+      type: object
+      properties:
+        bankLast4:
+          type: string
+          nullable: true
+          description: Optional last 4 digits of the originating account, recorded on the payment record.
+      additionalProperties: false
+
+    ConfirmAchResponse:
+      type: object
+      properties:
+        orderId:
+          type: string
+        paymentRecordId:
+          type: string
+        orderStatus:
+          type: string
+          enum: [confirmed]
+        paymentStatus:
+          type: string
+          enum: [confirmed]
+      required:
+        - orderId
+        - paymentRecordId
+        - orderStatus
+        - paymentStatus

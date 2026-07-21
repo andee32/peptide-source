@@ -15,4 +15,5 @@ export const OrderSummaryStatus = {
   confirmed: "confirmed",
   failed: "failed",
   expired: "expired",
+  refunded: "refunded",
 } as const;

@@ -5,12 +5,14 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ComplianceStatus } from "./complianceStatus";
 
 export interface Product {
   id: number;
   name: string;
   slug: string;
   category: string;
+  complianceStatus: ComplianceStatus;
   shortDescription: string;
   featured: boolean;
   imageUrl?: string | null;
