@@ -28,7 +28,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  ShieldCheck,
   LogOut,
   Plus,
   FlaskConical,
@@ -65,22 +64,7 @@ import { CatalogPanel } from "@/components/admin/CatalogPanel";
 
 type BatchStatus = "pending" | "released" | "quarantined";
 type TestType = "purity" | "endotoxin" | "sterility" | "heavyMetals";
-type ReviewerStatus = "pending" | "approved" | "rejected";
-type AdminTab = "dashboard" | "orders" | "catalog" | "batches" | "reviewers" | "subscriptions" | "products" | "accounts";
-
-type ReviewerSubmission = {
-  id: number;
-  reviewerHandle: string;
-  platform: string;
-  janoshikTaskId: string;
-  productId: number;
-  productName: string;
-  purityPercent: number | null;
-  notes: string | null;
-  status: ReviewerStatus;
-  submittedAt: string;
-  reviewedAt: string | null;
-};
+type AdminTab = "dashboard" | "orders" | "catalog" | "batches" | "subscriptions" | "products" | "accounts";
 
 type AdminCoaResult = {
   id: string;
@@ -206,11 +190,15 @@ function LoginForm({ onLogin }: { onLogin: (key: string) => void }) {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-sm">
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center border border-primary/20">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-          </div>
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white shadow-sm">
+            <img
+              src="/images/wolf-logo-t.png"
+              alt="AT Lab Sourcing"
+              className="h-7 w-7 object-contain"
+            />
+          </span>
           <div>
-            <div className="font-bold text-sm">The Lab Standard</div>
+            <div className="font-display text-base font-extrabold tracking-tight">AT Lab Sourcing</div>
             <div className="text-muted-foreground text-xs font-mono">Admin Portal</div>
           </div>
         </div>
@@ -918,231 +906,6 @@ function BatchDetailPanel({
   );
 }
 
-function ReviewerStatusBadge({ status }: { status: ReviewerStatus }) {
-  if (status === "approved")
-    return (
-      <Badge className="bg-primary/20 text-primary border-primary/30 gap-1 font-mono text-xs">
-        <CheckCircle2 className="h-3 w-3" /> Approved
-      </Badge>
-    );
-  if (status === "rejected")
-    return (
-      <Badge className="bg-destructive/20 text-destructive border-destructive/30 gap-1 font-mono text-xs">
-        <AlertTriangle className="h-3 w-3" /> Rejected
-      </Badge>
-    );
-  return (
-    <Badge className="bg-yellow-500/10 text-yellow-400 border-yellow-500/30 gap-1 font-mono text-xs">
-      <Clock className="h-3 w-3" /> Pending
-    </Badge>
-  );
-}
-
-function ReviewerSubmissionsPanel({ adminKey }: { adminKey: string }) {
-  const [submissions, setSubmissions] = useState<ReviewerSubmission[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [actioningId, setActioningId] = useState<number | null>(null);
-  const [statusFilter, setStatusFilter] = useState<ReviewerStatus | "all">("pending");
-  const [adminNotesMap, setAdminNotesMap] = useState<Record<number, string>>({});
-
-  const loadSubmissions = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const data = await adminFetch<ReviewerSubmission[]>("/reviewer-submissions", adminKey);
-      setSubmissions(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load submissions");
-    } finally {
-      setLoading(false);
-    }
-  }, [adminKey]);
-
-  useEffect(() => { void loadSubmissions(); }, []);
-
-  async function handleAction(id: number, status: "approved" | "rejected") {
-    setActioningId(id);
-    const adminNotes = adminNotesMap[id] ?? "";
-    try {
-      await adminFetch(`/reviewer-submissions/${id}`, adminKey, {
-        method: "PATCH",
-        body: JSON.stringify({ status, adminNotes: adminNotes || undefined }),
-      });
-      setSubmissions((prev) =>
-        prev.map((s) =>
-          s.id === id ? { ...s, status, reviewedAt: new Date().toISOString() } : s
-        )
-      );
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Action failed");
-    } finally {
-      setActioningId(null);
-    }
-  }
-
-  const filtered =
-    statusFilter === "all"
-      ? submissions
-      : submissions.filter((s) => s.status === statusFilter);
-
-  const pendingCount = submissions.filter((s) => s.status === "pending").length;
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Reviewer Submissions</h1>
-          <p className="text-muted-foreground text-sm mt-1 font-mono">
-            {pendingCount} pending review
-          </p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="font-mono gap-2"
-          onClick={() => void loadSubmissions()}
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-          Refresh
-        </Button>
-      </div>
-
-      <div className="flex gap-2">
-        {(["all", "pending", "approved", "rejected"] as const).map((s) => (
-          <Button
-            key={s}
-            variant={statusFilter === s ? "default" : "outline"}
-            size="sm"
-            className="font-mono capitalize"
-            onClick={() => setStatusFilter(s)}
-          >
-            {s === "all" ? "All" : s}
-            {s === "pending" && pendingCount > 0 && (
-              <span className="ml-1.5 inline-flex items-center justify-center h-4 w-4 rounded-full bg-yellow-400 text-black text-[10px] font-bold">
-                {pendingCount}
-              </span>
-            )}
-          </Button>
-        ))}
-      </div>
-
-      {loading && submissions.length === 0 ? (
-        <div className="flex items-center justify-center py-16">
-          <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-        </div>
-      ) : error ? (
-        <div className="text-center py-12">
-          <AlertTriangle className="h-6 w-6 text-destructive mx-auto mb-2" />
-          <p className="text-destructive text-sm font-mono">{error}</p>
-        </div>
-      ) : filtered.length === 0 ? (
-        <Card className="border-border/30">
-          <CardContent className="py-12 text-center text-muted-foreground font-mono text-sm">
-            No submissions in this category.
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((s) => (
-            <Card key={s.id} className="border-border/30">
-              <CardContent className="p-5">
-                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-mono font-semibold text-sm">
-                        {s.reviewerHandle}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] font-mono uppercase tracking-wider"
-                      >
-                        {s.platform}
-                      </Badge>
-                      <ReviewerStatusBadge status={s.status} />
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      <span className="font-medium text-foreground">{s.productName}</span>
-                      {s.purityPercent != null && (
-                        <span className="ml-2 font-mono text-primary">
-                          {s.purityPercent.toFixed(1)}% purity
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="text-muted-foreground">Task ID:</span>
-                      <a
-                        href={`https://janoshik.com/task/${s.janoshikTaskId}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-mono text-primary hover:underline"
-                      >
-                        {s.janoshikTaskId}
-                      </a>
-                    </div>
-                    {s.notes && (
-                      <p className="text-xs text-muted-foreground italic line-clamp-2">
-                        "{s.notes}"
-                      </p>
-                    )}
-                    <div className="text-[10px] text-muted-foreground font-mono">
-                      Submitted {format(new Date(s.submittedAt), "MMM d, yyyy 'at' h:mm a")}
-                      {s.reviewedAt && ` · Reviewed ${format(new Date(s.reviewedAt), "MMM d, yyyy")}`}
-                    </div>
-                  </div>
-
-                  {s.status === "pending" && (
-                    <div className="flex flex-col gap-3 shrink-0 sm:w-56">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                          Admin Notes (optional)
-                        </label>
-                        <textarea
-                          rows={2}
-                          placeholder="Reason for approval/rejection…"
-                          className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                          value={adminNotesMap[s.id] ?? ""}
-                          onChange={(e) =>
-                            setAdminNotesMap((prev) => ({
-                              ...prev,
-                              [s.id]: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          className="flex-1 font-mono text-xs bg-emerald-600 hover:bg-emerald-500 text-white"
-                          disabled={actioningId === s.id}
-                          onClick={() => void handleAction(s.id, "approved")}
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 font-mono text-xs border-destructive/40 text-destructive hover:bg-destructive/10"
-                          disabled={actioningId === s.id}
-                          onClick={() => void handleAction(s.id, "rejected")}
-                        >
-                          <AlertTriangle className="h-3.5 w-3.5 mr-1" />
-                          Reject
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey: string; onLogout: () => void; initialTab?: AdminTab }) {
   const [batches, setBatches] = useState<AdminBatch[]>([]);
   const [products, setProducts] = useState<AdminProduct[]>([]);
@@ -1197,8 +960,12 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
       <header className="border-b border-border/50 bg-card/50 sticky top-0 z-10 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            <span className="font-bold text-sm">Lab Standard</span>
+            <img
+              src="/images/wolf-logo-t.png"
+              alt="AT Lab Sourcing"
+              className="h-7 w-7 object-contain"
+            />
+            <span className="font-display text-base font-extrabold tracking-tight">AT Lab Sourcing</span>
             <span className="text-muted-foreground/60 text-sm font-mono">/</span>
             <span className="text-muted-foreground text-sm font-mono">Admin</span>
           </div>
@@ -1223,7 +990,6 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
             { key: "orders", label: "Orders" },
             { key: "catalog", label: "Catalog" },
             { key: "batches", label: "Batch Management" },
-            { key: "reviewers", label: "Reviewer Submissions" },
             { key: "subscriptions", label: "Subscriptions" },
             { key: "accounts", label: "Accounts" },
             { key: "products", label: "Products" },
@@ -1254,8 +1020,6 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
           <ProductsPanel adminKey={adminKey} />
         ) : activeTab === "accounts" ? (
           <AccountsPanel adminKey={adminKey} />
-        ) : activeTab === "reviewers" ? (
-          <ReviewerSubmissionsPanel adminKey={adminKey} />
         ) : activeTab === "subscriptions" ? (
           <AdminSubscriptionsPanel adminKey={adminKey} />
         ) : loading && batches.length === 0 ? (
@@ -2397,12 +2161,9 @@ export function AdminPage() {
 
   const initialTab: AdminTab =
     typeof window !== "undefined" &&
-    window.location.pathname.includes("reviewer-submissions")
-      ? "reviewers"
-      : typeof window !== "undefined" &&
-          window.location.pathname.includes("subscriptions")
-        ? "subscriptions"
-        : "dashboard";
+    window.location.pathname.includes("subscriptions")
+      ? "subscriptions"
+      : "dashboard";
 
   const handleLogin = (key: string) => {
     setAdminKey(key);

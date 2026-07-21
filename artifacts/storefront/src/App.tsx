@@ -65,7 +65,6 @@ function Router() {
   return (
     <Switch>
       <Route path="/admin/batches" component={AdminPage} />
-      <Route path="/admin/reviewer-submissions" component={AdminPage} />
       <Route path="/admin/subscriptions" component={AdminPage} />
       <Route path="/admin" component={AdminPage} />
       <Route component={StorefrontRouter} />
