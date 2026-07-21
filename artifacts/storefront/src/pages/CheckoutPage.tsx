@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useCart } from "@/contexts/cart";
+import { useWholesaleSession } from "@/hooks/useWholesaleSession";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +17,10 @@ import {
   AlertTriangle,
   Tag,
   ChevronRight,
+  Building2,
 } from "lucide-react";
+
+const WHOLESALE_MOQ_KITS = 5;
 
 type PaymentMethod = "crypto_btc" | "crypto_usdc" | "ach";
 
@@ -157,6 +161,7 @@ function OrderSummaryPanel({
   paymentMethod: PaymentMethod;
 }) {
   const { cartItems } = useCart();
+  const { session } = useWholesaleSession();
   const totalCents = subtotalCents - discountCents;
   const isCrypto = paymentMethod === "crypto_btc" || paymentMethod === "crypto_usdc";
 
@@ -207,6 +212,14 @@ function OrderSummaryPanel({
         </div>
       </div>
 
+      {session && (
+        <div className="mt-4 bg-teal-950/50 border border-teal-800/50 rounded-lg p-3 text-xs text-teal-300 leading-relaxed">
+          Prices shown are catalog list prices. Your{" "}
+          {session.priceTierName ?? "wholesale"} tier pricing is applied by the
+          server — the final amount due reflects your tier.
+        </div>
+      )}
+
       {isCrypto && (
         <div className="mt-4 bg-teal-950/50 border border-teal-800/50 rounded-lg p-3 text-xs text-teal-300 leading-relaxed">
           Research transparency verified on-chain. 10% discount applied
@@ -219,7 +232,13 @@ function OrderSummaryPanel({
 
 export function CheckoutPage() {
   const { cartItems, totalCents, clearCart } = useCart();
+  const { session } = useWholesaleSession();
   const [, navigate] = useLocation();
+
+  // All catalog variants are kits, so total kits = total quantity.
+  const totalKits = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+  const isWholesale = !!session;
+  const moqMet = !isWholesale || totalKits >= WHOLESALE_MOQ_KITS;
 
   const [step, setStep] = useState<CheckoutStep>("form");
   const [paymentMethod, setPaymentMethod] =
@@ -308,6 +327,12 @@ export function CheckoutPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate()) return;
+    if (isWholesale && !moqMet) {
+      setSubmitError(
+        `Wholesale orders require a ${WHOLESALE_MOQ_KITS}-kit minimum. Your cart has ${totalKits}.`
+      );
+      return;
+    }
     setSubmitting(true);
     setSubmitError(null);
 
@@ -321,6 +346,11 @@ export function CheckoutPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // Wholesale session: backend switches to wholesale channel, applies
+          // the account's tier pricing, and enforces the 5-kit MOQ.
+          ...(session
+            ? { accountId: session.accountId, token: session.token }
+            : {}),
           lineItems,
           paymentMethod,
           ruoAffirmed,
@@ -337,7 +367,22 @@ export function CheckoutPage() {
       });
 
       if (!createRes.ok) {
-        const err = (await createRes.json()) as { message?: string };
+        const err = (await createRes.json().catch(() => ({}))) as {
+          message?: string;
+          code?: string;
+        };
+        if (createRes.status === 422 && err.code === "MOQ_NOT_MET") {
+          throw new Error(
+            err.message ??
+              `Wholesale orders require a ${WHOLESALE_MOQ_KITS}-kit minimum.`
+          );
+        }
+        if (createRes.status === 403) {
+          throw new Error(
+            err.message ??
+              "This wholesale account is not approved for ordering. Check your account status."
+          );
+        }
         throw new Error(err.message ?? "Failed to create order");
       }
       const order = (await createRes.json()) as { id: string };
@@ -714,6 +759,44 @@ export function CheckoutPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             <form onSubmit={handleSubmit} className="space-y-6">
+              {isWholesale && (
+                <div className="bg-teal-950/40 border border-teal-800/50 rounded-xl p-5">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-2 text-teal-300">
+                      <Building2 className="w-4 h-4" />
+                      <span className="text-sm font-semibold">
+                        Wholesale · {session!.businessName || "Account"}
+                      </span>
+                    </div>
+                    <span
+                      className={`text-xs font-mono ${
+                        moqMet ? "text-emerald-400" : "text-amber-400"
+                      }`}
+                    >
+                      {totalKits} / {WHOLESALE_MOQ_KITS} kits
+                    </span>
+                  </div>
+                  <p className="text-xs text-teal-300/80 leading-relaxed">
+                    Your{" "}
+                    {session!.priceTierName ? (
+                      <span className="font-medium text-teal-200">
+                        {session!.priceTierName}
+                      </span>
+                    ) : (
+                      "assigned"
+                    )}{" "}
+                    tier pricing applies — final per-kit prices are resolved by the
+                    server at order creation and reflected in the amount due.
+                  </p>
+                  {!moqMet && (
+                    <p className="mt-2 text-xs text-amber-400">
+                      Add {WHOLESALE_MOQ_KITS - totalKits} more kit
+                      {WHOLESALE_MOQ_KITS - totalKits === 1 ? "" : "s"} to reach the{" "}
+                      {WHOLESALE_MOQ_KITS}-kit minimum before ordering.
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
                 <h2 className="text-base font-semibold text-white mb-5">
                   Shipping Information
@@ -1021,13 +1104,22 @@ export function CheckoutPage() {
 
               <Button
                 type="submit"
-                disabled={submitting || !ruoAffirmed || !signerName.trim()}
+                disabled={submitting || !ruoAffirmed || !signerName.trim() || !moqMet}
                 className="w-full bg-teal-600 hover:bg-teal-500 text-white font-semibold py-3 h-auto rounded-xl disabled:opacity-50"
               >
                 {submitting ? (
                   <span className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     Creating Order…
+                  </span>
+                ) : isWholesale ? (
+                  <span className="flex items-center gap-2 justify-center">
+                    <Building2 className="w-4 h-4" />
+                    {moqMet
+                      ? "Place Wholesale Order · Tier Pricing"
+                      : `Add ${WHOLESALE_MOQ_KITS - totalKits} More Kit${
+                          WHOLESALE_MOQ_KITS - totalKits === 1 ? "" : "s"
+                        }`}
                   </span>
                 ) : (
                   <span className="flex items-center gap-2 justify-center">

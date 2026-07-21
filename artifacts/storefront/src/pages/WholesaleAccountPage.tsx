@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useGetAccount, getGetAccountQueryKey, type AccountStatus } from "@atlab/api-client-react";
+import { useWholesaleSession } from "@/hooks/useWholesaleSession";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,6 +65,7 @@ export function WholesaleAccountPage() {
   const [idInput, setIdInput] = useState("");
   const [tokenInput, setTokenInput] = useState("");
   const [query, setQuery] = useState<{ id: string; token: string } | null>(null);
+  const { session, set: setSession, clear: clearSession } = useWholesaleSession();
 
   const account = useGetAccount(
     query?.id ?? "",
@@ -197,12 +199,39 @@ export function WholesaleAccountPage() {
               </div>
 
               {account.data.status === "approved" ? (
-                <div className="flex items-start gap-3 rounded-lg border border-[color-mix(in_srgb,var(--atl-teal)_35%,transparent)] bg-[color-mix(in_srgb,var(--atl-teal)_10%,transparent)] p-4">
-                  <PackageCheck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                  <p className="text-sm text-foreground">
-                    You can now place wholesale orders — <strong>5-kit minimum</strong>, and your tier
-                    pricing applies automatically at checkout.
-                  </p>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 rounded-lg border border-[color-mix(in_srgb,var(--atl-teal)_35%,transparent)] bg-[color-mix(in_srgb,var(--atl-teal)_10%,transparent)] p-4">
+                    <PackageCheck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                    <p className="text-sm text-foreground">
+                      You can now place wholesale orders — <strong>5-kit minimum</strong>, and your tier
+                      pricing applies automatically at checkout.
+                    </p>
+                  </div>
+                  {session?.accountId === account.data.id ? (
+                    <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/50 px-4 py-3">
+                      <span className="text-sm text-muted-foreground">
+                        <CheckCircle2 className="inline h-4 w-4 text-primary mr-1.5 -mt-0.5" />
+                        Signed in for wholesale ordering.
+                      </span>
+                      <Button variant="outline" size="sm" className="font-mono uppercase tracking-wider" onClick={clearSession}>
+                        Sign out
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      className="w-full font-mono uppercase tracking-widest h-11"
+                      onClick={() =>
+                        setSession({
+                          accountId: account.data!.id,
+                          token: query!.token,
+                          businessName: account.data!.businessName,
+                          priceTierName: account.data!.priceTier?.name ?? null,
+                        })
+                      }
+                    >
+                      Use this account for ordering
+                    </Button>
+                  )}
                 </div>
               ) : account.data.status === "pending" ? (
                 <div className="flex items-start gap-3 rounded-lg border border-[color-mix(in_srgb,var(--atl-gold)_45%,transparent)] bg-[color-mix(in_srgb,var(--atl-gold)_10%,transparent)] p-4">

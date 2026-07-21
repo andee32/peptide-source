@@ -1,12 +1,21 @@
 import { useCart } from "@/contexts/cart";
+import { useWholesaleSession } from "@/hooks/useWholesaleSession";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Minus, Plus, Trash2 } from "lucide-react";
+import { Minus, Plus, Trash2, Building2 } from "lucide-react";
 import { useLocation } from "wouter";
 
+const WHOLESALE_MOQ_KITS = 5;
+
 export function CartDrawer() {
-  const { isCartOpen, setIsCartOpen, cartItems, updateQuantity, removeFromCart, totalCents } = useCart();
+  const { isCartOpen, setIsCartOpen, cartItems, updateQuantity, removeFromCart, totalCents, totalItems } = useCart();
+  const { session } = useWholesaleSession();
   const [, setLocation] = useLocation();
+
+  // All catalog variants are kits, so total kits = total quantity.
+  const totalKits = totalItems;
+  const moqMet = !session || totalKits >= WHOLESALE_MOQ_KITS;
+  const moqProgress = Math.min(totalKits / WHOLESALE_MOQ_KITS, 1) * 100;
 
   return (
     <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
@@ -61,20 +70,44 @@ export function CartDrawer() {
         </div>
 
         <div className="border-t border-border pt-6 mt-auto">
+          {session && (
+            <div className="mb-4 rounded-lg border border-primary/25 bg-primary/5 p-3">
+              <div className="flex items-center justify-between text-xs font-mono mb-2">
+                <span className="flex items-center gap-1.5 text-primary">
+                  <Building2 className="h-3.5 w-3.5" />
+                  Wholesale · 5-kit minimum
+                </span>
+                <span className={moqMet ? "text-primary" : "text-muted-foreground"}>
+                  {totalKits} / {WHOLESALE_MOQ_KITS} kits
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${moqProgress}%` }}
+                />
+              </div>
+              {!moqMet && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Add {WHOLESALE_MOQ_KITS - totalKits} more kit{WHOLESALE_MOQ_KITS - totalKits === 1 ? "" : "s"} to meet the minimum.
+                </p>
+              )}
+            </div>
+          )}
           <div className="flex justify-between text-lg font-semibold mb-6">
             <span>Subtotal</span>
             <span className="font-mono">${(totalCents / 100).toFixed(2)}</span>
           </div>
-          <Button 
-            className="w-full font-mono uppercase tracking-wider h-12" 
+          <Button
+            className="w-full font-mono uppercase tracking-wider h-12"
             size="lg"
-            disabled={cartItems.length === 0}
+            disabled={cartItems.length === 0 || !moqMet}
             onClick={() => {
               setIsCartOpen(false);
               setLocation("/checkout");
             }}
           >
-            Checkout
+            {session && !moqMet ? `Add ${WHOLESALE_MOQ_KITS - totalKits} More Kit${WHOLESALE_MOQ_KITS - totalKits === 1 ? "" : "s"}` : "Checkout"}
           </Button>
         </div>
       </SheetContent>

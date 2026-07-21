@@ -1,12 +1,14 @@
 import { Link } from "wouter";
-import { ShoppingCart, Menu } from "lucide-react";
+import { ShoppingCart, Menu, Building2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/cart";
+import { useWholesaleSession } from "@/hooks/useWholesaleSession";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useState } from "react";
 
 export function Navbar() {
   const { totalItems, setIsCartOpen } = useCart();
+  const { session, clear: clearSession } = useWholesaleSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
@@ -76,7 +78,23 @@ export function Navbar() {
 
         {/* Actions */}
         <div className="flex items-center gap-4">
-          <Button 
+          {session && (
+            <div className="hidden sm:flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 pl-2.5 pr-1 py-1 text-xs font-mono">
+              <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span className="text-foreground max-w-[160px] truncate">
+                Wholesale · {session.businessName || "Account"}
+              </span>
+              <button
+                onClick={clearSession}
+                className="ml-0.5 rounded-full p-1 text-muted-foreground hover:text-foreground hover:bg-primary/15 transition-colors"
+                aria-label="Sign out of wholesale"
+                title="Sign out of wholesale"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+          <Button
             variant="ghost" 
             size="icon" 
             className="relative hover-elevate"
