@@ -958,25 +958,25 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/50 bg-card/50 sticky top-0 z-10 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <img
               src="/images/wolf-logo-t.png"
               alt="AT Lab Sourcing"
-              className="h-7 w-7 object-contain"
+              className="h-7 w-7 object-contain shrink-0"
             />
-            <span className="font-display text-base font-extrabold tracking-tight">AT Lab Sourcing</span>
-            <span className="text-muted-foreground/60 text-sm font-mono">/</span>
-            <span className="text-muted-foreground text-sm font-mono">Admin</span>
+            <span className="font-display text-sm sm:text-base font-extrabold tracking-tight truncate">AT Lab Sourcing</span>
+            <span className="text-muted-foreground/60 text-sm font-mono hidden sm:inline">/</span>
+            <span className="text-muted-foreground text-sm font-mono hidden sm:inline">Admin</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={loadData} className="font-mono gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            <Button variant="ghost" size="sm" onClick={loadData} className="font-mono gap-2" aria-label="Refresh">
               <RefreshCw className="h-3.5 w-3.5" />
-              Refresh
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <Button variant="ghost" size="sm" onClick={onLogout} className="font-mono gap-2 text-muted-foreground">
+            <Button variant="ghost" size="sm" onClick={onLogout} className="font-mono gap-2 text-muted-foreground" aria-label="Sign Out">
               <LogOut className="h-3.5 w-3.5" />
-              Sign Out
+              <span className="hidden sm:inline">Sign Out</span>
             </Button>
           </div>
         </div>
@@ -984,7 +984,7 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
 
       {/* Tab bar */}
       <div className="border-b border-border/50 bg-card/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex gap-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex gap-0 overflow-x-auto whitespace-nowrap scrollbar-none">
           {([
             { key: "dashboard", label: "Dashboard" },
             { key: "orders", label: "Orders" },
@@ -997,7 +997,7 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
             <button
               key={tab.key}
               onClick={() => { setActiveTab(tab.key); setSelectedBatch(null); }}
-              className={`px-5 py-3 text-sm font-mono font-medium border-b-2 transition-colors ${
+              className={`shrink-0 px-4 sm:px-5 py-3 text-sm font-mono font-medium border-b-2 transition-colors ${
                 activeTab === tab.key
                   ? "border-primary text-primary"
                   : "border-transparent text-muted-foreground hover:text-foreground"
