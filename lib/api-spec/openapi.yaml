@@ -1818,6 +1818,12 @@ components:
         latestBatchPurity:
           type: number
           nullable: true
+        latestBatchIsDemo:
+          type: boolean
+          nullable: true
+          description: >-
+            Demo status of the batch behind latestBatchPurity. True/null =
+            treat the purity as fabricated sample data, not a real COA.
       required:
         - id
         - name
@@ -1919,6 +1925,12 @@ components:
         status:
           type: string
           enum: [pending, released, quarantined]
+        isDemo:
+          type: boolean
+          description: >-
+            True when this batch is fabricated demonstration/sample data, not a
+            real third-party certificate of analysis. Fail-safe: any batch not
+            explicitly marked real is demo.
         purityPercent:
           type: number
           nullable: true
@@ -1928,6 +1940,7 @@ components:
         - productName
         - productionDate
         - status
+        - isDemo
 
     BatchDetail:
       allOf:

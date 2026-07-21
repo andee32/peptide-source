@@ -41,6 +41,12 @@ export const ListProductsResponseItem = zod.object({
   latestBatchId: zod.string().nullish(),
   latestBatchStatus: zod.string().nullish(),
   latestBatchPurity: zod.number().nullish(),
+  latestBatchIsDemo: zod
+    .boolean()
+    .nullish()
+    .describe(
+      "Demo status of the batch behind latestBatchPurity. True\/null = treat the purity as fabricated sample data, not a real COA.",
+    ),
 });
 export const ListProductsResponse = zod.array(ListProductsResponseItem);
 
@@ -70,6 +76,12 @@ export const GetProductResponse = zod
     latestBatchId: zod.string().nullish(),
     latestBatchStatus: zod.string().nullish(),
     latestBatchPurity: zod.number().nullish(),
+    latestBatchIsDemo: zod
+      .boolean()
+      .nullish()
+      .describe(
+        "Demo status of the batch behind latestBatchPurity. True\/null = treat the purity as fabricated sample data, not a real COA.",
+      ),
   })
   .and(
     zod.object({
@@ -93,6 +105,11 @@ export const GetProductResponse = zod
           productName: zod.string(),
           productionDate: zod.date(),
           status: zod.enum(["pending", "released", "quarantined"]),
+          isDemo: zod
+            .boolean()
+            .describe(
+              "True when this batch is fabricated demonstration\/sample data, not a real third-party certificate of analysis. Fail-safe: any batch not explicitly marked real is demo.",
+            ),
           purityPercent: zod.number().nullish(),
         })
         .and(
@@ -238,6 +255,11 @@ export const ListBatchesResponseItem = zod.object({
   productName: zod.string(),
   productionDate: zod.date(),
   status: zod.enum(["pending", "released", "quarantined"]),
+  isDemo: zod
+    .boolean()
+    .describe(
+      "True when this batch is fabricated demonstration\/sample data, not a real third-party certificate of analysis. Fail-safe: any batch not explicitly marked real is demo.",
+    ),
   purityPercent: zod.number().nullish(),
 });
 export const ListBatchesResponse = zod.array(ListBatchesResponseItem);
@@ -265,6 +287,11 @@ export const GetBatchResponse = zod
     productName: zod.string(),
     productionDate: zod.date(),
     status: zod.enum(["pending", "released", "quarantined"]),
+    isDemo: zod
+      .boolean()
+      .describe(
+        "True when this batch is fabricated demonstration\/sample data, not a real third-party certificate of analysis. Fail-safe: any batch not explicitly marked real is demo.",
+      ),
     purityPercent: zod.number().nullish(),
   })
   .and(
@@ -1500,6 +1527,12 @@ export const AdminPatchProductResponse = zod
     latestBatchId: zod.string().nullish(),
     latestBatchStatus: zod.string().nullish(),
     latestBatchPurity: zod.number().nullish(),
+    latestBatchIsDemo: zod
+      .boolean()
+      .nullish()
+      .describe(
+        "Demo status of the batch behind latestBatchPurity. True\/null = treat the purity as fabricated sample data, not a real COA.",
+      ),
   })
   .and(
     zod.object({
@@ -1523,6 +1556,11 @@ export const AdminPatchProductResponse = zod
           productName: zod.string(),
           productionDate: zod.date(),
           status: zod.enum(["pending", "released", "quarantined"]),
+          isDemo: zod
+            .boolean()
+            .describe(
+              "True when this batch is fabricated demonstration\/sample data, not a real third-party certificate of analysis. Fail-safe: any batch not explicitly marked real is demo.",
+            ),
           purityPercent: zod.number().nullish(),
         })
         .and(

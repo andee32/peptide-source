@@ -32,11 +32,21 @@ export function ProductCard({ product }: ProductCardProps) {
           <Badge variant="secondary" className="w-fit font-mono">
             {product.category}
           </Badge>
-          {product.latestBatchPurity && (
-            <Badge variant="verified" className="w-fit text-xs font-mono">
-              COA {product.latestBatchPurity}%
-            </Badge>
-          )}
+          {product.latestBatchPurity != null &&
+            // Fail-safe: only a batch explicitly marked real (isDemo === false)
+            // may show its purity as a verified lab result.
+            (product.latestBatchIsDemo === false ? (
+              <Badge variant="verified" className="w-fit text-xs font-mono">
+                COA {product.latestBatchPurity}%
+              </Badge>
+            ) : (
+              <Badge
+                variant="outline"
+                className="w-fit text-xs font-mono text-muted-foreground bg-muted/40"
+              >
+                COA: sample data
+              </Badge>
+            ))}
         </div>
       </Link>
 

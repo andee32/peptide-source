@@ -96,6 +96,7 @@ router.get("/products", async (req, res) => {
           latestBatchId: latestBatch?.id ?? null,
           latestBatchStatus: latestBatch?.status ?? null,
           latestBatchPurity: latestBatchPurity ?? null,
+          latestBatchIsDemo: latestBatch?.isDemo ?? null,
         };
       })
     );
@@ -128,7 +129,10 @@ router.get("/products/:id", async (req, res) => {
     }
 
     const variants = await db.query.productVariantsTable.findMany({
-      where: eq(productVariantsTable.productId, product.id),
+      where: and(
+        eq(productVariantsTable.productId, product.id),
+        eq(productVariantsTable.unitType, "kit"),
+      ),
       orderBy: [asc(productVariantsTable.priceCents)],
     });
 
@@ -155,6 +159,7 @@ router.get("/products/:id", async (req, res) => {
         productName: product.name,
         productionDate: latestBatch.productionDate,
         status: latestBatch.status,
+        isDemo: latestBatch.isDemo,
         purityPercent: latestBatchPurity ?? null,
         notes: latestBatch.notes ?? null,
         coaResults: coaResults.map((c) => ({
@@ -194,6 +199,7 @@ router.get("/products/:id", async (req, res) => {
       latestBatchId: latestBatch?.id ?? null,
       latestBatchStatus: latestBatch?.status ?? null,
       latestBatchPurity: latestBatchPurity ?? null,
+      latestBatchIsDemo: latestBatch?.isDemo ?? null,
       researchUses: product.researchUses,
       variants: variants.map((v) => ({
         id: v.id,

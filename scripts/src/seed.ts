@@ -629,6 +629,8 @@ async function seed() {
         productId: productIdBySlug.get(b.slug)!,
         status: b.status,
         productionDate: new Date(b.productionDate),
+        // All seeded batches are fabricated demo data — never real COAs.
+        isDemo: true,
         notes: b.notes,
       }))
     )

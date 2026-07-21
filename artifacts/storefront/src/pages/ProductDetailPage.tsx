@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Beaker, CheckCircle2, FlaskConical, ExternalLink, Activity, RefreshCw } from "lucide-react";
+import { Beaker, CheckCircle2, FlaskConical, ExternalLink, Activity, RefreshCw, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export function ProductDetailPage() {
@@ -174,11 +174,16 @@ export function ProductDetailPage() {
             <Badge className="w-fit bg-primary/20 text-primary border-primary/30 font-mono text-sm px-4 py-1">
               {product.category}
             </Badge>
-            {product.latestBatchPurity && (
-              <Badge variant="outline" className="w-fit bg-background/80 backdrop-blur-sm border-border text-sm px-4 py-1 flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-primary" /> {product.latestBatchPurity}% Purity Confirmed
-              </Badge>
-            )}
+            {product.latestBatchPurity != null &&
+              (product.latestBatchIsDemo === false ? (
+                <Badge variant="outline" className="w-fit bg-background/80 backdrop-blur-sm border-border text-sm px-4 py-1 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-primary" /> {product.latestBatchPurity}% Purity Confirmed
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="w-fit bg-background/80 backdrop-blur-sm border-border text-sm px-4 py-1 flex items-center gap-2 text-muted-foreground">
+                  <AlertTriangle className="h-4 w-4" /> COA: sample data
+                </Badge>
+              ))}
           </div>
         </div>
 

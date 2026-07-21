@@ -47,6 +47,7 @@ router.get("/batches", async (req, res) => {
           productName: product?.name ?? "Unknown",
           productionDate: batch.productionDate,
           status: batch.status,
+          isDemo: batch.isDemo,
           purityPercent: purityCoa?.purityPercent ?? null,
         };
       })
@@ -127,6 +128,7 @@ router.get("/batches/:id", async (req, res) => {
       productName: product?.name ?? "Unknown",
       productionDate: batch.productionDate,
       status: batch.status,
+      isDemo: batch.isDemo,
       purityPercent: purityCoa?.purityPercent ?? null,
       notes: batch.notes ?? null,
       coaResults: coaResults.map((c) => ({

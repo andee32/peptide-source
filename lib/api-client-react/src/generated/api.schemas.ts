@@ -389,6 +389,8 @@ export interface Product {
   latestBatchId?: string | null;
   latestBatchStatus?: string | null;
   latestBatchPurity?: number | null;
+  /** Demo status of the batch behind latestBatchPurity. True/null = treat the purity as fabricated sample data, not a real COA. */
+  latestBatchIsDemo?: boolean | null;
 }
 
 export type BatchSummaryStatus =
@@ -406,6 +408,8 @@ export interface BatchSummary {
   productName: string;
   productionDate: string;
   status: BatchSummaryStatus;
+  /** True when this batch is fabricated demonstration/sample data, not a real third-party certificate of analysis. Fail-safe: any batch not explicitly marked real is demo. */
+  isDemo: boolean;
   purityPercent?: number | null;
 }
 

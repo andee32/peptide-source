@@ -2,7 +2,7 @@ import { useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, XCircle, AlertCircle, Clock } from "lucide-react";
+import { CheckCircle2, XCircle, AlertCircle, Clock, AlertTriangle } from "lucide-react";
 import { JanoshikBadge } from "./JanoshikBadge";
 import { useAnalytics } from "@/contexts/analytics";
 import type { BatchDetail } from "@atlab/api-client-react";
@@ -59,6 +59,9 @@ export function CoaVisualization({ batch, productName }: CoaVisualizationProps) 
     observer.observe(el);
     return () => observer.disconnect();
   }, [batch.id, productName, trackEvent]);
+
+  // Fail-safe: treat any batch not explicitly marked real as demo data.
+  const isDemo = batch.isDemo !== false;
 
   const radius = 60;
   const circumference = 2 * Math.PI * radius;
@@ -182,18 +185,41 @@ export function CoaVisualization({ batch, productName }: CoaVisualizationProps) 
 
   return (
     <div ref={sectionRef}>
-    <Card className="border-primary/20 bg-card overflow-hidden">
+    <Card className={`overflow-hidden ${isDemo ? 'border-2 border-yellow-500/40 bg-card' : 'border-primary/20 bg-card'}`}>
       <CardHeader className="border-b border-border/50 bg-secondary/20 pb-4">
         <CardTitle className="font-mono text-lg flex items-center justify-between">
           <span>LAB RESULTS — BATCH #{batch.id}</span>
-          <Badge variant="outline" className={batch.status === 'released' ? 'text-primary border-primary/50' : 'text-yellow-500 border-yellow-500/50'}>
-            {batch.status.toUpperCase()}
-          </Badge>
+          {isDemo ? (
+            <Badge variant="outline" className="text-yellow-500 border-yellow-500/50 gap-1">
+              <AlertTriangle className="h-3.5 w-3.5" /> DEMO
+            </Badge>
+          ) : (
+            <Badge variant="outline" className={batch.status === 'released' ? 'text-primary border-primary/50' : 'text-yellow-500 border-yellow-500/50'}>
+              {batch.status.toUpperCase()}
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="p-0">
-        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border/50">
+      {isDemo && (
+        <div className="border-b border-yellow-500/40 bg-yellow-500/10 px-6 py-3 flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
+          <p className="text-sm text-muted-foreground">
+            <span className="font-mono font-bold text-yellow-500 uppercase">Sample / demonstration data — </span>
+            not a verified certificate of analysis. Real third-party COAs replace this before launch.
+          </p>
+        </div>
+      )}
+
+      <CardContent className="p-0 relative">
+        {isDemo && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center overflow-hidden">
+            <span className="font-mono font-black uppercase tracking-widest text-yellow-500/10 text-[6rem] md:text-[9rem] -rotate-12 select-none">
+              DEMO
+            </span>
+          </div>
+        )}
+        <div className={`grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border/50 ${isDemo ? 'opacity-60 grayscale' : ''}`}>
 
           {/* PURITY GAUGE */}
           <div className="p-6 flex flex-col items-center justify-center text-center">

@@ -32,6 +32,9 @@ export const batchesTable = pgTable("batches", {
     .references(() => productsTable.id, { onDelete: "cascade" }),
   status: batchStatusEnum("status").notNull().default("pending"),
   productionDate: timestamp("production_date").notNull().defaultNow(),
+  // Fail-safe demo flag: defaults to true so any un-flagged/seeded batch is
+  // treated as fabricated demo data and never presented as a real COA.
+  isDemo: boolean("is_demo").notNull().default(true),
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

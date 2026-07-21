@@ -20,4 +20,6 @@ export interface Product {
   latestBatchId?: string | null;
   latestBatchStatus?: string | null;
   latestBatchPurity?: number | null;
+  /** Demo status of the batch behind latestBatchPurity. True/null = treat the purity as fabricated sample data, not a real COA. */
+  latestBatchIsDemo?: boolean | null;
 }

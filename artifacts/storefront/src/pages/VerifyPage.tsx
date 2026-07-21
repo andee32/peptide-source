@@ -23,7 +23,15 @@ import { CoaVisualization } from "@/components/coa/CoaVisualization";
 import { useAnalytics } from "@/contexts/analytics";
 import { format } from "date-fns";
 
-function BatchStatusBadge({ status }: { status: string }) {
+function BatchStatusBadge({ status, isDemo }: { status: string; isDemo?: boolean }) {
+  if (isDemo) {
+    return (
+      <Badge className="bg-yellow-500/15 text-yellow-500 border-yellow-500/40 gap-2 px-4 py-1.5 text-sm font-mono">
+        <AlertTriangle className="h-4 w-4" />
+        DEMO — NOT A REAL COA
+      </Badge>
+    );
+  }
   if (status === "released") {
     return (
       <Badge className="bg-primary/20 text-primary border-primary/30 gap-2 px-4 py-1.5 text-sm font-mono">
@@ -117,6 +125,20 @@ function BatchDetailView({ batchId, source }: { batchId: string; source: string 
 
   return (
     <div className="mt-8 space-y-6">
+      {batch.isDemo && (
+        <div className="rounded-lg border-2 border-yellow-500/50 bg-yellow-500/10 p-4 text-left flex items-start gap-3">
+          <AlertTriangle className="h-6 w-6 text-yellow-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-mono font-bold text-yellow-500 uppercase tracking-wide text-sm mb-1">
+              Sample / demonstration data
+            </p>
+            <p className="text-sm text-muted-foreground">
+              This is not a verified certificate of analysis. The values below are
+              placeholder demo data. Real third-party COAs replace this before launch.
+            </p>
+          </div>
+        </div>
+      )}
       <Card className="border-primary/30 bg-card overflow-hidden">
         <div className="h-1 bg-gradient-to-r from-primary to-primary/40 w-full" />
         <CardContent className="p-8">
@@ -130,7 +152,7 @@ function BatchDetailView({ batchId, source }: { batchId: string; source: string 
                 {batch.id}
               </h2>
             </div>
-            <BatchStatusBadge status={batch.status} />
+            <BatchStatusBadge status={batch.status} isDemo={batch.isDemo} />
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">

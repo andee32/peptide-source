@@ -13,5 +13,7 @@ export interface BatchSummary {
   productName: string;
   productionDate: Date;
   status: BatchSummaryStatus;
+  /** True when this batch is fabricated demonstration/sample data, not a real third-party certificate of analysis. Fail-safe: any batch not explicitly marked real is demo. */
+  isDemo: boolean;
   purityPercent?: number | null;
 }
