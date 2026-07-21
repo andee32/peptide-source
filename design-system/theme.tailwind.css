@@ -1,0 +1,69 @@
+/* ============================================================
+   AT Lab Sourcing — Tailwind v4 theme mapping
+   Import AFTER tokens.css. Exposes brand tokens as Tailwind
+   utilities (bg-primary, text-structure, font-display, etc.)
+   for the Lab-Standard storefront fork (Tailwind v4 + shadcn).
+
+   Usage in artifacts/storefront/src/index.css:
+     @import "tailwindcss";
+     @import "./tokens.css";
+     @import "./theme.tailwind.css";
+   ============================================================ */
+
+@theme inline {
+  /* Colors -> utilities */
+  --color-bg:          var(--bg);
+  --color-surface:     var(--surface);
+  --color-surface-2:   var(--surface-2);
+  --color-ink:         var(--ink);
+  --color-ink-muted:   var(--ink-muted);
+  --color-border:      var(--border);
+
+  --color-primary:     var(--atl-teal);
+  --color-primary-600: var(--atl-teal-600);
+  --color-structure:   var(--atl-navy);
+  --color-structure-900:var(--atl-navy-900);
+  --color-blue:        var(--atl-blue);
+  --color-accent:      var(--atl-gold);
+
+  --color-good:        var(--atl-good);
+  --color-warn:        var(--atl-warn);
+  --color-crit:        var(--atl-crit);
+  --color-verified:    var(--atl-gold);
+
+  /* Fonts -> font-display / font-body / font-mono */
+  --font-display: var(--atl-font-display);
+  --font-body:    var(--atl-font-body);
+  --font-mono:    var(--atl-font-mono);
+
+  /* Radii */
+  --radius-sm: var(--atl-radius-sm);
+  --radius:    var(--atl-radius);
+  --radius-lg: var(--atl-radius-lg);
+}
+
+/* Map shadcn's semantic CSS vars to the AT Lab palette so existing
+   shadcn components (button, card, badge, table, input) inherit the
+   brand without rewriting each primitive. Values are HSL-free direct
+   colors, which shadcn v4 + Tailwind v4 accept. */
+:root {
+  --background: var(--bg);
+  --foreground: var(--ink);
+  --card: var(--surface);
+  --card-foreground: var(--ink);
+  --popover: var(--surface);
+  --popover-foreground: var(--ink);
+  --primary: var(--atl-teal);
+  --primary-foreground: #ffffff;
+  --secondary: var(--atl-navy);
+  --secondary-foreground: #ffffff;
+  --muted: var(--surface-2);
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--atl-blue-tint);
+  --accent-foreground: var(--atl-navy);
+  --destructive: var(--atl-crit);
+  --destructive-foreground: #ffffff;
+  --border: var(--border);
+  --input: var(--border);
+  --ring: var(--atl-teal);
+}

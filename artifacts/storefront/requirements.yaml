@@ -1,0 +1,16 @@
+packages:
+  "framer-motion": "For premium, smooth page transitions and micro-interactions"
+  "zustand": "For simple, reliable global cart and consent state management"
+
+images:
+  - path: "artifacts/storefront/public/images/hero-abstract.png"
+    description: "Dark, premium 3D abstract visualization of a peptide molecule structure, clinical and precise, glowing cyan and deep blue accents on a pitch black background, photorealistic, macro lens"
+    aspect_ratio: "16:9"
+  - path: "artifacts/storefront/public/images/vial-placeholder.png"
+    description: "A single, premium medical-grade glass vial with a dark minimalist label sitting on a dark reflective surface, dramatic studio lighting, electric blue edge light, high-end scientific aesthetic"
+    aspect_ratio: "1:1"
+
+notes:
+  - Using generated hooks from @workspace/api-client-react
+  - Defaulting to a forced dark mode aesthetic matching "The Lab Standard" brand guidelines
+  - Implement Zustand for cart state to avoid complex context nesting

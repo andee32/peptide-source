@@ -1,0 +1,16 @@
+{
+  "name": "The Lab Standard",
+  "short_name": "LabStd",
+  "description": "Research-Grade Purity. Independently Verified.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#050505",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

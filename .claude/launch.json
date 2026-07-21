@@ -1,0 +1,38 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api-server",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@atlab/api-server",
+        "run",
+        "dev"
+      ],
+      "port": 8080
+    },
+    {
+      "name": "storefront",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@atlab/storefront",
+        "run",
+        "dev"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "mockup-sandbox",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@atlab/mockup-sandbox",
+        "run",
+        "dev"
+      ],
+      "port": 5174
+    }
+  ]
+}

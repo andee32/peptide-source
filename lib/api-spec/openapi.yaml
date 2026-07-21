@@ -1,0 +1,1445 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: products
+    description: Product catalog operations
+  - name: batches
+    description: Batch and COA verification operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List all products
+      description: Returns all published products
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: featured
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get product by ID
+      description: Returns a single product with its variants
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductDetail"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /batches:
+    get:
+      operationId: listBatches
+      tags: [batches]
+      summary: List batches
+      description: Returns batches, optionally filtered by product ID
+      parameters:
+        - name: productId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of batches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BatchSummary"
+
+  /batches/{id}/qr:
+    get:
+      operationId: getBatchQr
+      tags: [batches]
+      summary: Get batch QR code image
+      description: Returns a PNG QR code that encodes the public batch verification URL (includes ?source=qr for analytics attribution)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: QR code PNG image
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Batch not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /batches/{id}:
+    get:
+      operationId: getBatch
+      tags: [batches]
+      summary: Get batch by ID
+      description: Returns a batch with full COA test results
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Batch detail with COA results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchDetail"
+        "404":
+          description: Batch not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /orders:
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create a new order
+      description: Creates an order with optional 10% Transparency Discount when crypto payment is selected
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOrderRequest"
+      responses:
+        "201":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderSummary"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get order by ID
+      description: Returns order with current status and payment record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order detail with payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderDetail"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /orders/{id}/crypto-invoice:
+    post:
+      operationId: createCryptoInvoice
+      tags: [orders]
+      summary: Create or retrieve a crypto payment invoice
+      description: Creates a BTCPayServer invoice for the order and returns payment address, QR data, and expiry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Invoice created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CryptoInvoice"
+        "200":
+          description: Existing pending invoice returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CryptoInvoice"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /orders/{id}/payment-qr:
+    get:
+      operationId: getOrderPaymentQr
+      tags: [orders]
+      summary: Get payment QR code PNG
+      description: Returns a PNG QR code encoding the crypto payment URI (bitcoin:... or ethereum:...)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: QR code PNG
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Payment record not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /reviewer-submissions:
+    post:
+      operationId: createReviewerSubmission
+      tags: [reviewers]
+      summary: Submit a community reviewer result
+      description: Public endpoint — creates a reviewer submission in pending state. Validates Janoshik Task ID format.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReviewerSubmissionRequest"
+      responses:
+        "201":
+          description: Submission created (pending review)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewerSubmissionCreated"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      operationId: listReviewerSubmissions
+      tags: [reviewers]
+      summary: List approved reviewer submissions
+      description: Public endpoint returns approved submissions only. Admin (x-admin-key header) sees all statuses.
+      responses:
+        "200":
+          description: List of reviewer submissions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ReviewerSubmission"
+
+  /reviewer-submissions/stats:
+    get:
+      operationId: getReviewerSubmissionStats
+      tags: [reviewers]
+      summary: Get reviewer submission statistics
+      description: Returns the count of approved community verifications
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewerSubmissionStats"
+
+  /reviewer-submissions/{id}:
+    patch:
+      operationId: patchReviewerSubmission
+      tags: [reviewers]
+      summary: Approve or reject a reviewer submission (admin)
+      description: Admin-only endpoint to approve or reject a pending submission
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchReviewerSubmissionRequest"
+      responses:
+        "200":
+          description: Updated submission status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewerSubmissionPatched"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Admin key required
+        "404":
+          description: Submission not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /subscription-plans:
+    get:
+      operationId: listSubscriptionPlans
+      tags: [subscriptions]
+      summary: List all subscription plans
+      description: Returns all research kit subscription plans, ordered by featured then interval
+      responses:
+        "200":
+          description: List of subscription plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubscriptionPlan"
+
+  /subscription-plans/{slug}:
+    get:
+      operationId: getSubscriptionPlan
+      tags: [subscriptions]
+      summary: Get a subscription plan by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Subscription plan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionPlan"
+        "404":
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /subscriptions:
+    post:
+      operationId: createSubscription
+      tags: [subscriptions]
+      summary: Create a new subscription
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSubscriptionRequest"
+      responses:
+        "201":
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionCreated"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    get:
+      operationId: listSubscriptions
+      tags: [subscriptions]
+      summary: List subscriptions by email or all (admin)
+      description: |
+        With x-admin-key: returns all subscriptions including customerEmail and shippingAddress.
+        Without x-admin-key: requires `email` query param (validated as email); returns subscriptions for that email WITHOUT customerEmail, shippingAddress, or accessToken fields. This is a safe read-only listing.
+      parameters:
+        - name: email
+          in: query
+          required: false
+          schema:
+            type: string
+            format: email
+          description: Required for non-admin. Returns subscriptions for this customer (no sensitive fields exposed).
+      responses:
+        "200":
+          description: List of subscriptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubscriptionDetail"
+        "400":
+          description: Missing or invalid email (non-admin)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /subscriptions/{id}/skip:
+    patch:
+      operationId: skipSubscription
+      tags: [subscriptions]
+      summary: Skip next shipment (defer by one interval)
+      description: Requires either x-admin-key header or the subscription's accessToken in the request body.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: Subscription access token returned at creation (required for non-admin)
+      responses:
+        "200":
+          description: Next billing date deferred
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionSkipped"
+        "403":
+          description: Invalid or missing access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /subscriptions/{id}:
+    get:
+      operationId: getSubscription
+      tags: [subscriptions]
+      summary: Get a single subscription by ID
+      description: Requires either x-admin-key header or the subscription's accessToken as a query parameter. Does NOT return the accessToken in the response body.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: token
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Subscription access token (required for non-admin)
+      responses:
+        "200":
+          description: Subscription detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionDetail"
+        "403":
+          description: Invalid or missing access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: cancelSubscription
+      tags: [subscriptions]
+      summary: Cancel a subscription
+      description: Requires either x-admin-key header or the subscription's accessToken as a query parameter.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: token
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Subscription access token (required for non-admin)
+      responses:
+        "200":
+          description: Subscription cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionCancelled"
+        "403":
+          description: Invalid or missing access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /admin/subscriptions:
+    get:
+      operationId: adminListSubscriptions
+      tags: [subscriptions]
+      summary: Admin — list all subscriptions with stats
+      description: Returns all subscriptions with renewal counts. Requires x-admin-key header.
+      responses:
+        "200":
+          description: Admin subscription overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSubscriptionsOverview"
+        "401":
+          description: Admin key required
+
+  /admin/subscriptions/dispatch-reminders:
+    post:
+      operationId: dispatchSubscriptionReminders
+      tags: [subscriptions]
+      summary: Admin — dispatch 3-day renewal reminder emails
+      description: Finds all active subscriptions with nextBillingDate in [now+3d, now+4d] and sends reminder emails. Also runs automatically on server start and every 24 hours.
+      responses:
+        "200":
+          description: Dispatch result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checked:
+                    type: integer
+                    description: Number of subscriptions matched the 3-day window
+                  sent:
+                    type: integer
+                    description: Number of emails successfully sent
+                  failed:
+                    type: integer
+                    description: Number of emails that failed to send
+                required:
+                  - checked
+                  - sent
+                  - failed
+        "401":
+          description: Admin key required
+
+  /admin/subscriptions/{id}/status:
+    patch:
+      operationId: adminPatchSubscriptionStatus
+      tags: [subscriptions]
+      summary: Admin — override subscription status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [active, paused, cancelled]
+              required:
+                - status
+      responses:
+        "200":
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionCancelled"
+        "401":
+          description: Admin key required
+        "404":
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /webhooks/btcpay:
+    post:
+      operationId: handleBtcpayWebhook
+      tags: [webhooks]
+      summary: BTCPayServer webhook receiver
+      description: Receives InvoiceSettled, InvoiceExpired, and InvoiceInvalid events from BTCPayServer and updates order status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BtcpayWebhookEvent"
+      responses:
+        "200":
+          description: Event received
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+        "401":
+          description: Invalid webhook signature
+
+components:
+  schemas:
+    ReviewerSubmission:
+      type: object
+      properties:
+        id:
+          type: integer
+        reviewerHandle:
+          type: string
+        platform:
+          type: string
+          enum: [reddit, discord, other]
+        janoshikTaskId:
+          type: string
+        productId:
+          type: integer
+        productName:
+          type: string
+        purityPercent:
+          type: number
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        submittedAt:
+          type: string
+          format: date-time
+        reviewedAt:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+        - id
+        - reviewerHandle
+        - platform
+        - janoshikTaskId
+        - productId
+        - productName
+        - status
+        - submittedAt
+
+    CreateReviewerSubmissionRequest:
+      type: object
+      properties:
+        reviewerHandle:
+          type: string
+          minLength: 2
+          maxLength: 100
+        platform:
+          type: string
+          enum: [reddit, discord, other]
+        janoshikTaskId:
+          type: string
+          description: "Janoshik Task ID — letters followed by digits (e.g. J12345678)"
+        productId:
+          type: integer
+        purityPercent:
+          type: number
+          minimum: 0
+          maximum: 100
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      required:
+        - reviewerHandle
+        - janoshikTaskId
+        - productId
+
+    ReviewerSubmissionCreated:
+      type: object
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          enum: [pending]
+        submittedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - status
+        - submittedAt
+
+    ReviewerSubmissionStats:
+      type: object
+      properties:
+        approvedCount:
+          type: integer
+      required:
+        - approvedCount
+
+    PatchReviewerSubmissionRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [approved, rejected]
+        adminNotes:
+          type: string
+          nullable: true
+      required:
+        - status
+
+    ReviewerSubmissionPatched:
+      type: object
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        reviewedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - status
+        - reviewedAt
+
+    SubscriptionPlan:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        intervalDays:
+          type: integer
+        productBundle:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        pricePerIntervalCents:
+          type: integer
+        featured:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - slug
+        - description
+        - intervalDays
+        - productBundle
+        - pricePerIntervalCents
+        - featured
+
+    CreateSubscriptionRequest:
+      type: object
+      properties:
+        customerEmail:
+          type: string
+          format: email
+        customerName:
+          type: string
+        planId:
+          type: integer
+        intervalDays:
+          type: integer
+          enum: [30, 60, 90]
+        shippingAddress:
+          type: object
+          additionalProperties: true
+        notes:
+          type: string
+          nullable: true
+      required:
+        - customerEmail
+        - planId
+        - intervalDays
+
+    SubscriptionCreated:
+      type: object
+      description: Returned after subscription creation. The accessToken is a one-time credential; store it securely (e.g., localStorage) to manage this subscription later.
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+          enum: [active]
+        planName:
+          type: string
+        intervalDays:
+          type: integer
+        nextBillingDate:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        accessToken:
+          type: string
+          description: Opaque token required to authenticate skip/cancel/get operations for this subscription. Never transmitted back by the API after this response.
+      required:
+        - id
+        - status
+        - planName
+        - intervalDays
+        - nextBillingDate
+        - createdAt
+        - accessToken
+
+    SubscriptionDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        customerEmail:
+          type: string
+        customerName:
+          type: string
+        status:
+          type: string
+          enum: [active, paused, cancelled]
+        intervalDays:
+          type: integer
+        nextBillingDate:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        planName:
+          type: string
+        planSlug:
+          type: string
+        planDescription:
+          type: string
+        planBundle:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        planPriceCents:
+          type: integer
+      required:
+        - id
+        - customerEmail
+        - status
+        - intervalDays
+        - nextBillingDate
+        - createdAt
+        - planName
+        - planSlug
+        - planPriceCents
+
+    SubscriptionSkipped:
+      type: object
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+        nextBillingDate:
+          type: string
+          format: date-time
+      required:
+        - id
+        - status
+        - nextBillingDate
+
+    SubscriptionCancelled:
+      type: object
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+      required:
+        - id
+        - status
+
+    AdminSubscriptionsOverview:
+      type: object
+      properties:
+        total:
+          type: integer
+        active:
+          type: integer
+        paused:
+          type: integer
+        cancelled:
+          type: integer
+        renewingIn7Days:
+          type: integer
+        renewingIn30Days:
+          type: integer
+        subscriptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubscriptionDetail"
+      required:
+        - total
+        - active
+        - paused
+        - cancelled
+        - renewingIn7Days
+        - renewingIn30Days
+        - subscriptions
+
+    BtcpayWebhookEvent:
+      type: object
+      description: BTCPayServer webhook event payload (InvoiceSettled, InvoiceExpired, InvoiceInvalid, etc.)
+      properties:
+        type:
+          type: string
+          description: Event type (e.g. InvoiceSettled, InvoiceExpired, InvoiceInvalid)
+        invoiceId:
+          type: string
+          nullable: true
+      additionalProperties: true
+
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
+        - message
+
+    ProductVariant:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        concentration:
+          type: string
+        sizeml:
+          type: number
+        priceCents:
+          type: integer
+        sku:
+          type: string
+        inStock:
+          type: boolean
+      required:
+        - id
+        - name
+        - concentration
+        - sizeml
+        - priceCents
+        - sku
+        - inStock
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        category:
+          type: string
+        shortDescription:
+          type: string
+        featured:
+          type: boolean
+        imageUrl:
+          type: string
+          nullable: true
+        startingPriceCents:
+          type: integer
+        latestBatchId:
+          type: string
+          nullable: true
+        latestBatchStatus:
+          type: string
+          nullable: true
+        latestBatchPurity:
+          type: number
+          nullable: true
+      required:
+        - id
+        - name
+        - slug
+        - category
+        - shortDescription
+        - featured
+        - startingPriceCents
+
+    ProductDetail:
+      allOf:
+        - $ref: "#/components/schemas/Product"
+        - type: object
+          properties:
+            longDescription:
+              type: string
+            researchUses:
+              type: array
+              items:
+                type: string
+            variants:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProductVariant"
+            latestBatch:
+              $ref: "#/components/schemas/BatchDetail"
+              nullable: true
+          required:
+            - longDescription
+            - researchUses
+            - variants
+
+    CoaHeavyMetal:
+      type: object
+      properties:
+        element:
+          type: string
+        resultPpm:
+          type: number
+        limitPpm:
+          type: number
+        pass:
+          type: boolean
+      required:
+        - element
+        - resultPpm
+        - limitPpm
+        - pass
+
+    CoaResult:
+      type: object
+      properties:
+        id:
+          type: string
+        testType:
+          type: string
+          enum: [purity, endotoxin, sterility, heavyMetals]
+        purityPercent:
+          type: number
+          nullable: true
+        endotoxinEuPerMl:
+          type: number
+          nullable: true
+        sterilityPass:
+          type: boolean
+          nullable: true
+        heavyMetals:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoaHeavyMetal"
+          nullable: true
+        labName:
+          type: string
+        testedAt:
+          type: string
+          format: date-time
+        janoshikTaskId:
+          type: string
+          nullable: true
+      required:
+        - id
+        - testType
+        - labName
+        - testedAt
+
+    BatchSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        productId:
+          type: integer
+        productName:
+          type: string
+        productionDate:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, released, quarantined]
+        purityPercent:
+          type: number
+          nullable: true
+      required:
+        - id
+        - productId
+        - productName
+        - productionDate
+        - status
+
+    BatchDetail:
+      allOf:
+        - $ref: "#/components/schemas/BatchSummary"
+        - type: object
+          properties:
+            coaResults:
+              type: array
+              items:
+                $ref: "#/components/schemas/CoaResult"
+            notes:
+              type: string
+              nullable: true
+          required:
+            - coaResults
+
+    OrderLineItem:
+      type: object
+      properties:
+        variantId:
+          type: integer
+        productName:
+          type: string
+        variantName:
+          type: string
+        quantity:
+          type: integer
+        unitPriceCents:
+          type: integer
+      required:
+        - variantId
+        - productName
+        - variantName
+        - quantity
+        - unitPriceCents
+
+    CreateOrderLineItem:
+      type: object
+      description: Line item for order creation — server resolves price and names from variantId
+      properties:
+        variantId:
+          type: integer
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 100
+      required:
+        - variantId
+        - quantity
+
+    CreateOrderRequest:
+      type: object
+      properties:
+        sessionId:
+          type: string
+          nullable: true
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateOrderLineItem"
+          minItems: 1
+        paymentMethod:
+          type: string
+          enum: [card, crypto_btc, crypto_usdc]
+        shippingName:
+          type: string
+        shippingEmail:
+          type: string
+          format: email
+        shippingAddress1:
+          type: string
+        shippingAddress2:
+          type: string
+          nullable: true
+        shippingCity:
+          type: string
+        shippingState:
+          type: string
+        shippingZip:
+          type: string
+        shippingCountry:
+          type: string
+          default: US
+      required:
+        - lineItems
+        - paymentMethod
+        - shippingName
+        - shippingEmail
+        - shippingAddress1
+        - shippingCity
+        - shippingState
+        - shippingZip
+
+    OrderSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        subtotalCents:
+          type: integer
+        discountCents:
+          type: integer
+        totalCents:
+          type: integer
+        paymentMethod:
+          type: string
+          enum: [card, crypto_btc, crypto_usdc]
+        status:
+          type: string
+          enum: [pending, awaiting_payment, confirmed, failed, expired]
+      required:
+        - id
+        - subtotalCents
+        - discountCents
+        - totalCents
+        - paymentMethod
+        - status
+
+    PaymentRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        orderId:
+          type: string
+        btcpayInvoiceId:
+          type: string
+          nullable: true
+        currency:
+          type: string
+        amount:
+          type: string
+        amountCents:
+          type: integer
+        paymentAddress:
+          type: string
+          nullable: true
+        paymentUrl:
+          type: string
+          nullable: true
+        txHash:
+          type: string
+          nullable: true
+        confirmedAt:
+          type: string
+          format: date-time
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, confirmed, expired, failed]
+      required:
+        - id
+        - orderId
+        - currency
+        - amount
+        - amountCents
+        - expiresAt
+        - status
+
+    OrderDetail:
+      allOf:
+        - $ref: "#/components/schemas/OrderSummary"
+        - type: object
+          properties:
+            sessionId:
+              type: string
+            lineItems:
+              type: array
+              items:
+                $ref: "#/components/schemas/OrderLineItem"
+            shippingName:
+              type: string
+            shippingEmail:
+              type: string
+            shippingAddress1:
+              type: string
+            shippingCity:
+              type: string
+            shippingState:
+              type: string
+            shippingZip:
+              type: string
+            shippingCountry:
+              type: string
+            payment:
+              $ref: "#/components/schemas/PaymentRecord"
+              nullable: true
+            createdAt:
+              type: string
+              format: date-time
+          required:
+            - lineItems
+            - shippingName
+            - shippingEmail
+            - shippingAddress1
+            - shippingCity
+            - shippingState
+            - shippingZip
+            - shippingCountry
+            - createdAt
+
+    CryptoInvoice:
+      type: object
+      properties:
+        paymentRecordId:
+          type: string
+        btcpayInvoiceId:
+          type: string
+          nullable: true
+        currency:
+          type: string
+          enum: [BTC, USDC]
+        amount:
+          type: string
+          description: Crypto amount as string (e.g. "0.00123456" for BTC)
+        amountCents:
+          type: integer
+          description: USD equivalent in cents
+        paymentAddress:
+          type: string
+          nullable: true
+        paymentUrl:
+          type: string
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+        qrPaymentUri:
+          type: string
+          description: BIP21 / EIP-681 URI for QR code encoding
+      required:
+        - paymentRecordId
+        - currency
+        - amount
+        - amountCents
+        - expiresAt
+        - qrPaymentUri

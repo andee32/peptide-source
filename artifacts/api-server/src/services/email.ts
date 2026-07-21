@@ -1,0 +1,202 @@
+import { createTransport, type Transporter } from "nodemailer";
+
+export interface SubscriptionConfirmEmailData {
+  to: string;
+  customerName: string;
+  planName: string;
+  intervalDays: number;
+  nextBillingDate: Date;
+  subscriptionId: number;
+}
+
+export interface SubscriptionReminderEmailData {
+  to: string;
+  customerName: string;
+  planName: string;
+  intervalDays: number;
+  nextBillingDate: Date;
+  subscriptionId: number;
+}
+
+function getTransport(): Transporter | null {
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT ?? "587", 10);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM;
+
+  if (!host || !user || !pass || !from) return null;
+
+  return createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  });
+}
+
+const FROM = process.env.SMTP_FROM ?? "noreply@thelabstandard.com";
+const SITE_URL = process.env.SITE_URL ?? "https://thelabstandard.com";
+
+export async function sendSubscriptionConfirmEmail(
+  data: SubscriptionConfirmEmailData
+): Promise<void> {
+  const transport = getTransport();
+  if (!transport) {
+    console.log(
+      `[email] SMTP not configured — skipping confirm email to ${data.to}`
+    );
+    return;
+  }
+
+  const intervalLabel =
+    data.intervalDays === 30
+      ? "Monthly"
+      : data.intervalDays === 60
+        ? "Every 60 Days"
+        : `Every ${data.intervalDays} Days`;
+
+  const nextDate = data.nextBillingDate.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const dashboardUrl = `${SITE_URL}/account/subscriptions?email=${encodeURIComponent(data.to)}`;
+
+  await transport.sendMail({
+    from: FROM,
+    to: data.to,
+    subject: `Subscription Confirmed — ${data.planName} | The Lab Standard`,
+    text: `
+Hello ${data.customerName},
+
+Your subscription to ${data.planName} has been confirmed.
+
+Interval: ${intervalLabel}
+Next Shipment: ${nextDate}
+Subscription ID: #${data.subscriptionId}
+
+Manage your subscription at:
+${dashboardUrl}
+
+Thank you for your research.
+
+— The Lab Standard
+`.trim(),
+    html: `
+<!DOCTYPE html>
+<html>
+<body style="font-family:Inter,sans-serif;background:#111;color:#e5e5e5;padding:40px 20px;max-width:600px;margin:0 auto;">
+  <div style="background:#0d1117;border:1px solid #1e2a2a;border-radius:12px;padding:32px;">
+    <h1 style="color:#29a98b;font-size:20px;margin:0 0 24px;">Subscription Confirmed</h1>
+    <p style="color:#a3a3a3;margin:0 0 16px;">Hello ${data.customerName},</p>
+    <p style="color:#a3a3a3;margin:0 0 24px;">Your subscription to <strong style="color:#e5e5e5;">${data.planName}</strong> is active.</p>
+    <table style="width:100%;border-collapse:collapse;margin:0 0 24px;">
+      <tr><td style="padding:8px 0;color:#a3a3a3;border-bottom:1px solid #1e2a2a;">Interval</td><td style="padding:8px 0;color:#e5e5e5;text-align:right;">${intervalLabel}</td></tr>
+      <tr><td style="padding:8px 0;color:#a3a3a3;border-bottom:1px solid #1e2a2a;">Next Shipment</td><td style="padding:8px 0;color:#e5e5e5;text-align:right;">${nextDate}</td></tr>
+      <tr><td style="padding:8px 0;color:#a3a3a3;">Subscription ID</td><td style="padding:8px 0;color:#e5e5e5;text-align:right;">#${data.subscriptionId}</td></tr>
+    </table>
+    <a href="${dashboardUrl}" style="display:inline-block;background:#29a98b;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;">Manage Subscription</a>
+    <p style="color:#555;font-size:12px;margin:24px 0 0;">The Lab Standard — Research Peptides</p>
+  </div>
+</body>
+</html>
+    `.trim(),
+  });
+}
+
+export interface ManagementLinkEmailData {
+  to: string;
+  managementUrl: string;
+  expiresInMinutes: number;
+}
+
+export async function sendManagementLinkEmail(data: ManagementLinkEmailData): Promise<void> {
+  const transport = getTransport();
+  if (!transport) {
+    console.log(
+      `[email] SMTP not configured — management link URL: ${data.managementUrl}`
+    );
+    return;
+  }
+
+  await transport.sendMail({
+    from: FROM,
+    to: data.to,
+    subject: `Subscription Management Link | The Lab Standard`,
+    text: `
+Click the link below to manage your subscriptions. This link expires in ${data.expiresInMinutes} minutes.
+
+${data.managementUrl}
+
+If you did not request this link, you can safely ignore this email.
+
+— The Lab Standard
+`.trim(),
+    html: `
+<!DOCTYPE html>
+<html>
+<body style="font-family:Inter,sans-serif;background:#111;color:#e5e5e5;padding:40px 20px;max-width:600px;margin:0 auto;">
+  <div style="background:#0d1117;border:1px solid #1e2a2a;border-radius:12px;padding:32px;">
+    <h1 style="color:#29a98b;font-size:20px;margin:0 0 24px;">Subscription Management Access</h1>
+    <p style="color:#a3a3a3;margin:0 0 16px;">Click the button below to manage your subscriptions.</p>
+    <p style="color:#a3a3a3;margin:0 0 24px;font-size:13px;">This link expires in <strong style="color:#e5e5e5;">${data.expiresInMinutes} minutes</strong>.</p>
+    <a href="${data.managementUrl}" style="display:inline-block;background:#29a98b;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;">Manage My Subscriptions</a>
+    <p style="color:#555;font-size:12px;margin:24px 0 0;">If you did not request this link, you can safely ignore this email.</p>
+  </div>
+</body>
+</html>
+    `.trim(),
+  });
+}
+
+export async function sendSubscriptionReminderEmail(
+  data: SubscriptionReminderEmailData
+): Promise<void> {
+  const transport = getTransport();
+  if (!transport) {
+    console.log(
+      `[email] SMTP not configured — skipping reminder email to ${data.to}`
+    );
+    return;
+  }
+
+  const nextDate = data.nextBillingDate.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const dashboardUrl = `${SITE_URL}/account/subscriptions?email=${encodeURIComponent(data.to)}`;
+
+  await transport.sendMail({
+    from: FROM,
+    to: data.to,
+    subject: `Upcoming Renewal in 3 Days — ${data.planName} | The Lab Standard`,
+    text: `
+Hello ${data.customerName},
+
+Your ${data.planName} subscription will renew on ${nextDate}.
+
+To skip or cancel, visit:
+${dashboardUrl}
+
+— The Lab Standard
+`.trim(),
+    html: `
+<!DOCTYPE html>
+<html>
+<body style="font-family:Inter,sans-serif;background:#111;color:#e5e5e5;padding:40px 20px;max-width:600px;margin:0 auto;">
+  <div style="background:#0d1117;border:1px solid #1e2a2a;border-radius:12px;padding:32px;">
+    <h1 style="color:#29a98b;font-size:20px;margin:0 0 24px;">Renewal Reminder</h1>
+    <p style="color:#a3a3a3;margin:0 0 16px;">Hello ${data.customerName},</p>
+    <p style="color:#a3a3a3;margin:0 0 24px;">Your <strong style="color:#e5e5e5;">${data.planName}</strong> subscription renews on <strong style="color:#e5e5e5;">${nextDate}</strong>.</p>
+    <a href="${dashboardUrl}" style="display:inline-block;background:#29a98b;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;">Manage Subscription</a>
+    <p style="color:#555;font-size:12px;margin:24px 0 0;">Subscription ID: #${data.subscriptionId}</p>
+  </div>
+</body>
+</html>
+    `.trim(),
+  });
+}
