@@ -29,8 +29,17 @@ export function Footer() {
         <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
           {/* Wordmark + positioning */}
           <div className="lg:col-span-1">
-            <div className="font-display text-xl font-extrabold tracking-tight">
-              AT LAB SOURCING
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white shadow-sm">
+                <img
+                  src="/images/wolf-logo-t.png"
+                  alt="AT Lab Sourcing"
+                  className="h-7 w-7 object-contain"
+                />
+              </span>
+              <span className="font-display text-xl font-extrabold tracking-tight">
+                AT LAB SOURCING
+              </span>
             </div>
             <p className="mt-3 text-sm text-muted-foreground max-w-xs leading-relaxed">
               Lab-verified research peptide sourcing, built for wholesale.

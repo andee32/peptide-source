@@ -50,8 +50,15 @@ export function Navbar() {
         </div>
 
         {/* Logo */}
-        <Link href="/" className="font-display text-xl md:text-2xl font-extrabold tracking-tight hover:opacity-80 transition-opacity">
-          AT LAB SOURCING
+        <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+          <img
+            src="/images/wolf-logo-t.png"
+            alt="AT Lab Sourcing"
+            className="h-9 w-9 object-contain"
+          />
+          <span className="font-display text-xl md:text-2xl font-extrabold tracking-tight">
+            AT LAB SOURCING
+          </span>
         </Link>
 
         {/* Desktop Nav */}
