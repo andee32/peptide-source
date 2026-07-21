@@ -1,46 +1,59 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+/* AT Lab Sourcing — fonts loaded via <link> in index.html (Syne, Lato, DM Mono) */
 @import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
+/* Semantic tokens are direct colors (not HSL triplets), so map straight through. */
 @theme inline {
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
-  --color-card-border: hsl(var(--card-border));
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-card-border: var(--card-border);
 
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
-  
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-border: var(--primary-border);
 
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary-border: var(--secondary-border);
 
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
 
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
 
-  --color-sidebar: hsl(var(--sidebar));
-  --color-sidebar-foreground: hsl(var(--sidebar-foreground));
-  --color-sidebar-border: hsl(var(--sidebar-border));
-  --color-sidebar-primary: hsl(var(--sidebar-primary));
-  --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
-  --color-sidebar-accent: hsl(var(--sidebar-accent));
-  --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
-  --color-sidebar-ring: hsl(var(--sidebar-ring));
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-border: var(--destructive-border);
 
-  --font-sans: var(--app-font-sans);
-  --font-mono: var(--app-font-mono);
+  /* AT Lab brand roles as utilities */
+  --color-structure: var(--atl-navy);
+  --color-structure-900: var(--atl-navy-900);
+  --color-brand-teal: var(--atl-teal);
+  --color-brand-gold: var(--atl-gold);
+  --color-verified: var(--atl-gold);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --font-display: var(--atl-font-display);
+  --font-body: var(--atl-font-body);
+  --font-sans: var(--atl-font-body);
+  --font-mono: var(--atl-font-mono);
 
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
@@ -48,55 +61,112 @@
   --radius-xl: 1rem;
 }
 
-:root, .dark {
-  /* DARK MODE BY DEFAULT FOR PREMIUM CLINICAL FEEL */
-  --background: 222 20% 7%;
-  --foreground: 210 40% 96%;
-  
-  --card: 222 20% 10%;
-  --card-foreground: 210 40% 96%;
-  
-  --popover: 222 20% 10%;
-  --popover-foreground: 210 40% 96%;
-  
-  --primary: 174 72% 42%;
-  --primary-foreground: 222 20% 7%;
-  
-  --secondary: 222 20% 14%;
-  --secondary-foreground: 210 40% 90%;
-  
-  --muted: 222 20% 13%;
-  --muted-foreground: 215 20% 60%;
-  
-  --accent: 174 72% 42%;
-  --accent-foreground: 222 20% 7%;
-  
-  --destructive: 0 72% 51%;
-  --destructive-foreground: 0 0% 100%;
-  
-  --border: 222 20% 16%;
-  --input: 222 20% 18%;
-  --ring: 174 72% 42%;
-  
-  --sidebar: 222 20% 8%;
-  --sidebar-foreground: 210 40% 96%;
-  --sidebar-border: 222 20% 14%;
-  --sidebar-primary: 174 72% 42%;
-  --sidebar-primary-foreground: 222 20% 7%;
-  --sidebar-accent: 174 72% 38%;
-  --sidebar-accent-foreground: 210 40% 96%;
-  --sidebar-ring: 174 72% 42%;
+:root {
+  /* ---- AT Lab brand core (from design-system/tokens.css) ---- */
+  --atl-navy:        #1a4d6e;
+  --atl-navy-700:    #123a54;
+  --atl-navy-900:    #0a1628;
+  --atl-blue:        #2e7da8;
+  --atl-blue-tint:   #d6eaf5;
+  --atl-teal:        #00b4c4;
+  --atl-teal-600:    #0797a6;
+  --atl-gold:        #c8a84b;
+  --atl-gold-tint:   #f3ecd3;
 
-  --chart-1: 174 72% 42%;
-  --chart-2: 210 72% 55%;
-  --chart-3: 45 93% 58%;
-  --chart-4: 0 72% 51%;
-  --chart-5: 280 65% 60%;
+  --atl-bg:          #f5f4f0;
+  --atl-surface:     #ffffff;
+  --atl-surface-2:   #ecefec;
+  --atl-ink:         #0e1117;
+  --atl-ink-muted:   #6b7280;
+  --atl-border:      #d1d9e0;
 
-  --app-font-sans: 'Inter', sans-serif;
-  --app-font-mono: 'JetBrains Mono', 'Courier New', monospace;
+  --atl-good:        #167a52;
+  --atl-warn:        #b5750a;
+  --atl-crit:        #c0392b;
+
+  --atl-font-display: "Syne", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --atl-font-body:    "Lato", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --atl-font-mono:    "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* ---- shadcn semantic vars mapped to AT Lab (LIGHT default) ---- */
+  --background: var(--atl-bg);
+  --foreground: var(--atl-ink);
+
+  --card: var(--atl-surface);
+  --card-foreground: var(--atl-ink);
+  --card-border: var(--atl-border);
+
+  --popover: var(--atl-surface);
+  --popover-foreground: var(--atl-ink);
+
+  --primary: var(--atl-teal);              /* PRIMARY ACTION = teal */
+  --primary-foreground: #ffffff;
+
+  --secondary: var(--atl-navy);            /* structural = navy */
+  --secondary-foreground: #ffffff;
+
+  --muted: var(--atl-surface-2);
+  --muted-foreground: var(--atl-ink-muted);
+
+  --accent: var(--atl-blue-tint);
+  --accent-foreground: var(--atl-navy);
+
+  --destructive: var(--atl-crit);
+  --destructive-foreground: #ffffff;
+
+  --border: var(--atl-border);
+  --input: var(--atl-border);
+  --ring: var(--atl-teal);
+
+  /* Replit-injected border tokens (were undeclared in the donor) */
+  --primary-border: var(--atl-teal-600);
+  --secondary-border: var(--atl-navy-700);
+  --destructive-border: #97281c;
+  --button-outline: var(--atl-border);
+  --badge-outline: var(--atl-border);
+
+  --sidebar: var(--atl-surface);
+  --sidebar-foreground: var(--atl-ink);
+  --sidebar-border: var(--atl-border);
+  --sidebar-primary: var(--atl-teal);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--atl-blue-tint);
+  --sidebar-accent-foreground: var(--atl-navy);
+  --sidebar-ring: var(--atl-teal);
+
+  --chart-1: var(--atl-teal);
+  --chart-2: var(--atl-blue);
+  --chart-3: var(--atl-gold);
+  --chart-4: var(--atl-crit);
+  --chart-5: var(--atl-navy);
 
   --radius: 0.5rem;
+}
+
+/* Deep-navy band for hero / CTA sections only. Teal + gold still pop here.
+   Overrides the semantic vars for descendants so shadcn primitives invert. */
+.section-deep {
+  background-color: var(--atl-navy-900);
+  color: #eaf1f6;
+
+  --background: var(--atl-navy-900);
+  --foreground: #eaf1f6;
+  --card: #0f2136;
+  --card-foreground: #eaf1f6;
+  --card-border: #24405c;
+  --popover: #0f2136;
+  --popover-foreground: #eaf1f6;
+  --secondary: #142a44;
+  --secondary-foreground: #eaf1f6;
+  --muted: #142a44;
+  --muted-foreground: #9fb3c4;
+  --accent: #142a44;
+  --accent-foreground: #eaf1f6;
+  --border: #24405c;
+  --input: #24405c;
+  --secondary-border: #24405c;
+  --button-outline: #24405c;
+  --badge-outline: #24405c;
 }
 
 @layer base {
@@ -105,11 +175,51 @@
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
+    @apply font-body antialiased bg-background text-foreground;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-sans tracking-tight font-semibold;
+    @apply font-display tracking-tight font-semibold;
+  }
+}
+
+/* ============================================================
+   Replit compatibility layer.
+   The donor's shadcn button/badge rely on utility classes and
+   CSS vars that Replit injects at runtime but that are declared
+   NOWHERE in this repo. Without these, every button/badge loses
+   its border + hover/active feedback. Reimplemented here as real
+   CSS (theme-aware via .section-deep var overrides).
+   ============================================================ */
+@layer utilities {
+  .hover-elevate,
+  .active-elevate-2 {
+    position: relative;
+    isolation: isolate;
+  }
+  .hover-elevate::after,
+  .active-elevate-2::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background-color: transparent;
+    pointer-events: none;
+    transition: background-color 0.15s ease;
+  }
+  .hover-elevate:hover::after {
+    background-color: rgba(10, 22, 40, 0.06);
+  }
+  .active-elevate-2:active::after {
+    background-color: rgba(10, 22, 40, 0.12);
+  }
+  /* On the deep-navy band, elevate with light instead of dark. */
+  .section-deep .hover-elevate:hover::after {
+    background-color: rgba(234, 241, 246, 0.08);
+  }
+  .section-deep .active-elevate-2:active::after {
+    background-color: rgba(234, 241, 246, 0.16);
   }
 }
 
@@ -124,7 +234,7 @@
   content: "";
   position: absolute;
   inset: -1px;
-  background: linear-gradient(45deg, hsl(var(--primary)), transparent, hsl(var(--accent)));
+  background: linear-gradient(45deg, var(--primary), transparent, var(--accent));
   z-index: -1;
   border-radius: inherit;
   opacity: 0;
@@ -134,18 +244,18 @@
   opacity: 0.5;
 }
 
-/* Scrollbar styling for a clinical look */
+/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: hsl(var(--background));
+  background: var(--background);
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted));
+  background: var(--muted);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground));
+  background: var(--muted-foreground);
 }

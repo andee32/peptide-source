@@ -11,10 +11,16 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-           // @replit: no hover, and add primary border
+           // AT Lab: teal CTA (primary action)
            "bg-primary text-primary-foreground border border-primary-border",
+        navy:
+          // AT Lab: structural / secondary emphasis action (navy)
+          "bg-secondary text-secondary-foreground border border-secondary-border",
+        gold:
+          // AT Lab: premium / COA-verified emphasis (gold)
+          "bg-brand-gold text-structure-900 border border-brand-gold font-semibold",
         destructive:
-          "bg-destructive text-destructive-foreground shadow-sm border-destructive-border",
+          "bg-destructive text-destructive-foreground shadow-sm border border-destructive-border",
         outline:
           // @replit Shows the background color of whatever card / sidebar / accent background it is inside of.
           // Inherits the current text color. Uses shadow-xs. no shadow on active

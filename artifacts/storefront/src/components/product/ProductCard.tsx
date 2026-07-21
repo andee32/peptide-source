@@ -11,17 +11,17 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   return (
-    <Card className="group overflow-hidden flex flex-col h-full hover-elevate transition-all duration-300 border-border/50 hover:border-primary/30">
-      <Link href={`/shop/${product.slug}`} className="relative aspect-square overflow-hidden bg-secondary/30 flex items-center justify-center p-8">
+    <Card className="group overflow-hidden flex flex-col h-full hover-elevate transition-all duration-300 hover:border-primary/40">
+      <Link href={`/shop/${product.slug}`} className="relative aspect-square overflow-hidden bg-muted/50 flex items-center justify-center p-8">
         {product.imageUrl ? (
           <img
             src={product.imageUrl}
             alt={product.name}
-            className="object-contain w-full h-full mix-blend-screen opacity-90 group-hover:scale-105 transition-transform duration-500"
+            className="object-contain w-full h-full opacity-95 group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-background/50 rounded-full max-w-[200px] max-h-[200px] border-4 border-muted">
-            <Beaker className="h-20 w-20 text-muted-foreground opacity-20" />
+          <div className="w-full h-full flex items-center justify-center bg-card rounded-full max-w-[200px] max-h-[200px] border border-border">
+            <Beaker className="h-20 w-20 text-muted-foreground opacity-30" />
             <span className="absolute font-mono text-6xl font-black text-muted-foreground opacity-10 uppercase">
               {product.name.substring(0, 2)}
             </span>
@@ -29,12 +29,12 @@ export function ProductCard({ product }: ProductCardProps) {
         )}
 
         <div className="absolute top-4 left-4 flex flex-col gap-2">
-          <Badge variant="default" className="w-fit bg-primary/20 text-primary border-primary/30 font-mono">
+          <Badge variant="secondary" className="w-fit font-mono">
             {product.category}
           </Badge>
           {product.latestBatchPurity && (
-            <Badge variant="outline" className="w-fit bg-background/80 backdrop-blur-sm border-border text-xs">
-              {product.latestBatchPurity}% Pure
+            <Badge variant="verified" className="w-fit text-xs font-mono">
+              COA {product.latestBatchPurity}%
             </Badge>
           )}
         </div>
@@ -49,7 +49,7 @@ export function ProductCard({ product }: ProductCardProps) {
             {product.name}
           </Link>
           <span className="font-mono text-sm text-muted-foreground whitespace-nowrap">
-            From ${(product.startingPriceCents / 100).toFixed(2)}
+            ${(product.startingPriceCents / 100).toFixed(2)} / kit
           </span>
         </div>
 

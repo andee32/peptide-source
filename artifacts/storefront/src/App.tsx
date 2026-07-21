@@ -19,8 +19,6 @@ import { ProductsPage } from "@/pages/ProductsPage";
 import { ProductDetailPage } from "@/pages/ProductDetailPage";
 import { VerifyPage } from "@/pages/VerifyPage";
 import { CheckoutPage } from "@/pages/CheckoutPage";
-import { ReviewersPage } from "@/pages/ReviewersPage";
-import { ReviewerSubmitPage } from "@/pages/ReviewerSubmitPage";
 import { AdminPage } from "@/pages/AdminPage";
 import { OrderConfirmationPage } from "@/pages/OrderConfirmationPage";
 import { ResearchKitsPage } from "@/pages/ResearchKitsPage";
@@ -42,8 +40,6 @@ function StorefrontRouter() {
           <Route path="/verify/:id" component={VerifyPage} />
           <Route path="/checkout" component={CheckoutPage} />
           <Route path="/orders/:id" component={OrderConfirmationPage} />
-          <Route path="/reviewers" component={ReviewersPage} />
-          <Route path="/reviewers/submit" component={ReviewerSubmitPage} />
           <Route path="/kits" component={ResearchKitsPage} />
           <Route path="/kits/subscribe" component={KitSubscribePage} />
           <Route path="/account/subscriptions" component={CustomerSubscriptionsPage} />

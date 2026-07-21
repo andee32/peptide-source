@@ -22,6 +22,12 @@ const badgeVariants = cva(
           "border-transparent bg-destructive text-destructive-foreground shadow-xs",
           // @replit shadow-xs" - use badge outline variable
         outline: "text-foreground border [border-color:var(--badge-outline)]",
+        // AT Lab: COA-verified trust badge (teal tint)
+        verified:
+          "border-[color-mix(in_srgb,var(--atl-teal)_35%,transparent)] bg-[color-mix(in_srgb,var(--atl-teal)_12%,transparent)] text-[var(--atl-teal-600)]",
+        // AT Lab: premium accent (gold)
+        gold:
+          "border-[color-mix(in_srgb,var(--atl-gold)_45%,transparent)] bg-[color-mix(in_srgb,var(--atl-gold)_16%,transparent)] text-[color-mix(in_srgb,var(--atl-gold)_70%,#0e1117)]",
       },
     },
     defaultVariants: {

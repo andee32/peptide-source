@@ -10,11 +10,10 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
-    { href: "/", label: "Home" },
-    { href: "/shop", label: "Shop" },
-    { href: "/kits", label: "Research Kits" },
-    { href: "/verify", label: "Lab Portal" },
-    { href: "/reviewers", label: "Reviewer Ledger" },
+    { href: "/shop", label: "Catalog" },
+    { href: "/verify", label: "COA Verification" },
+    { href: "/kits", label: "Wholesale / Apply" },
+    { href: "mailto:sales@atlabsourcing.org", label: "Contact", external: true },
   ];
 
   return (
@@ -34,37 +33,58 @@ export function Navbar() {
               <SheetTitle className="sr-only">Menu</SheetTitle>
               <SheetDescription className="sr-only">Navigation menu</SheetDescription>
               <nav className="flex flex-col gap-6 mt-8">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="text-lg font-medium hover:text-primary transition-colors"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
+                {navLinks.map((link) =>
+                  link.external ? (
+                    <a
+                      key={link.href}
+                      href={link.href}
+                      className="text-lg font-medium hover:text-primary transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      {link.label}
+                    </a>
+                  ) : (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="text-lg font-medium hover:text-primary transition-colors"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      {link.label}
+                    </Link>
+                  )
+                )}
               </nav>
             </SheetContent>
           </Sheet>
         </div>
 
         {/* Logo */}
-        <Link href="/" className="font-mono text-xl md:text-2xl font-bold tracking-tighter hover:opacity-80 transition-opacity">
-          THE LAB STANDARD
+        <Link href="/" className="font-display text-xl md:text-2xl font-extrabold tracking-tight hover:opacity-80 transition-opacity">
+          AT LAB SOURCING
         </Link>
 
         {/* Desktop Nav */}
         <nav className="hidden lg:flex items-center gap-8 text-sm font-medium">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest text-xs"
-            >
-              {link.label}
-            </Link>
-          ))}
+          {navLinks.map((link) =>
+            link.external ? (
+              <a
+                key={link.href}
+                href={link.href}
+                className="text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest text-xs"
+              >
+                {link.label}
+              </a>
+            ) : (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest text-xs"
+              >
+                {link.label}
+              </Link>
+            )
+          )}
         </nav>
 
         {/* Actions */}
