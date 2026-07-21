@@ -84,7 +84,7 @@
   --atl-warn:        #b5750a;
   --atl-crit:        #c0392b;
 
-  --atl-font-display: "Syne", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --atl-font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
   --atl-font-body:    "Lato", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --atl-font-mono:    "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
 

@@ -37,7 +37,7 @@
   --atl-verified:    var(--atl-gold);   /* COA / lab-verified badge */
 
   /* --- Typography --- */
-  --atl-font-display: "Syne", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --atl-font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
   --atl-font-body:    "Lato", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --atl-font-mono:    "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
