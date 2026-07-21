@@ -10,6 +10,7 @@ import { AnalyticsProvider } from "@/contexts/analytics";
 
 // Layout
 import { Navbar } from "@/components/layout/Navbar";
+import { Footer } from "@/components/layout/Footer";
 import { CartDrawer } from "@/components/layout/CartDrawer";
 import { CookieBanner } from "@/components/layout/CookieBanner";
 
@@ -26,6 +27,7 @@ import { CustomerSubscriptionsPage } from "@/pages/CustomerSubscriptionsPage";
 import { KitSubscribePage } from "@/pages/KitSubscribePage";
 import { WholesaleApplyPage } from "@/pages/WholesaleApplyPage";
 import { WholesaleAccountPage } from "@/pages/WholesaleAccountPage";
+import { ContactPage } from "@/pages/ContactPage";
 
 const queryClient = new QueryClient();
 
@@ -45,12 +47,14 @@ function StorefrontRouter() {
           <Route path="/kits" component={ResearchKitsPage} />
           <Route path="/wholesale" component={WholesaleApplyPage} />
           <Route path="/wholesale/account" component={WholesaleAccountPage} />
+          <Route path="/contact" component={ContactPage} />
           <Route path="/kits/subscribe" component={KitSubscribePage} />
           <Route path="/account/subscriptions" component={CustomerSubscriptionsPage} />
           <Route path="/account/subscriptions/new" component={CustomerSubscriptionsPage} />
           <Route component={NotFound} />
         </Switch>
       </main>
+      <Footer />
       <CartDrawer />
       <CookieBanner />
     </div>

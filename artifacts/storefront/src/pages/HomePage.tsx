@@ -144,27 +144,6 @@ export function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* FOOTER */}
-      <footer className="bg-background py-12 border-t border-border mt-auto">
-        <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="font-display text-xl font-extrabold tracking-tight">
-            AT LAB SOURCING
-          </div>
-
-          <nav className="flex gap-6 text-sm font-medium">
-            <Link href="/shop" className="text-muted-foreground hover:text-foreground">Catalog</Link>
-            <Link href="/verify" className="text-muted-foreground hover:text-foreground">COA Verification</Link>
-            <Link href="/wholesale" className="text-muted-foreground hover:text-foreground">Wholesale</Link>
-            <Link href="/wholesale/account" className="text-muted-foreground hover:text-foreground">Account</Link>
-            <a href="mailto:sales@atlabsourcing.org" className="text-muted-foreground hover:text-foreground">Contact</a>
-          </nav>
-
-          <div className="text-xs text-muted-foreground max-w-xs text-center md:text-right p-4 rounded-lg bg-muted/60 border border-border">
-            <strong>Disclaimer:</strong> All products are for research purposes only. Not for human consumption, therapeutic, or diagnostic use.
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

@@ -14,7 +14,7 @@ export function Navbar() {
     { href: "/verify", label: "COA Verification" },
     { href: "/wholesale", label: "Wholesale / Apply" },
     { href: "/wholesale/account", label: "Account" },
-    { href: "mailto:sales@atlabsourcing.org", label: "Contact", external: true },
+    { href: "/contact", label: "Contact" },
   ];
 
   return (
@@ -34,27 +34,16 @@ export function Navbar() {
               <SheetTitle className="sr-only">Menu</SheetTitle>
               <SheetDescription className="sr-only">Navigation menu</SheetDescription>
               <nav className="flex flex-col gap-6 mt-8">
-                {navLinks.map((link) =>
-                  link.external ? (
-                    <a
-                      key={link.href}
-                      href={link.href}
-                      className="text-lg font-medium hover:text-primary transition-colors"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      {link.label}
-                    </a>
-                  ) : (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className="text-lg font-medium hover:text-primary transition-colors"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      {link.label}
-                    </Link>
-                  )
-                )}
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="text-lg font-medium hover:text-primary transition-colors"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
               </nav>
             </SheetContent>
           </Sheet>
@@ -67,25 +56,15 @@ export function Navbar() {
 
         {/* Desktop Nav */}
         <nav className="hidden lg:flex items-center gap-8 text-sm font-medium">
-          {navLinks.map((link) =>
-            link.external ? (
-              <a
-                key={link.href}
-                href={link.href}
-                className="text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest text-xs"
-              >
-                {link.label}
-              </a>
-            ) : (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest text-xs"
-              >
-                {link.label}
-              </Link>
-            )
-          )}
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest text-xs"
+            >
+              {link.label}
+            </Link>
+          ))}
         </nav>
 
         {/* Actions */}

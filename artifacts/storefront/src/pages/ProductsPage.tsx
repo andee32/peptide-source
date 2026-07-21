@@ -25,7 +25,9 @@ export function ProductsPage() {
       <div className="mb-12 text-center max-w-3xl mx-auto">
         <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Research Compounds</h1>
         <p className="text-lg text-muted-foreground">
-          Premium grade peptides. Every batch tri-tested for absolute confidence in your research.
+          Wholesale 10-vial kits for research use only. Every batch ships with an active
+          third-party COA, sourced across the USA and Asia. For in-vitro and laboratory
+          research only — not for human or veterinary use.
         </p>
       </div>
 
