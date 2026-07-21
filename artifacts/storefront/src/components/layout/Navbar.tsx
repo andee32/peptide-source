@@ -12,7 +12,8 @@ export function Navbar() {
   const navLinks = [
     { href: "/shop", label: "Catalog" },
     { href: "/verify", label: "COA Verification" },
-    { href: "/kits", label: "Wholesale / Apply" },
+    { href: "/wholesale", label: "Wholesale / Apply" },
+    { href: "/wholesale/account", label: "Account" },
     { href: "mailto:sales@atlabsourcing.org", label: "Contact", external: true },
   ];
 

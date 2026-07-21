@@ -37,7 +37,7 @@ export function HomePage() {
               <Link href="/shop">Browse Catalog</Link>
             </Button>
             <Button asChild size="lg" variant="gold" className="font-mono uppercase tracking-widest text-sm h-14 px-8">
-              <Link href="/kits">Apply for Wholesale</Link>
+              <Link href="/wholesale">Apply for Wholesale</Link>
             </Button>
           </div>
 
@@ -155,7 +155,8 @@ export function HomePage() {
           <nav className="flex gap-6 text-sm font-medium">
             <Link href="/shop" className="text-muted-foreground hover:text-foreground">Catalog</Link>
             <Link href="/verify" className="text-muted-foreground hover:text-foreground">COA Verification</Link>
-            <Link href="/kits" className="text-muted-foreground hover:text-foreground">Wholesale</Link>
+            <Link href="/wholesale" className="text-muted-foreground hover:text-foreground">Wholesale</Link>
+            <Link href="/wholesale/account" className="text-muted-foreground hover:text-foreground">Account</Link>
             <a href="mailto:sales@atlabsourcing.org" className="text-muted-foreground hover:text-foreground">Contact</a>
           </nav>
 

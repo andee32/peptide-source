@@ -24,6 +24,8 @@ import { OrderConfirmationPage } from "@/pages/OrderConfirmationPage";
 import { ResearchKitsPage } from "@/pages/ResearchKitsPage";
 import { CustomerSubscriptionsPage } from "@/pages/CustomerSubscriptionsPage";
 import { KitSubscribePage } from "@/pages/KitSubscribePage";
+import { WholesaleApplyPage } from "@/pages/WholesaleApplyPage";
+import { WholesaleAccountPage } from "@/pages/WholesaleAccountPage";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +43,8 @@ function StorefrontRouter() {
           <Route path="/checkout" component={CheckoutPage} />
           <Route path="/orders/:id" component={OrderConfirmationPage} />
           <Route path="/kits" component={ResearchKitsPage} />
+          <Route path="/wholesale" component={WholesaleApplyPage} />
+          <Route path="/wholesale/account" component={WholesaleAccountPage} />
           <Route path="/kits/subscribe" component={KitSubscribePage} />
           <Route path="/account/subscriptions" component={CustomerSubscriptionsPage} />
           <Route path="/account/subscriptions/new" component={CustomerSubscriptionsPage} />

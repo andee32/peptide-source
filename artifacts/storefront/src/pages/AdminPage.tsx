@@ -52,11 +52,18 @@ import {
 import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import {
+  useAdminListAccounts,
+  useAdminListPriceTiers,
+  useAdminPatchAccount,
+  type Account,
+  type AccountStatus,
+} from "@atlab/api-client-react";
 
 type BatchStatus = "pending" | "released" | "quarantined";
 type TestType = "purity" | "endotoxin" | "sterility" | "heavyMetals";
 type ReviewerStatus = "pending" | "approved" | "rejected";
-type AdminTab = "batches" | "reviewers" | "subscriptions" | "products";
+type AdminTab = "batches" | "reviewers" | "subscriptions" | "products" | "accounts";
 
 type ReviewerSubmission = {
   id: number;
@@ -1212,6 +1219,7 @@ function Dashboard({ adminKey, onLogout, initialTab = "batches" }: { adminKey: s
             { key: "batches", label: "Batch Management" },
             { key: "reviewers", label: "Reviewer Submissions" },
             { key: "subscriptions", label: "Subscriptions" },
+            { key: "accounts", label: "Accounts" },
             { key: "products", label: "Products" },
           ] as { key: AdminTab; label: string }[]).map((tab) => (
             <button
@@ -1232,6 +1240,8 @@ function Dashboard({ adminKey, onLogout, initialTab = "batches" }: { adminKey: s
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {activeTab === "products" ? (
           <ProductsPanel adminKey={adminKey} />
+        ) : activeTab === "accounts" ? (
+          <AccountsPanel adminKey={adminKey} />
         ) : activeTab === "reviewers" ? (
           <ReviewerSubmissionsPanel adminKey={adminKey} />
         ) : activeTab === "subscriptions" ? (
@@ -2143,6 +2153,228 @@ function ProductsPanel({ adminKey }: { adminKey: string }) {
         variant={editingVariant}
         onSaved={load}
       />
+    </div>
+  );
+}
+
+function AccountStatusBadge({ status }: { status: AccountStatus }) {
+  if (status === "approved")
+    return (
+      <Badge className="bg-primary/20 text-primary border-primary/30 gap-1 font-mono text-xs">
+        <CheckCircle2 className="h-3 w-3" /> Approved
+      </Badge>
+    );
+  if (status === "rejected")
+    return (
+      <Badge className="bg-destructive/20 text-destructive border-destructive/30 gap-1 font-mono text-xs">
+        <AlertTriangle className="h-3 w-3" /> Rejected
+      </Badge>
+    );
+  if (status === "suspended")
+    return (
+      <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/30 gap-1 font-mono text-xs">
+        <Clock className="h-3 w-3" /> Suspended
+      </Badge>
+    );
+  return (
+    <Badge className="bg-yellow-500/10 text-yellow-400 border-yellow-500/30 gap-1 font-mono text-xs">
+      <Clock className="h-3 w-3" /> Pending
+    </Badge>
+  );
+}
+
+function AccountRow({
+  account,
+  tiers,
+  adminKey,
+  onChanged,
+}: {
+  account: Account;
+  tiers: { id: number; name: string }[];
+  adminKey: string;
+  onChanged: () => void;
+}) {
+  const [tierId, setTierId] = useState<string>(
+    account.priceTierId != null ? String(account.priceTierId) : "",
+  );
+  const [error, setError] = useState("");
+
+  const patch = useAdminPatchAccount({
+    request: { headers: { "x-admin-key": adminKey } },
+    mutation: {
+      onSuccess: () => {
+        setError("");
+        onChanged();
+      },
+      onError: (err) => setError(err instanceof Error ? err.message : "Update failed"),
+    },
+  });
+
+  const submit = (status: AccountStatus) => {
+    patch.mutate({
+      id: account.id,
+      data: {
+        status,
+        priceTierId: tierId ? Number(tierId) : null,
+      },
+    });
+  };
+
+  return (
+    <Card className="border-border/30">
+      <CardContent className="p-5">
+        <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+          <div className="flex-1 min-w-0 space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-mono font-semibold text-sm">{account.businessName}</span>
+              {account.businessType && (
+                <Badge variant="outline" className="text-[10px] font-mono uppercase tracking-wider">
+                  {account.businessType.replace(/_/g, " ")}
+                </Badge>
+              )}
+              <AccountStatusBadge status={account.status} />
+              {account.priceTier && (
+                <Badge variant="gold" className="text-[10px] font-mono">{account.priceTier.name}</Badge>
+              )}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {account.contactName} · {account.email}
+              {account.phone ? ` · ${account.phone}` : ""}
+            </div>
+            <div className="text-[10px] text-muted-foreground font-mono space-y-0.5">
+              <div>ID: {account.id}</div>
+              {account.taxId && <div>Tax ID: {account.taxId}</div>}
+              {account.resaleCertUrl && (
+                <div>
+                  Resale cert:{" "}
+                  <a href={account.resaleCertUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                    {account.resaleCertUrl}
+                  </a>
+                </div>
+              )}
+              <div>Applied {format(new Date(account.createdAt), "MMM d, yyyy 'at' h:mm a")}</div>
+            </div>
+            {error && <p className="text-destructive text-xs font-mono">{error}</p>}
+          </div>
+
+          <div className="flex flex-col gap-3 shrink-0 lg:w-64">
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                Price Tier
+              </label>
+              <Select value={tierId} onValueChange={setTierId}>
+                <SelectTrigger className="font-mono text-xs h-9">
+                  <SelectValue placeholder="Select tier" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tiers.map((t) => (
+                    <SelectItem key={t.id} value={String(t.id)} className="font-mono">{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="flex-1 font-mono text-xs bg-emerald-600 hover:bg-emerald-500 text-white"
+                disabled={patch.isPending}
+                onClick={() => submit("approved")}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 font-mono text-xs border-destructive/40 text-destructive hover:bg-destructive/10"
+                disabled={patch.isPending}
+                onClick={() => submit("rejected")}
+              >
+                <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Reject
+              </Button>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AccountsPanel({ adminKey }: { adminKey: string }) {
+  const [statusFilter, setStatusFilter] = useState<AccountStatus | "all">("pending");
+
+  const accountsQuery = useAdminListAccounts(
+    statusFilter === "all" ? undefined : { status: statusFilter },
+    { request: { headers: { "x-admin-key": adminKey } } },
+  );
+  const tiersQuery = useAdminListPriceTiers({
+    request: { headers: { "x-admin-key": adminKey } },
+  });
+
+  const accounts = accountsQuery.data ?? [];
+  const tiers = tiersQuery.data ?? [];
+
+  const refetchAll = () => {
+    void accountsQuery.refetch();
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Wholesale Accounts</h1>
+          <p className="text-muted-foreground text-sm mt-1 font-mono">
+            Review applications and assign price tiers
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="font-mono gap-2"
+          onClick={refetchAll}
+        >
+          <RefreshCw className="h-3.5 w-3.5" /> Refresh
+        </Button>
+      </div>
+
+      <div className="flex gap-2">
+        {(["all", "pending", "approved", "rejected", "suspended"] as const).map((s) => (
+          <Button
+            key={s}
+            variant={statusFilter === s ? "default" : "outline"}
+            size="sm"
+            className="font-mono capitalize"
+            onClick={() => setStatusFilter(s)}
+          >
+            {s === "all" ? "All" : s}
+          </Button>
+        ))}
+      </div>
+
+      {accountsQuery.isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+        </div>
+      ) : accountsQuery.isError ? (
+        <div className="text-center py-12">
+          <AlertTriangle className="h-6 w-6 text-destructive mx-auto mb-2" />
+          <p className="text-destructive text-sm font-mono">
+            {accountsQuery.error instanceof Error ? accountsQuery.error.message : "Failed to load accounts"}
+          </p>
+          <Button variant="outline" size="sm" className="mt-4 font-mono" onClick={refetchAll}>Retry</Button>
+        </div>
+      ) : accounts.length === 0 ? (
+        <Card className="border-border/30">
+          <CardContent className="py-12 text-center text-muted-foreground font-mono text-sm">
+            No accounts in this category.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {accounts.map((a) => (
+            <AccountRow key={a.id} account={a} tiers={tiers} adminKey={adminKey} onChanged={refetchAll} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
