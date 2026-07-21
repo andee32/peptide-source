@@ -7,9 +7,12 @@ import {
   coaResultsTable,
   productsTable,
   productVariantsTable,
+  customerAccountsTable,
+  priceTiersTable,
   categoryEnum,
   batchStatusEnum,
   testTypeEnum,
+  accountStatusEnum,
 } from "@atlab/db/schema";
 import { z } from "zod/v4";
 
@@ -529,6 +532,114 @@ router.delete("/admin/variants/:id", async (req, res) => {
     res.json({ deleted: id });
   } catch (err) {
     console.error("admin deleteVariant error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+// ── B2B wholesale accounts ──────────────────────────────────────────────────
+// All /admin routes below are guarded by the adminAuth middleware above.
+
+async function serializeAccount(account: typeof customerAccountsTable.$inferSelect) {
+  let priceTier = null;
+  if (account.priceTierId !== null) {
+    priceTier =
+      (await db.query.priceTiersTable.findFirst({
+        where: eq(priceTiersTable.id, account.priceTierId),
+      })) ?? null;
+  }
+  const { accessToken: _at, ...safe } = account;
+  return { ...safe, priceTier };
+}
+
+router.get("/admin/accounts", async (req, res) => {
+  try {
+    const statusRaw = req.query.status;
+    let statusFilter: (typeof accountStatusEnum.enumValues)[number] | undefined;
+    if (typeof statusRaw === "string" && statusRaw.length > 0) {
+      if (!(accountStatusEnum.enumValues as readonly string[]).includes(statusRaw)) {
+        res.status(400).json({
+          error: "bad_request",
+          message: `Invalid status. Must be one of: ${accountStatusEnum.enumValues.join(", ")}`,
+        });
+        return;
+      }
+      statusFilter = statusRaw as (typeof accountStatusEnum.enumValues)[number];
+    }
+
+    const accounts = await db.query.customerAccountsTable.findMany({
+      where: statusFilter ? eq(customerAccountsTable.status, statusFilter) : undefined,
+      orderBy: [desc(customerAccountsTable.createdAt)],
+    });
+
+    const result = await Promise.all(accounts.map(serializeAccount));
+    res.json(result);
+  } catch (err) {
+    console.error("admin listAccounts error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+const PatchAccountSchema = z.object({
+  status: z.enum(accountStatusEnum.enumValues).optional(),
+  priceTierId: z.number().int().positive().nullable().optional(),
+  kybNotes: z.string().max(4000).nullable().optional(),
+});
+
+router.patch("/admin/accounts/:id", async (req, res) => {
+  const parsed = PatchAccountSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "bad_request", message: parsed.error.message });
+    return;
+  }
+  try {
+    const account = await db.query.customerAccountsTable.findFirst({
+      where: eq(customerAccountsTable.id, req.params.id),
+    });
+    if (!account) {
+      res.status(404).json({ error: "not_found", message: "Account not found" });
+      return;
+    }
+
+    if (parsed.data.priceTierId != null) {
+      const tier = await db.query.priceTiersTable.findFirst({
+        where: eq(priceTiersTable.id, parsed.data.priceTierId),
+      });
+      if (!tier) {
+        res.status(400).json({ error: "bad_request", message: "Price tier not found" });
+        return;
+      }
+    }
+
+    const updates: Partial<typeof customerAccountsTable.$inferInsert> = {};
+    if (parsed.data.status !== undefined) updates.status = parsed.data.status;
+    if (parsed.data.priceTierId !== undefined) updates.priceTierId = parsed.data.priceTierId;
+    if (parsed.data.kybNotes !== undefined) updates.kybNotes = parsed.data.kybNotes;
+    if (parsed.data.status === "approved") {
+      updates.approvedAt = new Date();
+      updates.approvedBy = process.env.ADMIN_EMAIL ?? "admin";
+    }
+
+    const [updated] = await db
+      .update(customerAccountsTable)
+      .set(updates)
+      .where(eq(customerAccountsTable.id, req.params.id))
+      .returning();
+
+    res.json(await serializeAccount(updated));
+  } catch (err) {
+    console.error("admin patchAccount error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+router.get("/admin/price-tiers", async (_req, res) => {
+  try {
+    const tiers = await db.query.priceTiersTable.findMany({
+      orderBy: [asc(priceTiersTable.id)],
+    });
+    res.json(tiers);
+  } catch (err) {
+    console.error("admin listPriceTiers error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });
   }
 });

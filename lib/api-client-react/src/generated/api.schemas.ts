@@ -109,6 +109,110 @@ export interface ReviewerSubmissionPatched {
   reviewedAt: string;
 }
 
+export type SubscriptionPlanProductBundleItem = { [key: string]: unknown };
+
+export interface SubscriptionPlan {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  intervalDays: number;
+  productBundle: SubscriptionPlanProductBundleItem[];
+  pricePerIntervalCents: number;
+  featured: number;
+  createdAt?: string;
+}
+
+export type CreateSubscriptionRequestIntervalDays =
+  (typeof CreateSubscriptionRequestIntervalDays)[keyof typeof CreateSubscriptionRequestIntervalDays];
+
+export const CreateSubscriptionRequestIntervalDays = {
+  NUMBER_30: 30,
+  NUMBER_60: 60,
+  NUMBER_90: 90,
+} as const;
+
+export type CreateSubscriptionRequestShippingAddress = {
+  [key: string]: unknown;
+};
+
+export interface CreateSubscriptionRequest {
+  customerEmail: string;
+  customerName?: string;
+  planId: number;
+  intervalDays: CreateSubscriptionRequestIntervalDays;
+  shippingAddress?: CreateSubscriptionRequestShippingAddress;
+  notes?: string | null;
+}
+
+export type SubscriptionCreatedStatus =
+  (typeof SubscriptionCreatedStatus)[keyof typeof SubscriptionCreatedStatus];
+
+export const SubscriptionCreatedStatus = {
+  active: "active",
+} as const;
+
+/**
+ * Returned after subscription creation. The accessToken is a one-time credential; store it securely (e.g., localStorage) to manage this subscription later.
+ */
+export interface SubscriptionCreated {
+  id: number;
+  status: SubscriptionCreatedStatus;
+  planName: string;
+  intervalDays: number;
+  nextBillingDate: string;
+  createdAt: string;
+  /** Opaque token required to authenticate skip/cancel/get operations for this subscription. Never transmitted back by the API after this response. */
+  accessToken: string;
+}
+
+export type SubscriptionDetailStatus =
+  (typeof SubscriptionDetailStatus)[keyof typeof SubscriptionDetailStatus];
+
+export const SubscriptionDetailStatus = {
+  active: "active",
+  paused: "paused",
+  cancelled: "cancelled",
+} as const;
+
+export type SubscriptionDetailPlanBundleItem = { [key: string]: unknown };
+
+export interface SubscriptionDetail {
+  id: number;
+  customerEmail: string;
+  customerName?: string;
+  status: SubscriptionDetailStatus;
+  intervalDays: number;
+  nextBillingDate: string;
+  createdAt: string;
+  planName: string;
+  planSlug: string;
+  planDescription?: string;
+  planBundle?: SubscriptionDetailPlanBundleItem[];
+  planPriceCents: number;
+}
+
+export interface SubscriptionSkipped {
+  id: number;
+  status: string;
+  nextBillingDate: string;
+}
+
+export interface SubscriptionCancelled {
+  id: number;
+  status: string;
+}
+
+export interface AdminSubscriptionsOverview {
+  total: number;
+  active: number;
+  paused: number;
+  cancelled: number;
+  renewingIn7Days: number;
+  renewingIn30Days: number;
+  subscriptions: SubscriptionDetail[];
+}
+
 /**
  * BTCPayServer webhook event payload (InvoiceSettled, InvoiceExpired, InvoiceInvalid, etc.)
  */
@@ -117,6 +221,112 @@ export interface BtcpayWebhookEvent {
   type?: string;
   invoiceId?: string | null;
   [key: string]: unknown;
+}
+
+export type AccountStatus = (typeof AccountStatus)[keyof typeof AccountStatus];
+
+export const AccountStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+  suspended: "suspended",
+} as const;
+
+export interface PriceTier {
+  id: number;
+  name: string;
+  slug: string;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+export type ApplyAccountRequestBusinessType =
+  (typeof ApplyAccountRequestBusinessType)[keyof typeof ApplyAccountRequestBusinessType];
+
+export const ApplyAccountRequestBusinessType = {
+  research_lab: "research_lab",
+  clinic: "clinic",
+  reseller: "reseller",
+  distributor: "distributor",
+  other: "other",
+} as const;
+
+export interface ApplyAccountRequest {
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  businessName: string;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  contactName: string;
+  email: string;
+  /**
+   * @minLength 1
+   * @maxLength 50
+   */
+  phone: string;
+  businessType: ApplyAccountRequestBusinessType;
+  taxId?: string | null;
+  resaleCertUrl?: string | null;
+}
+
+export type AccountCreatedStatus =
+  (typeof AccountCreatedStatus)[keyof typeof AccountCreatedStatus];
+
+export const AccountCreatedStatus = {
+  pending: "pending",
+} as const;
+
+/**
+ * Returned after applying. The accessToken is a one-time credential; store it to check application status later.
+ */
+export interface AccountCreated {
+  id: string;
+  status: AccountCreatedStatus;
+  /** Opaque token required to fetch this account's status. Never returned again after this response. */
+  accessToken: string;
+}
+
+export interface Account {
+  id: string;
+  businessName: string;
+  contactName: string;
+  email: string;
+  phone?: string | null;
+  businessType?: string | null;
+  taxId?: string | null;
+  resaleCertUrl?: string | null;
+  status: AccountStatus;
+  priceTierId?: number | null;
+  priceTier?: PriceTier | null;
+  kybNotes?: string | null;
+  approvedAt?: string | null;
+  createdAt: string;
+}
+
+export interface PatchAccountRequest {
+  status?: AccountStatus;
+  priceTierId?: number | null;
+  kybNotes?: string | null;
+}
+
+export type MoqErrorCode = (typeof MoqErrorCode)[keyof typeof MoqErrorCode];
+
+export const MoqErrorCode = {
+  MOQ_NOT_MET: "MOQ_NOT_MET",
+  WHOLESALE_KIT_REQUIRED: "WHOLESALE_KIT_REQUIRED",
+} as const;
+
+/**
+ * Wholesale order rule violation (422). code distinguishes the specific rule that failed.
+ */
+export interface MoqError {
+  error: string;
+  message: string;
+  code: MoqErrorCode;
 }
 
 export interface HealthStatus {
@@ -241,6 +451,10 @@ export const CreateOrderRequestPaymentMethod = {
 } as const;
 
 export interface CreateOrderRequest {
+  /** B2B wholesale account ID. When present with a valid token, the order is placed on the wholesale channel with tier-resolved pricing and kit/MOQ enforcement. */
+  accountId?: string | null;
+  /** Wholesale account access token. Required when accountId is provided. */
+  token?: string | null;
   sessionId?: string | null;
   /** @minItems 1 */
   lineItems: CreateOrderLineItem[];
@@ -275,6 +489,14 @@ export const OrderSummaryStatus = {
   expired: "expired",
 } as const;
 
+export type OrderSummaryChannel =
+  (typeof OrderSummaryChannel)[keyof typeof OrderSummaryChannel];
+
+export const OrderSummaryChannel = {
+  retail: "retail",
+  wholesale: "wholesale",
+} as const;
+
 export interface OrderSummary {
   id: string;
   subtotalCents: number;
@@ -282,6 +504,7 @@ export interface OrderSummary {
   totalCents: number;
   paymentMethod: OrderSummaryPaymentMethod;
   status: OrderSummaryStatus;
+  channel: OrderSummaryChannel;
 }
 
 export type PaymentRecordStatus =
@@ -353,6 +576,65 @@ export type ListProductsParams = {
 
 export type ListBatchesParams = {
   productId?: number;
+};
+
+export type ListSubscriptionsParams = {
+  /**
+   * Required for non-admin. Returns subscriptions for this customer (no sensitive fields exposed).
+   */
+  email?: string;
+};
+
+export type SkipSubscriptionBody = {
+  /** Subscription access token returned at creation (required for non-admin) */
+  token?: string;
+};
+
+export type GetSubscriptionParams = {
+  /**
+   * Subscription access token (required for non-admin)
+   */
+  token?: string;
+};
+
+export type CancelSubscriptionParams = {
+  /**
+   * Subscription access token (required for non-admin)
+   */
+  token?: string;
+};
+
+export type DispatchSubscriptionReminders200 = {
+  /** Number of subscriptions matched the 3-day window */
+  checked: number;
+  /** Number of emails successfully sent */
+  sent: number;
+  /** Number of emails that failed to send */
+  failed: number;
+};
+
+export type AdminPatchSubscriptionStatusBodyStatus =
+  (typeof AdminPatchSubscriptionStatusBodyStatus)[keyof typeof AdminPatchSubscriptionStatusBodyStatus];
+
+export const AdminPatchSubscriptionStatusBodyStatus = {
+  active: "active",
+  paused: "paused",
+  cancelled: "cancelled",
+} as const;
+
+export type AdminPatchSubscriptionStatusBody = {
+  status: AdminPatchSubscriptionStatusBodyStatus;
+};
+
+export type GetAccountParams = {
+  /**
+   * Account access token (required for non-admin)
+   */
+  token?: string;
+};
+
+export type AdminListAccountsParams = {
+  status?: AccountStatus;
 };
 
 export type HandleBtcpayWebhook200 = {

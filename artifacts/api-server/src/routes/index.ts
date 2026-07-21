@@ -7,6 +7,7 @@ import ordersRouter from "./orders";
 import webhooksRouter from "./webhooks";
 import reviewerSubmissionsRouter from "./reviewerSubmissions";
 import subscriptionsRouter from "./subscriptions";
+import accountsRouter from "./accounts";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(ordersRouter);
 router.use(webhooksRouter);
 router.use(reviewerSubmissionsRouter);
 router.use(subscriptionsRouter);
+router.use(accountsRouter);
 
 export default router;

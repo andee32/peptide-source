@@ -14,6 +14,8 @@ tags:
     description: Product catalog operations
   - name: batches
     description: Batch and COA verification operations
+  - name: accounts
+    description: B2B wholesale account application and approval operations
 paths:
   /healthz:
     get:
@@ -182,6 +184,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Wholesale account not approved or token mismatch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: Wholesale order rule violation (kit-only or MOQ)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MoqError"
 
   /orders/{id}:
     get:
@@ -671,6 +685,158 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+  /accounts/apply:
+    post:
+      operationId: applyForAccount
+      tags: [accounts]
+      summary: Apply for a B2B wholesale account
+      description: Public endpoint — creates a customer account in pending status and returns an access token used to check application status later.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplyAccountRequest"
+      responses:
+        "201":
+          description: Application received (pending review)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountCreated"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: An account with that email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /accounts/{id}:
+    get:
+      operationId: getAccount
+      tags: [accounts]
+      summary: Get a wholesale account by ID
+      description: Requires either x-admin-key header or the account's accessToken (header x-account-token or query token). Returns status and assigned price tier. Does NOT return the accessToken.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: token
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Account access token (required for non-admin)
+      responses:
+        "200":
+          description: Account detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "403":
+          description: Invalid or missing access token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /admin/accounts:
+    get:
+      operationId: adminListAccounts
+      tags: [accounts]
+      summary: Admin — list wholesale account applications
+      description: Returns wholesale accounts, optionally filtered by status. Requires x-admin-key header.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AccountStatus"
+      responses:
+        "200":
+          description: List of accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Account"
+        "401":
+          description: Admin key required
+
+  /admin/accounts/{id}:
+    patch:
+      operationId: adminPatchAccount
+      tags: [accounts]
+      summary: Admin — approve, reject, suspend, or assign a tier to an account
+      description: Sets status and/or price tier and KYB notes. Stamps approvedAt/approvedBy when approved. Requires x-admin-key header.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchAccountRequest"
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Admin key required
+        "404":
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /admin/price-tiers:
+    get:
+      operationId: adminListPriceTiers
+      tags: [accounts]
+      summary: Admin — list price tiers
+      description: Returns all wholesale price tiers. Requires x-admin-key header.
+      responses:
+        "200":
+          description: List of price tiers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PriceTier"
+        "401":
+          description: Admin key required
+
   /webhooks/btcpay:
     post:
       operationId: handleBtcpayWebhook
@@ -1020,6 +1186,159 @@ components:
           nullable: true
       additionalProperties: true
 
+    AccountStatus:
+      type: string
+      enum: [pending, approved, rejected, suspended]
+
+    PriceTier:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        slug:
+          type: string
+        isDefault:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - slug
+        - isDefault
+        - createdAt
+
+    ApplyAccountRequest:
+      type: object
+      properties:
+        businessName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        contactName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 50
+        businessType:
+          type: string
+          enum: [research_lab, clinic, reseller, distributor, other]
+        taxId:
+          type: string
+          nullable: true
+        resaleCertUrl:
+          type: string
+          nullable: true
+      required:
+        - businessName
+        - contactName
+        - email
+        - phone
+        - businessType
+
+    AccountCreated:
+      type: object
+      description: Returned after applying. The accessToken is a one-time credential; store it to check application status later.
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [pending]
+        accessToken:
+          type: string
+          description: Opaque token required to fetch this account's status. Never returned again after this response.
+      required:
+        - id
+        - status
+        - accessToken
+
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+        businessName:
+          type: string
+        contactName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        businessType:
+          type: string
+          nullable: true
+        taxId:
+          type: string
+          nullable: true
+        resaleCertUrl:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/AccountStatus"
+        priceTierId:
+          type: integer
+          nullable: true
+        priceTier:
+          $ref: "#/components/schemas/PriceTier"
+          nullable: true
+        kybNotes:
+          type: string
+          nullable: true
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - businessName
+        - contactName
+        - email
+        - status
+        - createdAt
+
+    PatchAccountRequest:
+      type: object
+      properties:
+        status:
+          $ref: "#/components/schemas/AccountStatus"
+        priceTierId:
+          type: integer
+          nullable: true
+        kybNotes:
+          type: string
+          nullable: true
+
+    MoqError:
+      type: object
+      description: Wholesale order rule violation (422). code distinguishes the specific rule that failed.
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+          enum: [MOQ_NOT_MET, WHOLESALE_KIT_REQUIRED]
+      required:
+        - error
+        - message
+        - code
+
     HealthStatus:
       type: object
       properties:
@@ -1256,6 +1575,14 @@ components:
     CreateOrderRequest:
       type: object
       properties:
+        accountId:
+          type: string
+          nullable: true
+          description: B2B wholesale account ID. When present with a valid token, the order is placed on the wholesale channel with tier-resolved pricing and kit/MOQ enforcement.
+        token:
+          type: string
+          nullable: true
+          description: Wholesale account access token. Required when accountId is provided.
         sessionId:
           type: string
           nullable: true
@@ -1313,6 +1640,9 @@ components:
         status:
           type: string
           enum: [pending, awaiting_payment, confirmed, failed, expired]
+        channel:
+          type: string
+          enum: [retail, wholesale]
       required:
         - id
         - subtotalCents
@@ -1320,6 +1650,7 @@ components:
         - totalCents
         - paymentMethod
         - status
+        - channel
 
     PaymentRecord:
       type: object

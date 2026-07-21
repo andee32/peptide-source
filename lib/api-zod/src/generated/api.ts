@@ -206,6 +206,18 @@ export const createOrderBodyLineItemsItemQuantityMax = 100;
 export const createOrderBodyShippingCountryDefault = `US`;
 
 export const CreateOrderBody = zod.object({
+  accountId: zod
+    .string()
+    .nullish()
+    .describe(
+      "B2B wholesale account ID. When present with a valid token, the order is placed on the wholesale channel with tier-resolved pricing and kit\/MOQ enforcement.",
+    ),
+  token: zod
+    .string()
+    .nullish()
+    .describe(
+      "Wholesale account access token. Required when accountId is provided.",
+    ),
   sessionId: zod.string().nullish(),
   lineItems: zod
     .array(
@@ -255,6 +267,7 @@ export const GetOrderResponse = zod
       "failed",
       "expired",
     ]),
+    channel: zod.enum(["retail", "wholesale"]),
   })
   .and(
     zod.object({
@@ -402,6 +415,376 @@ export const PatchReviewerSubmissionResponse = zod.object({
   status: zod.enum(["pending", "approved", "rejected"]),
   reviewedAt: zod.date(),
 });
+
+/**
+ * Returns all research kit subscription plans, ordered by featured then interval
+ * @summary List all subscription plans
+ */
+export const ListSubscriptionPlansResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  slug: zod.string(),
+  description: zod.string(),
+  intervalDays: zod.number(),
+  productBundle: zod.array(zod.record(zod.string(), zod.unknown())),
+  pricePerIntervalCents: zod.number(),
+  featured: zod.number(),
+  createdAt: zod.date().optional(),
+});
+export const ListSubscriptionPlansResponse = zod.array(
+  ListSubscriptionPlansResponseItem,
+);
+
+/**
+ * @summary Get a subscription plan by slug
+ */
+export const GetSubscriptionPlanParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const GetSubscriptionPlanResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  slug: zod.string(),
+  description: zod.string(),
+  intervalDays: zod.number(),
+  productBundle: zod.array(zod.record(zod.string(), zod.unknown())),
+  pricePerIntervalCents: zod.number(),
+  featured: zod.number(),
+  createdAt: zod.date().optional(),
+});
+
+/**
+ * @summary Create a new subscription
+ */
+export const CreateSubscriptionBody = zod.object({
+  customerEmail: zod.string().email(),
+  customerName: zod.string().optional(),
+  planId: zod.number(),
+  intervalDays: zod.union([zod.literal(30), zod.literal(60), zod.literal(90)]),
+  shippingAddress: zod.record(zod.string(), zod.unknown()).optional(),
+  notes: zod.string().nullish(),
+});
+
+/**
+ * With x-admin-key: returns all subscriptions including customerEmail and shippingAddress.
+Without x-admin-key: requires `email` query param (validated as email); returns subscriptions for that email WITHOUT customerEmail, shippingAddress, or accessToken fields. This is a safe read-only listing.
+
+ * @summary List subscriptions by email or all (admin)
+ */
+export const ListSubscriptionsQueryParams = zod.object({
+  email: zod.coerce
+    .string()
+    .email()
+    .optional()
+    .describe(
+      "Required for non-admin. Returns subscriptions for this customer (no sensitive fields exposed).",
+    ),
+});
+
+export const ListSubscriptionsResponseItem = zod.object({
+  id: zod.number(),
+  customerEmail: zod.string(),
+  customerName: zod.string().optional(),
+  status: zod.enum(["active", "paused", "cancelled"]),
+  intervalDays: zod.number(),
+  nextBillingDate: zod.date(),
+  createdAt: zod.date(),
+  planName: zod.string(),
+  planSlug: zod.string(),
+  planDescription: zod.string().optional(),
+  planBundle: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
+  planPriceCents: zod.number(),
+});
+export const ListSubscriptionsResponse = zod.array(
+  ListSubscriptionsResponseItem,
+);
+
+/**
+ * Requires either x-admin-key header or the subscription's accessToken in the request body.
+ * @summary Skip next shipment (defer by one interval)
+ */
+export const SkipSubscriptionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SkipSubscriptionBody = zod.object({
+  token: zod
+    .string()
+    .optional()
+    .describe(
+      "Subscription access token returned at creation (required for non-admin)",
+    ),
+});
+
+export const SkipSubscriptionResponse = zod.object({
+  id: zod.number(),
+  status: zod.string(),
+  nextBillingDate: zod.date(),
+});
+
+/**
+ * Requires either x-admin-key header or the subscription's accessToken as a query parameter. Does NOT return the accessToken in the response body.
+ * @summary Get a single subscription by ID
+ */
+export const GetSubscriptionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetSubscriptionQueryParams = zod.object({
+  token: zod.coerce
+    .string()
+    .optional()
+    .describe("Subscription access token (required for non-admin)"),
+});
+
+export const GetSubscriptionResponse = zod.object({
+  id: zod.number(),
+  customerEmail: zod.string(),
+  customerName: zod.string().optional(),
+  status: zod.enum(["active", "paused", "cancelled"]),
+  intervalDays: zod.number(),
+  nextBillingDate: zod.date(),
+  createdAt: zod.date(),
+  planName: zod.string(),
+  planSlug: zod.string(),
+  planDescription: zod.string().optional(),
+  planBundle: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
+  planPriceCents: zod.number(),
+});
+
+/**
+ * Requires either x-admin-key header or the subscription's accessToken as a query parameter.
+ * @summary Cancel a subscription
+ */
+export const CancelSubscriptionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CancelSubscriptionQueryParams = zod.object({
+  token: zod.coerce
+    .string()
+    .optional()
+    .describe("Subscription access token (required for non-admin)"),
+});
+
+export const CancelSubscriptionResponse = zod.object({
+  id: zod.number(),
+  status: zod.string(),
+});
+
+/**
+ * Returns all subscriptions with renewal counts. Requires x-admin-key header.
+ * @summary Admin — list all subscriptions with stats
+ */
+export const AdminListSubscriptionsResponse = zod.object({
+  total: zod.number(),
+  active: zod.number(),
+  paused: zod.number(),
+  cancelled: zod.number(),
+  renewingIn7Days: zod.number(),
+  renewingIn30Days: zod.number(),
+  subscriptions: zod.array(
+    zod.object({
+      id: zod.number(),
+      customerEmail: zod.string(),
+      customerName: zod.string().optional(),
+      status: zod.enum(["active", "paused", "cancelled"]),
+      intervalDays: zod.number(),
+      nextBillingDate: zod.date(),
+      createdAt: zod.date(),
+      planName: zod.string(),
+      planSlug: zod.string(),
+      planDescription: zod.string().optional(),
+      planBundle: zod.array(zod.record(zod.string(), zod.unknown())).optional(),
+      planPriceCents: zod.number(),
+    }),
+  ),
+});
+
+/**
+ * Finds all active subscriptions with nextBillingDate in [now+3d, now+4d] and sends reminder emails. Also runs automatically on server start and every 24 hours.
+ * @summary Admin — dispatch 3-day renewal reminder emails
+ */
+export const DispatchSubscriptionRemindersResponse = zod.object({
+  checked: zod
+    .number()
+    .describe("Number of subscriptions matched the 3-day window"),
+  sent: zod.number().describe("Number of emails successfully sent"),
+  failed: zod.number().describe("Number of emails that failed to send"),
+});
+
+/**
+ * @summary Admin — override subscription status
+ */
+export const AdminPatchSubscriptionStatusParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminPatchSubscriptionStatusBody = zod.object({
+  status: zod.enum(["active", "paused", "cancelled"]),
+});
+
+export const AdminPatchSubscriptionStatusResponse = zod.object({
+  id: zod.number(),
+  status: zod.string(),
+});
+
+/**
+ * Public endpoint — creates a customer account in pending status and returns an access token used to check application status later.
+ * @summary Apply for a B2B wholesale account
+ */
+export const applyForAccountBodyBusinessNameMax = 200;
+
+export const applyForAccountBodyContactNameMax = 200;
+
+export const applyForAccountBodyPhoneMax = 50;
+
+export const ApplyForAccountBody = zod.object({
+  businessName: zod.string().min(1).max(applyForAccountBodyBusinessNameMax),
+  contactName: zod.string().min(1).max(applyForAccountBodyContactNameMax),
+  email: zod.string().email(),
+  phone: zod.string().min(1).max(applyForAccountBodyPhoneMax),
+  businessType: zod.enum([
+    "research_lab",
+    "clinic",
+    "reseller",
+    "distributor",
+    "other",
+  ]),
+  taxId: zod.string().nullish(),
+  resaleCertUrl: zod.string().nullish(),
+});
+
+/**
+ * Requires either x-admin-key header or the account's accessToken (header x-account-token or query token). Returns status and assigned price tier. Does NOT return the accessToken.
+ * @summary Get a wholesale account by ID
+ */
+export const GetAccountParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const GetAccountQueryParams = zod.object({
+  token: zod.coerce
+    .string()
+    .optional()
+    .describe("Account access token (required for non-admin)"),
+});
+
+export const GetAccountResponse = zod.object({
+  id: zod.string(),
+  businessName: zod.string(),
+  contactName: zod.string(),
+  email: zod.string(),
+  phone: zod.string().nullish(),
+  businessType: zod.string().nullish(),
+  taxId: zod.string().nullish(),
+  resaleCertUrl: zod.string().nullish(),
+  status: zod.enum(["pending", "approved", "rejected", "suspended"]),
+  priceTierId: zod.number().nullish(),
+  priceTier: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      slug: zod.string(),
+      isDefault: zod.boolean(),
+      createdAt: zod.date(),
+    })
+    .nullish(),
+  kybNotes: zod.string().nullish(),
+  approvedAt: zod.date().nullish(),
+  createdAt: zod.date(),
+});
+
+/**
+ * Returns wholesale accounts, optionally filtered by status. Requires x-admin-key header.
+ * @summary Admin — list wholesale account applications
+ */
+export const AdminListAccountsQueryParams = zod.object({
+  status: zod.enum(["pending", "approved", "rejected", "suspended"]).optional(),
+});
+
+export const AdminListAccountsResponseItem = zod.object({
+  id: zod.string(),
+  businessName: zod.string(),
+  contactName: zod.string(),
+  email: zod.string(),
+  phone: zod.string().nullish(),
+  businessType: zod.string().nullish(),
+  taxId: zod.string().nullish(),
+  resaleCertUrl: zod.string().nullish(),
+  status: zod.enum(["pending", "approved", "rejected", "suspended"]),
+  priceTierId: zod.number().nullish(),
+  priceTier: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      slug: zod.string(),
+      isDefault: zod.boolean(),
+      createdAt: zod.date(),
+    })
+    .nullish(),
+  kybNotes: zod.string().nullish(),
+  approvedAt: zod.date().nullish(),
+  createdAt: zod.date(),
+});
+export const AdminListAccountsResponse = zod.array(
+  AdminListAccountsResponseItem,
+);
+
+/**
+ * Sets status and/or price tier and KYB notes. Stamps approvedAt/approvedBy when approved. Requires x-admin-key header.
+ * @summary Admin — approve, reject, suspend, or assign a tier to an account
+ */
+export const AdminPatchAccountParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const AdminPatchAccountBody = zod.object({
+  status: zod.enum(["pending", "approved", "rejected", "suspended"]).optional(),
+  priceTierId: zod.number().nullish(),
+  kybNotes: zod.string().nullish(),
+});
+
+export const AdminPatchAccountResponse = zod.object({
+  id: zod.string(),
+  businessName: zod.string(),
+  contactName: zod.string(),
+  email: zod.string(),
+  phone: zod.string().nullish(),
+  businessType: zod.string().nullish(),
+  taxId: zod.string().nullish(),
+  resaleCertUrl: zod.string().nullish(),
+  status: zod.enum(["pending", "approved", "rejected", "suspended"]),
+  priceTierId: zod.number().nullish(),
+  priceTier: zod
+    .object({
+      id: zod.number(),
+      name: zod.string(),
+      slug: zod.string(),
+      isDefault: zod.boolean(),
+      createdAt: zod.date(),
+    })
+    .nullish(),
+  kybNotes: zod.string().nullish(),
+  approvedAt: zod.date().nullish(),
+  createdAt: zod.date(),
+});
+
+/**
+ * Returns all wholesale price tiers. Requires x-admin-key header.
+ * @summary Admin — list price tiers
+ */
+export const AdminListPriceTiersResponseItem = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  slug: zod.string(),
+  isDefault: zod.boolean(),
+  createdAt: zod.date(),
+});
+export const AdminListPriceTiersResponse = zod.array(
+  AdminListPriceTiersResponseItem,
+);
 
 /**
  * Receives InvoiceSettled, InvoiceExpired, and InvoiceInvalid events from BTCPayServer and updates order status

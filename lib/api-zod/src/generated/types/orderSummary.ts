@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { OrderSummaryChannel } from "./orderSummaryChannel";
 import type { OrderSummaryPaymentMethod } from "./orderSummaryPaymentMethod";
 import type { OrderSummaryStatus } from "./orderSummaryStatus";
 
@@ -15,4 +16,5 @@ export interface OrderSummary {
   totalCents: number;
   paymentMethod: OrderSummaryPaymentMethod;
   status: OrderSummaryStatus;
+  channel: OrderSummaryChannel;
 }

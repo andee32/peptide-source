@@ -9,6 +9,10 @@ import type { CreateOrderLineItem } from "./createOrderLineItem";
 import type { CreateOrderRequestPaymentMethod } from "./createOrderRequestPaymentMethod";
 
 export interface CreateOrderRequest {
+  /** B2B wholesale account ID. When present with a valid token, the order is placed on the wholesale channel with tier-resolved pricing and kit/MOQ enforcement. */
+  accountId?: string | null;
+  /** Wholesale account access token. Required when accountId is provided. */
+  token?: string | null;
   sessionId?: string | null;
   /** @minItems 1 */
   lineItems: CreateOrderLineItem[];

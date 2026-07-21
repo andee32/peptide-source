@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod/v4";
-import { eq, inArray } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import QRCode from "qrcode";
 import { db } from "@atlab/db";
@@ -9,6 +9,8 @@ import {
   paymentRecordsTable,
   productVariantsTable,
   productsTable,
+  customerAccountsTable,
+  priceListEntriesTable,
 } from "@atlab/db/schema";
 import { btcpayService, PaymentRailUnavailableError, type CryptoCurrency } from "../services/btcpay";
 
@@ -22,6 +24,8 @@ const lineItemInputSchema = z.object({
 });
 
 const createOrderSchema = z.object({
+  accountId: z.string().nullish(),
+  token: z.string().nullish(),
   sessionId: z.string().optional(),
   lineItems: z.array(lineItemInputSchema).min(1).max(50),
   paymentMethod: z.enum(["card", "crypto_btc", "crypto_usdc"]),
@@ -51,6 +55,7 @@ router.post("/orders", async (req, res) => {
       name: productVariantsTable.name,
       priceCents: productVariantsTable.priceCents,
       inStock: productVariantsTable.inStock,
+      unitType: productVariantsTable.unitType,
       productId: productVariantsTable.productId,
       productName: productsTable.name,
     })
@@ -78,6 +83,70 @@ router.post("/orders", async (req, res) => {
     return;
   }
 
+  // ── Wholesale path: authenticate account, enforce kit-only + MOQ, resolve
+  // tier pricing. Retail path (no accountId) is unchanged.
+  const isWholesale = !!data.accountId;
+  const priceOverrides = new Map<number, number>();
+
+  if (isWholesale) {
+    const account = await db.query.customerAccountsTable.findFirst({
+      where: eq(customerAccountsTable.id, data.accountId!),
+    });
+    if (
+      !account ||
+      account.status !== "approved" ||
+      !data.token ||
+      !account.accessToken ||
+      account.accessToken !== data.token
+    ) {
+      res.status(403).json({
+        error: "forbidden",
+        message: "Wholesale account is not approved or the access token is invalid",
+      });
+      return;
+    }
+
+    const nonKit = data.lineItems.filter(
+      (li) => variantMap.get(li.variantId)?.unitType !== "kit"
+    );
+    if (nonKit.length > 0) {
+      res.status(422).json({
+        error: "unprocessable_entity",
+        code: "WHOLESALE_KIT_REQUIRED",
+        message: `Wholesale orders may only contain kit variants. Non-kit variant(s): ${nonKit
+          .map((li) => li.variantId)
+          .join(", ")}`,
+      });
+      return;
+    }
+
+    const totalKits = data.lineItems.reduce((sum, li) => sum + li.quantity, 0);
+    if (totalKits < 5) {
+      res.status(422).json({
+        error: "unprocessable_entity",
+        code: "MOQ_NOT_MET",
+        message: `Wholesale minimum order quantity is 5 kits (mixed SKUs count toward the total); this order has ${totalKits}.`,
+      });
+      return;
+    }
+
+    if (account.priceTierId !== null) {
+      const entries = await db
+        .select({
+          variantId: priceListEntriesTable.variantId,
+          priceCents: priceListEntriesTable.priceCents,
+        })
+        .from(priceListEntriesTable)
+        .where(
+          and(
+            eq(priceListEntriesTable.priceTierId, account.priceTierId),
+            inArray(priceListEntriesTable.variantId, variantIds)
+          )
+        );
+      for (const e of entries) priceOverrides.set(e.variantId, e.priceCents);
+    }
+  }
+
   const resolvedLineItems = data.lineItems.map((li) => {
     const v = variantMap.get(li.variantId)!;
     return {
@@ -85,7 +154,7 @@ router.post("/orders", async (req, res) => {
       productName: v.productName,
       variantName: v.name,
       quantity: li.quantity,
-      unitPriceCents: v.priceCents,
+      unitPriceCents: priceOverrides.get(li.variantId) ?? v.priceCents,
     };
   });
 
@@ -93,11 +162,14 @@ router.post("/orders", async (req, res) => {
     (sum, item) => sum + item.unitPriceCents * item.quantity,
     0
   );
+  // Wholesale orders never receive the retail crypto discount.
   const isCrypto = data.paymentMethod !== "card";
-  const discountCents = isCrypto
-    ? Math.round(subtotalCents * CRYPTO_DISCOUNT_RATE)
-    : 0;
+  const discountCents =
+    !isWholesale && isCrypto
+      ? Math.round(subtotalCents * CRYPTO_DISCOUNT_RATE)
+      : 0;
   const totalCents = subtotalCents - discountCents;
+  const channel = isWholesale ? "wholesale" : "retail";
   const orderId = randomUUID();
 
   await db.insert(ordersTable).values({
@@ -108,6 +180,8 @@ router.post("/orders", async (req, res) => {
     discountCents,
     totalCents,
     paymentMethod: data.paymentMethod,
+    channel,
+    accountId: isWholesale ? data.accountId! : null,
     status: "pending",
     shippingName: data.shippingName,
     shippingEmail: data.shippingEmail,
@@ -126,6 +200,7 @@ router.post("/orders", async (req, res) => {
     totalCents,
     paymentMethod: data.paymentMethod,
     status: "pending",
+    channel,
   });
 });
 

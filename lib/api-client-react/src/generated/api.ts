@@ -17,26 +17,47 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  Account,
+  AccountCreated,
+  AdminListAccountsParams,
+  AdminPatchSubscriptionStatusBody,
+  AdminSubscriptionsOverview,
   ApiError,
+  ApplyAccountRequest,
   BatchDetail,
   BatchSummary,
   BtcpayWebhookEvent,
+  CancelSubscriptionParams,
   CreateOrderRequest,
   CreateReviewerSubmissionRequest,
+  CreateSubscriptionRequest,
   CryptoInvoice,
+  DispatchSubscriptionReminders200,
+  GetAccountParams,
+  GetSubscriptionParams,
   HandleBtcpayWebhook200,
   HealthStatus,
   ListBatchesParams,
   ListProductsParams,
+  ListSubscriptionsParams,
+  MoqError,
   OrderDetail,
   OrderSummary,
+  PatchAccountRequest,
   PatchReviewerSubmissionRequest,
+  PriceTier,
   Product,
   ProductDetail,
   ReviewerSubmission,
   ReviewerSubmissionCreated,
   ReviewerSubmissionPatched,
   ReviewerSubmissionStats,
+  SkipSubscriptionBody,
+  SubscriptionCancelled,
+  SubscriptionCreated,
+  SubscriptionDetail,
+  SubscriptionPlan,
+  SubscriptionSkipped,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
@@ -597,7 +618,7 @@ export const createOrder = async (
 };
 
 export const getCreateOrderMutationOptions = <
-  TError = ErrorType<ApiError>,
+  TError = ErrorType<ApiError | MoqError>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -638,13 +659,13 @@ export type CreateOrderMutationResult = NonNullable<
   Awaited<ReturnType<typeof createOrder>>
 >;
 export type CreateOrderMutationBody = BodyType<CreateOrderRequest>;
-export type CreateOrderMutationError = ErrorType<ApiError>;
+export type CreateOrderMutationError = ErrorType<ApiError | MoqError>;
 
 /**
  * @summary Create a new order
  */
 export const useCreateOrder = <
-  TError = ErrorType<ApiError>,
+  TError = ErrorType<ApiError | MoqError>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -1261,6 +1282,1371 @@ export const usePatchReviewerSubmission = <
 > => {
   return useMutation(getPatchReviewerSubmissionMutationOptions(options));
 };
+
+/**
+ * Returns all research kit subscription plans, ordered by featured then interval
+ * @summary List all subscription plans
+ */
+export const getListSubscriptionPlansUrl = () => {
+  return `/api/subscription-plans`;
+};
+
+export const listSubscriptionPlans = async (
+  options?: RequestInit,
+): Promise<SubscriptionPlan[]> => {
+  return customFetch<SubscriptionPlan[]>(getListSubscriptionPlansUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSubscriptionPlansQueryKey = () => {
+  return [`/api/subscription-plans`] as const;
+};
+
+export const getListSubscriptionPlansQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSubscriptionPlans>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSubscriptionPlans>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListSubscriptionPlansQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSubscriptionPlans>>
+  > = ({ signal }) => listSubscriptionPlans({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSubscriptionPlans>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSubscriptionPlansQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSubscriptionPlans>>
+>;
+export type ListSubscriptionPlansQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all subscription plans
+ */
+
+export function useListSubscriptionPlans<
+  TData = Awaited<ReturnType<typeof listSubscriptionPlans>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSubscriptionPlans>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSubscriptionPlansQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a subscription plan by slug
+ */
+export const getGetSubscriptionPlanUrl = (slug: string) => {
+  return `/api/subscription-plans/${slug}`;
+};
+
+export const getSubscriptionPlan = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<SubscriptionPlan> => {
+  return customFetch<SubscriptionPlan>(getGetSubscriptionPlanUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSubscriptionPlanQueryKey = (slug: string) => {
+  return [`/api/subscription-plans/${slug}`] as const;
+};
+
+export const getGetSubscriptionPlanQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSubscriptionPlan>>,
+  TError = ErrorType<ApiError>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSubscriptionPlan>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSubscriptionPlanQueryKey(slug);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSubscriptionPlan>>
+  > = ({ signal }) => getSubscriptionPlan(slug, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSubscriptionPlan>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSubscriptionPlanQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSubscriptionPlan>>
+>;
+export type GetSubscriptionPlanQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Get a subscription plan by slug
+ */
+
+export function useGetSubscriptionPlan<
+  TData = Awaited<ReturnType<typeof getSubscriptionPlan>>,
+  TError = ErrorType<ApiError>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSubscriptionPlan>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSubscriptionPlanQueryOptions(slug, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new subscription
+ */
+export const getCreateSubscriptionUrl = () => {
+  return `/api/subscriptions`;
+};
+
+export const createSubscription = async (
+  createSubscriptionRequest: CreateSubscriptionRequest,
+  options?: RequestInit,
+): Promise<SubscriptionCreated> => {
+  return customFetch<SubscriptionCreated>(getCreateSubscriptionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createSubscriptionRequest),
+  });
+};
+
+export const getCreateSubscriptionMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSubscription>>,
+    TError,
+    { data: BodyType<CreateSubscriptionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSubscription>>,
+  TError,
+  { data: BodyType<CreateSubscriptionRequest> },
+  TContext
+> => {
+  const mutationKey = ["createSubscription"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSubscription>>,
+    { data: BodyType<CreateSubscriptionRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createSubscription(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateSubscriptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSubscription>>
+>;
+export type CreateSubscriptionMutationBody =
+  BodyType<CreateSubscriptionRequest>;
+export type CreateSubscriptionMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Create a new subscription
+ */
+export const useCreateSubscription = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSubscription>>,
+    TError,
+    { data: BodyType<CreateSubscriptionRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSubscription>>,
+  TError,
+  { data: BodyType<CreateSubscriptionRequest> },
+  TContext
+> => {
+  return useMutation(getCreateSubscriptionMutationOptions(options));
+};
+
+/**
+ * With x-admin-key: returns all subscriptions including customerEmail and shippingAddress.
+Without x-admin-key: requires `email` query param (validated as email); returns subscriptions for that email WITHOUT customerEmail, shippingAddress, or accessToken fields. This is a safe read-only listing.
+
+ * @summary List subscriptions by email or all (admin)
+ */
+export const getListSubscriptionsUrl = (params?: ListSubscriptionsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/subscriptions?${stringifiedParams}`
+    : `/api/subscriptions`;
+};
+
+export const listSubscriptions = async (
+  params?: ListSubscriptionsParams,
+  options?: RequestInit,
+): Promise<SubscriptionDetail[]> => {
+  return customFetch<SubscriptionDetail[]>(getListSubscriptionsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSubscriptionsQueryKey = (
+  params?: ListSubscriptionsParams,
+) => {
+  return [`/api/subscriptions`, ...(params ? [params] : [])] as const;
+};
+
+export const getListSubscriptionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSubscriptions>>,
+  TError = ErrorType<ApiError>,
+>(
+  params?: ListSubscriptionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSubscriptions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListSubscriptionsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSubscriptions>>
+  > = ({ signal }) => listSubscriptions(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSubscriptions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSubscriptionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSubscriptions>>
+>;
+export type ListSubscriptionsQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary List subscriptions by email or all (admin)
+ */
+
+export function useListSubscriptions<
+  TData = Awaited<ReturnType<typeof listSubscriptions>>,
+  TError = ErrorType<ApiError>,
+>(
+  params?: ListSubscriptionsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listSubscriptions>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSubscriptionsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Requires either x-admin-key header or the subscription's accessToken in the request body.
+ * @summary Skip next shipment (defer by one interval)
+ */
+export const getSkipSubscriptionUrl = (id: number) => {
+  return `/api/subscriptions/${id}/skip`;
+};
+
+export const skipSubscription = async (
+  id: number,
+  skipSubscriptionBody?: SkipSubscriptionBody,
+  options?: RequestInit,
+): Promise<SubscriptionSkipped> => {
+  return customFetch<SubscriptionSkipped>(getSkipSubscriptionUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(skipSubscriptionBody),
+  });
+};
+
+export const getSkipSubscriptionMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof skipSubscription>>,
+    TError,
+    { id: number; data: BodyType<SkipSubscriptionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof skipSubscription>>,
+  TError,
+  { id: number; data: BodyType<SkipSubscriptionBody> },
+  TContext
+> => {
+  const mutationKey = ["skipSubscription"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof skipSubscription>>,
+    { id: number; data: BodyType<SkipSubscriptionBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return skipSubscription(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SkipSubscriptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof skipSubscription>>
+>;
+export type SkipSubscriptionMutationBody = BodyType<SkipSubscriptionBody>;
+export type SkipSubscriptionMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Skip next shipment (defer by one interval)
+ */
+export const useSkipSubscription = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof skipSubscription>>,
+    TError,
+    { id: number; data: BodyType<SkipSubscriptionBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof skipSubscription>>,
+  TError,
+  { id: number; data: BodyType<SkipSubscriptionBody> },
+  TContext
+> => {
+  return useMutation(getSkipSubscriptionMutationOptions(options));
+};
+
+/**
+ * Requires either x-admin-key header or the subscription's accessToken as a query parameter. Does NOT return the accessToken in the response body.
+ * @summary Get a single subscription by ID
+ */
+export const getGetSubscriptionUrl = (
+  id: number,
+  params?: GetSubscriptionParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/subscriptions/${id}?${stringifiedParams}`
+    : `/api/subscriptions/${id}`;
+};
+
+export const getSubscription = async (
+  id: number,
+  params?: GetSubscriptionParams,
+  options?: RequestInit,
+): Promise<SubscriptionDetail> => {
+  return customFetch<SubscriptionDetail>(getGetSubscriptionUrl(id, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSubscriptionQueryKey = (
+  id: number,
+  params?: GetSubscriptionParams,
+) => {
+  return [`/api/subscriptions/${id}`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetSubscriptionQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSubscription>>,
+  TError = ErrorType<ApiError>,
+>(
+  id: number,
+  params?: GetSubscriptionParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSubscription>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSubscriptionQueryKey(id, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSubscription>>> = ({
+    signal,
+  }) => getSubscription(id, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSubscription>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSubscriptionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSubscription>>
+>;
+export type GetSubscriptionQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Get a single subscription by ID
+ */
+
+export function useGetSubscription<
+  TData = Awaited<ReturnType<typeof getSubscription>>,
+  TError = ErrorType<ApiError>,
+>(
+  id: number,
+  params?: GetSubscriptionParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSubscription>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSubscriptionQueryOptions(id, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Requires either x-admin-key header or the subscription's accessToken as a query parameter.
+ * @summary Cancel a subscription
+ */
+export const getCancelSubscriptionUrl = (
+  id: number,
+  params?: CancelSubscriptionParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/subscriptions/${id}?${stringifiedParams}`
+    : `/api/subscriptions/${id}`;
+};
+
+export const cancelSubscription = async (
+  id: number,
+  params?: CancelSubscriptionParams,
+  options?: RequestInit,
+): Promise<SubscriptionCancelled> => {
+  return customFetch<SubscriptionCancelled>(
+    getCancelSubscriptionUrl(id, params),
+    {
+      ...options,
+      method: "DELETE",
+    },
+  );
+};
+
+export const getCancelSubscriptionMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelSubscription>>,
+    TError,
+    { id: number; params?: CancelSubscriptionParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof cancelSubscription>>,
+  TError,
+  { id: number; params?: CancelSubscriptionParams },
+  TContext
+> => {
+  const mutationKey = ["cancelSubscription"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof cancelSubscription>>,
+    { id: number; params?: CancelSubscriptionParams }
+  > = (props) => {
+    const { id, params } = props ?? {};
+
+    return cancelSubscription(id, params, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CancelSubscriptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelSubscription>>
+>;
+
+export type CancelSubscriptionMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Cancel a subscription
+ */
+export const useCancelSubscription = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelSubscription>>,
+    TError,
+    { id: number; params?: CancelSubscriptionParams },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof cancelSubscription>>,
+  TError,
+  { id: number; params?: CancelSubscriptionParams },
+  TContext
+> => {
+  return useMutation(getCancelSubscriptionMutationOptions(options));
+};
+
+/**
+ * Returns all subscriptions with renewal counts. Requires x-admin-key header.
+ * @summary Admin — list all subscriptions with stats
+ */
+export const getAdminListSubscriptionsUrl = () => {
+  return `/api/admin/subscriptions`;
+};
+
+export const adminListSubscriptions = async (
+  options?: RequestInit,
+): Promise<AdminSubscriptionsOverview> => {
+  return customFetch<AdminSubscriptionsOverview>(
+    getAdminListSubscriptionsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getAdminListSubscriptionsQueryKey = () => {
+  return [`/api/admin/subscriptions`] as const;
+};
+
+export const getAdminListSubscriptionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListSubscriptions>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListSubscriptions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListSubscriptionsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListSubscriptions>>
+  > = ({ signal }) => adminListSubscriptions({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListSubscriptions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListSubscriptionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListSubscriptions>>
+>;
+export type AdminListSubscriptionsQueryError = ErrorType<void>;
+
+/**
+ * @summary Admin — list all subscriptions with stats
+ */
+
+export function useAdminListSubscriptions<
+  TData = Awaited<ReturnType<typeof adminListSubscriptions>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListSubscriptions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListSubscriptionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Finds all active subscriptions with nextBillingDate in [now+3d, now+4d] and sends reminder emails. Also runs automatically on server start and every 24 hours.
+ * @summary Admin — dispatch 3-day renewal reminder emails
+ */
+export const getDispatchSubscriptionRemindersUrl = () => {
+  return `/api/admin/subscriptions/dispatch-reminders`;
+};
+
+export const dispatchSubscriptionReminders = async (
+  options?: RequestInit,
+): Promise<DispatchSubscriptionReminders200> => {
+  return customFetch<DispatchSubscriptionReminders200>(
+    getDispatchSubscriptionRemindersUrl(),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getDispatchSubscriptionRemindersMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dispatchSubscriptionReminders>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof dispatchSubscriptionReminders>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["dispatchSubscriptionReminders"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof dispatchSubscriptionReminders>>,
+    void
+  > = () => {
+    return dispatchSubscriptionReminders(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DispatchSubscriptionRemindersMutationResult = NonNullable<
+  Awaited<ReturnType<typeof dispatchSubscriptionReminders>>
+>;
+
+export type DispatchSubscriptionRemindersMutationError = ErrorType<void>;
+
+/**
+ * @summary Admin — dispatch 3-day renewal reminder emails
+ */
+export const useDispatchSubscriptionReminders = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof dispatchSubscriptionReminders>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof dispatchSubscriptionReminders>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getDispatchSubscriptionRemindersMutationOptions(options));
+};
+
+/**
+ * @summary Admin — override subscription status
+ */
+export const getAdminPatchSubscriptionStatusUrl = (id: number) => {
+  return `/api/admin/subscriptions/${id}/status`;
+};
+
+export const adminPatchSubscriptionStatus = async (
+  id: number,
+  adminPatchSubscriptionStatusBody: AdminPatchSubscriptionStatusBody,
+  options?: RequestInit,
+): Promise<SubscriptionCancelled> => {
+  return customFetch<SubscriptionCancelled>(
+    getAdminPatchSubscriptionStatusUrl(id),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminPatchSubscriptionStatusBody),
+    },
+  );
+};
+
+export const getAdminPatchSubscriptionStatusMutationOptions = <
+  TError = ErrorType<void | ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchSubscriptionStatus>>,
+    TError,
+    { id: number; data: BodyType<AdminPatchSubscriptionStatusBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminPatchSubscriptionStatus>>,
+  TError,
+  { id: number; data: BodyType<AdminPatchSubscriptionStatusBody> },
+  TContext
+> => {
+  const mutationKey = ["adminPatchSubscriptionStatus"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminPatchSubscriptionStatus>>,
+    { id: number; data: BodyType<AdminPatchSubscriptionStatusBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminPatchSubscriptionStatus(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminPatchSubscriptionStatusMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminPatchSubscriptionStatus>>
+>;
+export type AdminPatchSubscriptionStatusMutationBody =
+  BodyType<AdminPatchSubscriptionStatusBody>;
+export type AdminPatchSubscriptionStatusMutationError =
+  ErrorType<void | ApiError>;
+
+/**
+ * @summary Admin — override subscription status
+ */
+export const useAdminPatchSubscriptionStatus = <
+  TError = ErrorType<void | ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchSubscriptionStatus>>,
+    TError,
+    { id: number; data: BodyType<AdminPatchSubscriptionStatusBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminPatchSubscriptionStatus>>,
+  TError,
+  { id: number; data: BodyType<AdminPatchSubscriptionStatusBody> },
+  TContext
+> => {
+  return useMutation(getAdminPatchSubscriptionStatusMutationOptions(options));
+};
+
+/**
+ * Public endpoint — creates a customer account in pending status and returns an access token used to check application status later.
+ * @summary Apply for a B2B wholesale account
+ */
+export const getApplyForAccountUrl = () => {
+  return `/api/accounts/apply`;
+};
+
+export const applyForAccount = async (
+  applyAccountRequest: ApplyAccountRequest,
+  options?: RequestInit,
+): Promise<AccountCreated> => {
+  return customFetch<AccountCreated>(getApplyForAccountUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(applyAccountRequest),
+  });
+};
+
+export const getApplyForAccountMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof applyForAccount>>,
+    TError,
+    { data: BodyType<ApplyAccountRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof applyForAccount>>,
+  TError,
+  { data: BodyType<ApplyAccountRequest> },
+  TContext
+> => {
+  const mutationKey = ["applyForAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof applyForAccount>>,
+    { data: BodyType<ApplyAccountRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return applyForAccount(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ApplyForAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof applyForAccount>>
+>;
+export type ApplyForAccountMutationBody = BodyType<ApplyAccountRequest>;
+export type ApplyForAccountMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Apply for a B2B wholesale account
+ */
+export const useApplyForAccount = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof applyForAccount>>,
+    TError,
+    { data: BodyType<ApplyAccountRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof applyForAccount>>,
+  TError,
+  { data: BodyType<ApplyAccountRequest> },
+  TContext
+> => {
+  return useMutation(getApplyForAccountMutationOptions(options));
+};
+
+/**
+ * Requires either x-admin-key header or the account's accessToken (header x-account-token or query token). Returns status and assigned price tier. Does NOT return the accessToken.
+ * @summary Get a wholesale account by ID
+ */
+export const getGetAccountUrl = (id: string, params?: GetAccountParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/accounts/${id}?${stringifiedParams}`
+    : `/api/accounts/${id}`;
+};
+
+export const getAccount = async (
+  id: string,
+  params?: GetAccountParams,
+  options?: RequestInit,
+): Promise<Account> => {
+  return customFetch<Account>(getGetAccountUrl(id, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAccountQueryKey = (
+  id: string,
+  params?: GetAccountParams,
+) => {
+  return [`/api/accounts/${id}`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetAccountQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAccount>>,
+  TError = ErrorType<ApiError>,
+>(
+  id: string,
+  params?: GetAccountParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAccount>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAccountQueryKey(id, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAccount>>> = ({
+    signal,
+  }) => getAccount(id, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAccount>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAccountQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccount>>
+>;
+export type GetAccountQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Get a wholesale account by ID
+ */
+
+export function useGetAccount<
+  TData = Awaited<ReturnType<typeof getAccount>>,
+  TError = ErrorType<ApiError>,
+>(
+  id: string,
+  params?: GetAccountParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAccount>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAccountQueryOptions(id, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns wholesale accounts, optionally filtered by status. Requires x-admin-key header.
+ * @summary Admin — list wholesale account applications
+ */
+export const getAdminListAccountsUrl = (params?: AdminListAccountsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/accounts?${stringifiedParams}`
+    : `/api/admin/accounts`;
+};
+
+export const adminListAccounts = async (
+  params?: AdminListAccountsParams,
+  options?: RequestInit,
+): Promise<Account[]> => {
+  return customFetch<Account[]>(getAdminListAccountsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListAccountsQueryKey = (
+  params?: AdminListAccountsParams,
+) => {
+  return [`/api/admin/accounts`, ...(params ? [params] : [])] as const;
+};
+
+export const getAdminListAccountsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListAccounts>>,
+  TError = ErrorType<void>,
+>(
+  params?: AdminListAccountsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListAccounts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListAccountsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListAccounts>>
+  > = ({ signal }) => adminListAccounts(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListAccounts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListAccountsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListAccounts>>
+>;
+export type AdminListAccountsQueryError = ErrorType<void>;
+
+/**
+ * @summary Admin — list wholesale account applications
+ */
+
+export function useAdminListAccounts<
+  TData = Awaited<ReturnType<typeof adminListAccounts>>,
+  TError = ErrorType<void>,
+>(
+  params?: AdminListAccountsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListAccounts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListAccountsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Sets status and/or price tier and KYB notes. Stamps approvedAt/approvedBy when approved. Requires x-admin-key header.
+ * @summary Admin — approve, reject, suspend, or assign a tier to an account
+ */
+export const getAdminPatchAccountUrl = (id: string) => {
+  return `/api/admin/accounts/${id}`;
+};
+
+export const adminPatchAccount = async (
+  id: string,
+  patchAccountRequest: PatchAccountRequest,
+  options?: RequestInit,
+): Promise<Account> => {
+  return customFetch<Account>(getAdminPatchAccountUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(patchAccountRequest),
+  });
+};
+
+export const getAdminPatchAccountMutationOptions = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchAccount>>,
+    TError,
+    { id: string; data: BodyType<PatchAccountRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminPatchAccount>>,
+  TError,
+  { id: string; data: BodyType<PatchAccountRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminPatchAccount"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminPatchAccount>>,
+    { id: string; data: BodyType<PatchAccountRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminPatchAccount(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminPatchAccountMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminPatchAccount>>
+>;
+export type AdminPatchAccountMutationBody = BodyType<PatchAccountRequest>;
+export type AdminPatchAccountMutationError = ErrorType<ApiError | void>;
+
+/**
+ * @summary Admin — approve, reject, suspend, or assign a tier to an account
+ */
+export const useAdminPatchAccount = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchAccount>>,
+    TError,
+    { id: string; data: BodyType<PatchAccountRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminPatchAccount>>,
+  TError,
+  { id: string; data: BodyType<PatchAccountRequest> },
+  TContext
+> => {
+  return useMutation(getAdminPatchAccountMutationOptions(options));
+};
+
+/**
+ * Returns all wholesale price tiers. Requires x-admin-key header.
+ * @summary Admin — list price tiers
+ */
+export const getAdminListPriceTiersUrl = () => {
+  return `/api/admin/price-tiers`;
+};
+
+export const adminListPriceTiers = async (
+  options?: RequestInit,
+): Promise<PriceTier[]> => {
+  return customFetch<PriceTier[]>(getAdminListPriceTiersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListPriceTiersQueryKey = () => {
+  return [`/api/admin/price-tiers`] as const;
+};
+
+export const getAdminListPriceTiersQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListPriceTiers>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListPriceTiers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminListPriceTiersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListPriceTiers>>
+  > = ({ signal }) => adminListPriceTiers({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListPriceTiers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListPriceTiersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListPriceTiers>>
+>;
+export type AdminListPriceTiersQueryError = ErrorType<void>;
+
+/**
+ * @summary Admin — list price tiers
+ */
+
+export function useAdminListPriceTiers<
+  TData = Awaited<ReturnType<typeof adminListPriceTiers>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListPriceTiers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListPriceTiersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * Receives InvoiceSettled, InvoiceExpired, and InvoiceInvalid events from BTCPayServer and updates order status
