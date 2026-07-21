@@ -12,6 +12,7 @@ import {
   ordersTable,
   paymentRecordsTable,
   orderAttestationsTable,
+  storeSettingsTable,
   categoryEnum,
   batchStatusEnum,
   testTypeEnum,
@@ -1055,6 +1056,43 @@ router.patch("/admin/variants/:id", async (req, res) => {
     res.json(updated);
   } catch (err) {
     console.error("admin patchVariant error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+// ── Store settings ───────────────────────────────────────────────────────────
+// Global storefront toggles (single 'default' row). Upserts if the row is absent.
+const PatchSettingsSchema = z
+  .object({
+    showVialImages: z.boolean().optional(),
+  })
+  .refine((v) => v.showVialImages !== undefined, {
+    message: "At least one of showVialImages is required",
+  });
+
+router.patch("/admin/settings", async (req, res) => {
+  const parsed = PatchSettingsSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "bad_request", message: parsed.error.message });
+    return;
+  }
+  try {
+    const updates: Partial<typeof storeSettingsTable.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+    if (parsed.data.showVialImages !== undefined) {
+      updates.showVialImages = parsed.data.showVialImages;
+    }
+
+    const [row] = await db
+      .insert(storeSettingsTable)
+      .values({ id: "default", ...updates })
+      .onConflictDoUpdate({ target: storeSettingsTable.id, set: updates })
+      .returning();
+
+    res.json({ showVialImages: row.showVialImages });
+  } catch (err) {
+    console.error("admin patchSettings error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });
   }
 });

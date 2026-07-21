@@ -6,6 +6,7 @@ import {
   coaResultsTable,
   priceTiersTable,
   priceListEntriesTable,
+  storeSettingsTable,
 } from "@atlab/db/schema";
 import { sql } from "drizzle-orm";
 
@@ -688,6 +689,16 @@ async function seed() {
 
   const coas = await db.insert(coaResultsTable).values(coaValues).returning();
   console.log(`Inserted ${coas.length} COA results`);
+
+  // --- Store settings (single fixed row) ---
+  // Upsert so the 'default' row always exists after seed; do not clobber an
+  // existing showVialImages preference on re-seed.
+  await db
+    .insert(storeSettingsTable)
+    .values({ id: "default", showVialImages: true })
+    .onConflictDoNothing({ target: storeSettingsTable.id });
+  console.log("Ensured store settings row (id='default')");
+
   console.log("Seed complete!");
   process.exit(0);
 }

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Beaker, FlaskConical, ShoppingCart, ArrowRight } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 
 function money(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -24,6 +25,7 @@ function money(cents: number): string {
 
 function RetailProductCard({ product }: { product: RetailProduct }) {
   const { addToCart } = useCart();
+  const { showVialImages } = useStoreSettings();
   const variants = product.variants;
   const [selectedId, setSelectedId] = useState<number>(variants[0]?.id ?? 0);
 
@@ -44,33 +46,45 @@ function RetailProductCard({ product }: { product: RetailProduct }) {
 
   return (
     <Card className="group overflow-hidden flex flex-col h-full transition-all duration-300 hover:border-primary/40">
-      <div className="relative aspect-square overflow-hidden bg-muted/50 flex items-center justify-center p-8">
-        {product.imageUrl ? (
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            className="object-contain w-full h-full opacity-95 group-hover:scale-105 transition-transform duration-500"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-card rounded-full max-w-[200px] max-h-[200px] border border-border">
-            <Beaker className="h-20 w-20 text-muted-foreground opacity-30" />
-            <span className="absolute font-mono text-6xl font-black text-muted-foreground opacity-10 uppercase">
-              {product.name.substring(0, 2)}
-            </span>
-          </div>
-        )}
+      {showVialImages && (
+        <div className="relative aspect-square overflow-hidden bg-muted/50 flex items-center justify-center p-8">
+          {product.imageUrl ? (
+            <img
+              src={product.imageUrl}
+              alt={product.name}
+              className="object-contain w-full h-full opacity-95 group-hover:scale-105 transition-transform duration-500"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-card rounded-full max-w-[200px] max-h-[200px] border border-border">
+              <Beaker className="h-20 w-20 text-muted-foreground opacity-30" />
+              <span className="absolute font-mono text-6xl font-black text-muted-foreground opacity-10 uppercase">
+                {product.name.substring(0, 2)}
+              </span>
+            </div>
+          )}
 
-        <div className="absolute top-4 left-4 flex flex-col gap-2">
-          <Badge variant="secondary" className="w-fit font-mono">
-            {product.category}
-          </Badge>
-          <Badge variant="verified" className="w-fit text-xs font-mono">
-            Single vial
-          </Badge>
+          <div className="absolute top-4 left-4 flex flex-col gap-2">
+            <Badge variant="secondary" className="w-fit font-mono">
+              {product.category}
+            </Badge>
+            <Badge variant="verified" className="w-fit text-xs font-mono">
+              Single vial
+            </Badge>
+          </div>
         </div>
-      </div>
+      )}
 
       <CardContent className="p-6 flex-1 flex flex-col">
+        {!showVialImages && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            <Badge variant="secondary" className="w-fit font-mono">
+              {product.category}
+            </Badge>
+            <Badge variant="verified" className="w-fit text-xs font-mono">
+              Single vial
+            </Badge>
+          </div>
+        )}
         <div className="mb-2 flex items-baseline justify-between gap-4">
           <span className="font-sans text-xl font-bold tracking-tight line-clamp-1">
             {product.name}

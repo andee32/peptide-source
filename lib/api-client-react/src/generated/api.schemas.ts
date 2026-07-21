@@ -675,6 +675,21 @@ export interface ConfirmAchResponse {
   paymentStatus: ConfirmAchResponsePaymentStatus;
 }
 
+/**
+ * Global storefront settings.
+ */
+export interface StoreSettings {
+  /** When false, product vial/placeholder images are hidden across the storefront. */
+  showVialImages: boolean;
+}
+
+/**
+ * Update store settings. At least one field must be provided.
+ */
+export interface PatchStoreSettingsRequest {
+  showVialImages?: boolean;
+}
+
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
 
 export const OrderStatus = {

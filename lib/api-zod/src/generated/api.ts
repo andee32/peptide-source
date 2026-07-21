@@ -561,6 +561,40 @@ export const AdminConfirmAchResponse = zod.object({
 });
 
 /**
+ * Public endpoint returning global storefront settings. Returns defaults (showVialImages=true) if the settings row is absent.
+ * @summary Get public store settings
+ */
+export const GetSettingsResponse = zod
+  .object({
+    showVialImages: zod
+      .boolean()
+      .describe(
+        "When false, product vial\/placeholder images are hidden across the storefront.",
+      ),
+  })
+  .describe("Global storefront settings.");
+
+/**
+ * Admin-only. Updates global storefront settings; upserts the single 'default' row if absent. Requires x-admin-key header.
+ * @summary Update store settings (admin)
+ */
+export const AdminPatchSettingsBody = zod
+  .object({
+    showVialImages: zod.boolean().optional(),
+  })
+  .describe("Update store settings. At least one field must be provided.");
+
+export const AdminPatchSettingsResponse = zod
+  .object({
+    showVialImages: zod
+      .boolean()
+      .describe(
+        "When false, product vial\/placeholder images are hidden across the storefront.",
+      ),
+  })
+  .describe("Global storefront settings.");
+
+/**
  * Public endpoint — creates a reviewer submission in pending state. Validates Janoshik Task ID format.
  * @summary Submit a community reviewer result
  */

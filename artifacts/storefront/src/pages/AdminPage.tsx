@@ -61,10 +61,11 @@ import {
 import { DashboardPanel } from "@/components/admin/DashboardPanel";
 import { OrdersPanel } from "@/components/admin/OrdersPanel";
 import { CatalogPanel } from "@/components/admin/CatalogPanel";
+import { SettingsPanel } from "@/components/admin/SettingsPanel";
 
 type BatchStatus = "pending" | "released" | "quarantined";
 type TestType = "purity" | "endotoxin" | "sterility" | "heavyMetals";
-type AdminTab = "dashboard" | "orders" | "catalog" | "batches" | "subscriptions" | "products" | "accounts";
+type AdminTab = "dashboard" | "orders" | "catalog" | "batches" | "subscriptions" | "products" | "accounts" | "settings";
 
 type AdminCoaResult = {
   id: string;
@@ -993,6 +994,7 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
             { key: "subscriptions", label: "Subscriptions" },
             { key: "accounts", label: "Accounts" },
             { key: "products", label: "Products" },
+            { key: "settings", label: "Settings" },
           ] as { key: AdminTab; label: string }[]).map((tab) => (
             <button
               key={tab.key}
@@ -1022,6 +1024,8 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
           <AccountsPanel adminKey={adminKey} />
         ) : activeTab === "subscriptions" ? (
           <AdminSubscriptionsPanel adminKey={adminKey} />
+        ) : activeTab === "settings" ? (
+          <SettingsPanel adminKey={adminKey} />
         ) : loading && batches.length === 0 ? (
           <div className="flex items-center justify-center py-24">
             <div className="text-center">

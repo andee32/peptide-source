@@ -6,3 +6,4 @@ export * from "./orders";
 export * from "./attestations";
 export * from "./reviewerSubmissions";
 export * from "./subscriptions";
+export * from "./storeSettings";

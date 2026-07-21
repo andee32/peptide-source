@@ -18,6 +18,8 @@ tags:
     description: B2B wholesale account application and approval operations
   - name: retail
     description: Public B2C retail catalog operations (single-vial variants)
+  - name: settings
+    description: Global store settings (public read, admin write)
 paths:
   /healthz:
     get:
@@ -407,6 +409,48 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get public store settings
+      description: Public endpoint returning global storefront settings. Returns defaults (showVialImages=true) if the settings row is absent.
+      responses:
+        "200":
+          description: Store settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoreSettings"
+
+  /admin/settings:
+    patch:
+      operationId: adminPatchSettings
+      tags: [settings]
+      summary: Update store settings (admin)
+      description: Admin-only. Updates global storefront settings; upserts the single 'default' row if absent. Requires x-admin-key header.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchStoreSettingsRequest"
+      responses:
+        "200":
+          description: Updated store settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StoreSettings"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Admin key required
 
   /reviewer-submissions:
     post:
@@ -2297,6 +2341,25 @@ components:
         - paymentRecordId
         - orderStatus
         - paymentStatus
+
+    StoreSettings:
+      type: object
+      description: Global storefront settings.
+      properties:
+        showVialImages:
+          type: boolean
+          description: When false, product vial/placeholder images are hidden across the storefront.
+      required:
+        - showVialImages
+      additionalProperties: false
+
+    PatchStoreSettingsRequest:
+      type: object
+      description: Update store settings. At least one field must be provided.
+      properties:
+        showVialImages:
+          type: boolean
+      additionalProperties: false
 
     OrderStatus:
       type: string

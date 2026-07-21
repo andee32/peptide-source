@@ -20,11 +20,13 @@ import {
 } from "@/components/ui/select";
 import { Beaker, CheckCircle2, FlaskConical, ExternalLink, Activity, RefreshCw, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 
 export function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const { trackEvent } = useAnalytics();
   const { addToCart } = useCart();
+  const { showVialImages } = useStoreSettings();
 
   // First fetch list to find the ID by slug
   const { data: products } = useListProducts();
@@ -150,45 +152,64 @@ export function ProductDetailPage() {
         <span className="text-foreground">{product.name}</span>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 mb-24">
-        {/* Left Col: Image */}
-        <div className="relative aspect-square rounded-2xl overflow-hidden bg-secondary/30 flex items-center justify-center p-12 border border-border">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent"></div>
-          
-          {product.imageUrl ? (
-            <img 
-              src={product.imageUrl} 
-              alt={product.name} 
-              className="object-contain w-full h-full relative z-10 mix-blend-screen opacity-90"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-background/50 rounded-full max-w-[400px] max-h-[400px] border-8 border-muted relative z-10 shadow-2xl">
-              <FlaskConical className="h-32 w-32 text-muted-foreground opacity-20" />
-              <span className="absolute font-mono text-8xl font-black text-muted-foreground opacity-10 uppercase">
-                {product.name.substring(0, 2)}
-              </span>
+      <div className={`grid grid-cols-1 gap-12 lg:gap-16 mb-24 ${showVialImages ? "lg:grid-cols-2" : ""}`}>
+        {/* Left Col: Image (hidden when store images are turned off) */}
+        {showVialImages && (
+          <div className="relative aspect-square rounded-2xl overflow-hidden bg-secondary/30 flex items-center justify-center p-12 border border-border">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent"></div>
+
+            {product.imageUrl ? (
+              <img
+                src={product.imageUrl}
+                alt={product.name}
+                className="object-contain w-full h-full relative z-10 mix-blend-screen opacity-90"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-background/50 rounded-full max-w-[400px] max-h-[400px] border-8 border-muted relative z-10 shadow-2xl">
+                <FlaskConical className="h-32 w-32 text-muted-foreground opacity-20" />
+                <span className="absolute font-mono text-8xl font-black text-muted-foreground opacity-10 uppercase">
+                  {product.name.substring(0, 2)}
+                </span>
+              </div>
+            )}
+
+            <div className="absolute top-6 left-6 flex flex-col gap-3 z-20">
+              <Badge className="w-fit bg-primary/20 text-primary border-primary/30 font-mono text-sm px-4 py-1">
+                {product.category}
+              </Badge>
+              {product.latestBatchPurity != null &&
+                (product.latestBatchIsDemo === false ? (
+                  <Badge variant="outline" className="w-fit bg-background/80 backdrop-blur-sm border-border text-sm px-4 py-1 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" /> {product.latestBatchPurity}% Purity Confirmed
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="w-fit bg-background/80 backdrop-blur-sm border-border text-sm px-4 py-1 flex items-center gap-2 text-muted-foreground">
+                    <AlertTriangle className="h-4 w-4" /> COA: sample data
+                  </Badge>
+                ))}
             </div>
-          )}
-          
-          <div className="absolute top-6 left-6 flex flex-col gap-3 z-20">
-            <Badge className="w-fit bg-primary/20 text-primary border-primary/30 font-mono text-sm px-4 py-1">
-              {product.category}
-            </Badge>
-            {product.latestBatchPurity != null &&
-              (product.latestBatchIsDemo === false ? (
-                <Badge variant="outline" className="w-fit bg-background/80 backdrop-blur-sm border-border text-sm px-4 py-1 flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-primary" /> {product.latestBatchPurity}% Purity Confirmed
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="w-fit bg-background/80 backdrop-blur-sm border-border text-sm px-4 py-1 flex items-center gap-2 text-muted-foreground">
-                  <AlertTriangle className="h-4 w-4" /> COA: sample data
-                </Badge>
-              ))}
           </div>
-        </div>
+        )}
 
         {/* Right Col: Details */}
         <div className="flex flex-col">
+          {!showVialImages && (
+            <div className="flex flex-wrap gap-3 mb-4">
+              <Badge className="w-fit bg-primary/20 text-primary border-primary/30 font-mono text-sm px-4 py-1">
+                {product.category}
+              </Badge>
+              {product.latestBatchPurity != null &&
+                (product.latestBatchIsDemo === false ? (
+                  <Badge variant="outline" className="w-fit border-border text-sm px-4 py-1 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-primary" /> {product.latestBatchPurity}% Purity Confirmed
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="w-fit border-border text-sm px-4 py-1 flex items-center gap-2 text-muted-foreground">
+                    <AlertTriangle className="h-4 w-4" /> COA: sample data
+                  </Badge>
+                ))}
+            </div>
+          )}
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">{product.name}</h1>
           <p className="text-xl text-muted-foreground mb-8 leading-relaxed">
             {product.shortDescription}

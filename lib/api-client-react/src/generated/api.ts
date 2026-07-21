@@ -56,6 +56,7 @@ import type {
   PatchOrderRequest,
   PatchProductRequest,
   PatchReviewerSubmissionRequest,
+  PatchStoreSettingsRequest,
   PatchVariantRequest,
   PriceTier,
   Product,
@@ -69,6 +70,7 @@ import type {
   ReviewerSubmissionStats,
   SkipSubscriptionBody,
   SkuNotAvailable,
+  StoreSettings,
   SubscriptionCancelled,
   SubscriptionCreated,
   SubscriptionDetail,
@@ -1318,6 +1320,170 @@ export const useAdminConfirmAch = <
   TContext
 > => {
   return useMutation(getAdminConfirmAchMutationOptions(options));
+};
+
+/**
+ * Public endpoint returning global storefront settings. Returns defaults (showVialImages=true) if the settings row is absent.
+ * @summary Get public store settings
+ */
+export const getGetSettingsUrl = () => {
+  return `/api/settings`;
+};
+
+export const getSettings = async (
+  options?: RequestInit,
+): Promise<StoreSettings> => {
+  return customFetch<StoreSettings>(getGetSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSettingsQueryKey = () => {
+  return [`/api/settings`] as const;
+};
+
+export const getGetSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSettingsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSettings>>> = ({
+    signal,
+  }) => getSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSettings>>
+>;
+export type GetSettingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get public store settings
+ */
+
+export function useGetSettings<
+  TData = Awaited<ReturnType<typeof getSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Admin-only. Updates global storefront settings; upserts the single 'default' row if absent. Requires x-admin-key header.
+ * @summary Update store settings (admin)
+ */
+export const getAdminPatchSettingsUrl = () => {
+  return `/api/admin/settings`;
+};
+
+export const adminPatchSettings = async (
+  patchStoreSettingsRequest: PatchStoreSettingsRequest,
+  options?: RequestInit,
+): Promise<StoreSettings> => {
+  return customFetch<StoreSettings>(getAdminPatchSettingsUrl(), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(patchStoreSettingsRequest),
+  });
+};
+
+export const getAdminPatchSettingsMutationOptions = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchSettings>>,
+    TError,
+    { data: BodyType<PatchStoreSettingsRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminPatchSettings>>,
+  TError,
+  { data: BodyType<PatchStoreSettingsRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminPatchSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminPatchSettings>>,
+    { data: BodyType<PatchStoreSettingsRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminPatchSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminPatchSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminPatchSettings>>
+>;
+export type AdminPatchSettingsMutationBody =
+  BodyType<PatchStoreSettingsRequest>;
+export type AdminPatchSettingsMutationError = ErrorType<ApiError | void>;
+
+/**
+ * @summary Update store settings (admin)
+ */
+export const useAdminPatchSettings = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchSettings>>,
+    TError,
+    { data: BodyType<PatchStoreSettingsRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminPatchSettings>>,
+  TError,
+  { data: BodyType<PatchStoreSettingsRequest> },
+  TContext
+> => {
+  return useMutation(getAdminPatchSettingsMutationOptions(options));
 };
 
 /**

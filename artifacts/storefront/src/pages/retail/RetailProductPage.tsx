@@ -17,10 +17,12 @@ import {
   Plus,
   Activity,
 } from "lucide-react";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 
 export function RetailProductPage() {
   const { slug } = useParams<{ slug: string }>();
   const { addToCart } = useCart();
+  const { showVialImages } = useStoreSettings();
 
   const { data: product, isLoading, isError } = useGetRetailProduct(slug ?? "", {
     query: { enabled: !!slug, queryKey: [`/api/retail/products/${slug}`] },
@@ -96,42 +98,59 @@ export function RetailProductPage() {
         <span className="text-foreground">{product.name}</span>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 mb-16">
-        {/* Left: Image */}
-        <div className="relative aspect-square rounded-2xl overflow-hidden bg-secondary/30 flex items-center justify-center p-12 border border-border">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
-          {product.imageUrl ? (
-            <img
-              src={product.imageUrl}
-              alt={product.name}
-              className="object-contain w-full h-full relative z-10"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-background/50 rounded-full max-w-[400px] max-h-[400px] border-8 border-muted relative z-10 shadow-2xl">
-              <FlaskConical className="h-32 w-32 text-muted-foreground opacity-20" />
-              <span className="absolute font-mono text-8xl font-black text-muted-foreground opacity-10 uppercase">
-                {product.name.substring(0, 2)}
-              </span>
-            </div>
-          )}
-
-          <div className="absolute top-6 left-6 flex flex-col gap-3 z-20">
-            <Badge className="w-fit bg-primary/20 text-primary border-primary/30 font-mono text-sm px-4 py-1">
-              {product.category}
-            </Badge>
-            {isCleared && (
-              <Badge
-                variant="outline"
-                className="w-fit bg-background/80 backdrop-blur-sm border-[#c8a84b]/40 text-[#c8a84b] text-sm px-4 py-1 flex items-center gap-2"
-              >
-                <ShieldCheck className="h-4 w-4" /> COA-Verified
-              </Badge>
+      <div className={`grid grid-cols-1 gap-12 lg:gap-16 mb-16 ${showVialImages ? "lg:grid-cols-2" : ""}`}>
+        {/* Left: Image (hidden when store images are turned off) */}
+        {showVialImages && (
+          <div className="relative aspect-square rounded-2xl overflow-hidden bg-secondary/30 flex items-center justify-center p-12 border border-border">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
+            {product.imageUrl ? (
+              <img
+                src={product.imageUrl}
+                alt={product.name}
+                className="object-contain w-full h-full relative z-10"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-background/50 rounded-full max-w-[400px] max-h-[400px] border-8 border-muted relative z-10 shadow-2xl">
+                <FlaskConical className="h-32 w-32 text-muted-foreground opacity-20" />
+                <span className="absolute font-mono text-8xl font-black text-muted-foreground opacity-10 uppercase">
+                  {product.name.substring(0, 2)}
+                </span>
+              </div>
             )}
+
+            <div className="absolute top-6 left-6 flex flex-col gap-3 z-20">
+              <Badge className="w-fit bg-primary/20 text-primary border-primary/30 font-mono text-sm px-4 py-1">
+                {product.category}
+              </Badge>
+              {isCleared && (
+                <Badge
+                  variant="outline"
+                  className="w-fit bg-background/80 backdrop-blur-sm border-[#c8a84b]/40 text-[#c8a84b] text-sm px-4 py-1 flex items-center gap-2"
+                >
+                  <ShieldCheck className="h-4 w-4" /> COA-Verified
+                </Badge>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Right: Details */}
         <div className="flex flex-col">
+          {!showVialImages && (
+            <div className="flex flex-wrap gap-3 mb-4">
+              <Badge className="w-fit bg-primary/20 text-primary border-primary/30 font-mono text-sm px-4 py-1">
+                {product.category}
+              </Badge>
+              {isCleared && (
+                <Badge
+                  variant="outline"
+                  className="w-fit border-[#c8a84b]/40 text-[#c8a84b] text-sm px-4 py-1 flex items-center gap-2"
+                >
+                  <ShieldCheck className="h-4 w-4" /> COA-Verified
+                </Badge>
+              )}
+            </div>
+          )}
           <div className="mb-3">
             <Badge
               variant="outline"
