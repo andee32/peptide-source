@@ -22,6 +22,7 @@ import {
   orderChannelEnum,
   complianceStatusEnum,
   sourcingPathEnum,
+  unitTypeEnum,
 } from "@atlab/db/schema";
 import { z } from "zod/v4";
 import { randomUUID } from "crypto";
@@ -563,19 +564,34 @@ router.delete("/admin/coa/:coaId", async (req, res) => {
 
 const CATEGORY_VALUES = categoryEnum.enumValues;
 
-const CreateProductSchema = z.object({
+// No .default() on the shared shape. A default survives .partial(), so on an
+// UPDATE Zod fills every absent key and .set() writes the injected value: a PUT
+// carrying only {name} silently emptied longDescription and reset featured to
+// false. Defaults are applied on create only, below.
+const ProductFieldsSchema = z.object({
   name: z.string().min(1).max(200),
   slug: z.string().min(1).max(200).regex(/^[a-z0-9-]+$/),
   category: z.enum(CATEGORY_VALUES),
+  // Provenance shown to buyers. Editable because it is a factual claim about the
+  // product, and correcting it previously required SQL.
+  sourcingPath: z.enum(sourcingPathEnum.enumValues).nullable().optional(),
   shortDescription: z.string().min(1).max(500),
+  longDescription: z.string(),
+  featured: z.boolean(),
+  published: z.boolean(),
+  imageUrl: z.string().url().nullable().optional(),
+  researchUses: z.array(z.string()),
+});
+
+const CreateProductSchema = ProductFieldsSchema.extend({
   longDescription: z.string().default(""),
   featured: z.boolean().default(false),
   published: z.boolean().default(true),
-  imageUrl: z.string().url().nullable().optional(),
   researchUses: z.array(z.string()).default([]),
 });
 
-const UpdateProductSchema = CreateProductSchema.partial();
+// Absent key means "leave it alone", never "reset to default".
+const UpdateProductSchema = ProductFieldsSchema.partial();
 
 router.post("/admin/products", async (req, res) => {
   const parsed = CreateProductSchema.safeParse(req.body);
@@ -672,16 +688,50 @@ router.delete("/admin/products/:id", async (req, res) => {
   }
 });
 
-const CreateVariantSchema = z.object({
+// unitType is load-bearing: the wholesale rules (kit-only, 5-kit MOQ) are
+// enforced against it at checkout, so a wrong value makes a variant either
+// unsellable to wholesale or wrongly sellable. It had no admin control at all.
+//
+// vialsPerUnit backs the "10-vial kit" claim in every product description. The
+// refine keeps the two coherent: a single vial is one vial by definition, and a
+// kit of one is not a kit. Without it the copy and the data can drift silently.
+// No .default() here, deliberately. A default survives .partial(), so Zod fills
+// absent keys on an UPDATE and .set() then writes the injected value — a PUT
+// carrying only vialsPerUnit would silently rewrite unitType to "vial" and
+// convert a wholesale kit into a single vial. Defaults belong on create only.
+const VariantFieldsSchema = z.object({
   name: z.string().min(1).max(200),
   concentration: z.string().min(1).max(100),
   sizeml: z.number().positive(),
   priceCents: z.number().int().positive(),
   sku: z.string().min(1).max(100),
-  inStock: z.boolean().default(true),
+  unitType: z.enum(unitTypeEnum.enumValues),
+  vialsPerUnit: z.number().int().positive().max(1000),
+  inStock: z.boolean(),
 });
 
-const UpdateVariantSchema = CreateVariantSchema.partial();
+function vialsMatchUnitType(v: {
+  unitType?: "vial" | "kit";
+  vialsPerUnit?: number;
+}): boolean {
+  if (v.unitType === undefined || v.vialsPerUnit === undefined) return true;
+  return v.unitType === "vial" ? v.vialsPerUnit === 1 : v.vialsPerUnit > 1;
+}
+
+const UNIT_MISMATCH =
+  "A vial must have vialsPerUnit 1; a kit must have more than 1.";
+
+const CreateVariantSchema = VariantFieldsSchema.extend({
+  unitType: z.enum(unitTypeEnum.enumValues).default("vial"),
+  vialsPerUnit: z.number().int().positive().max(1000).default(1),
+  inStock: z.boolean().default(true),
+}).refine(vialsMatchUnitType, { message: UNIT_MISMATCH });
+
+// Partial with no defaults: an absent key means "leave it alone", never "reset".
+const UpdateVariantSchema = VariantFieldsSchema.partial().refine(
+  vialsMatchUnitType,
+  { message: UNIT_MISMATCH }
+);
 
 router.post("/admin/products/:id/variants", async (req, res) => {
   const productId = Number(req.params.id);
@@ -748,6 +798,20 @@ router.put("/admin/variants/:id", async (req, res) => {
         return;
       }
     }
+
+    // Validate the MERGED row, not just the patch: sending unitType alone would
+    // otherwise pass the schema refine and leave a stale vialsPerUnit behind —
+    // e.g. a "kit" still recorded as holding one vial.
+    if (
+      !vialsMatchUnitType({
+        unitType: parsed.data.unitType ?? existing.unitType,
+        vialsPerUnit: parsed.data.vialsPerUnit ?? existing.vialsPerUnit,
+      })
+    ) {
+      res.status(400).json({ error: "bad_request", message: UNIT_MISMATCH });
+      return;
+    }
+
     const [updated] = await db.update(productVariantsTable).set(parsed.data).where(eq(productVariantsTable.id, id)).returning();
     res.json(updated);
   } catch (err) {
