@@ -34,6 +34,7 @@ import {
   adminActorEmail,
 } from "../lib/adminSession";
 import { loginRateLimit } from "../lib/rateLimit";
+import { ensureBootstrapAdmin } from "../lib/bootstrapAdmin";
 import {
   SETTLEABLE_ORDER_STATUSES,
   TERMINAL_ORDER_STATUSES,
@@ -91,11 +92,34 @@ router.post("/admin/login", loginRateLimit, async (req: Request, res: Response):
 
   // Primary path: the admin_users table. Success mints an opaque session token
   // bound to this operator — NOT the shared ADMIN_SECRET.
+  let user;
+  let tableEmpty = false;
   try {
-    const user = await db.query.adminUsersTable.findFirst({
+    user = await db.query.adminUsersTable.findFirst({
       where: eq(adminUsersTable.email, email),
     });
+    if (!user) {
+      const [{ total }] = await db.select({ total: count() }).from(adminUsersTable);
+      tableEmpty = total === 0;
+    }
+  } catch (err) {
+    // A DB failure must NOT downgrade to the env-credential path. It used to:
+    // the whole lookup sat in a try whose catch only logged, so one transient
+    // blip handed the browser a non-expiring shared secret that no session
+    // revocation could reach. Fail closed instead.
+    console.error("adminLogin lookup failed:", err);
+    res.status(503).json({
+      error: "unavailable",
+      message: "Login is temporarily unavailable. Please try again.",
+    });
+    return;
+  }
 
+  // Everything below can also touch the DB, so it shares the same fail-closed
+  // contract: a pool failure a millisecond after the lookup succeeded must not
+  // escape to Express's default handler (which echoes err.stack outside
+  // production) and must never degrade to a different credential.
+  try {
     if (user) {
       // Verify before branching on isActive so both failures cost the same.
       const passwordOk = await verifyPassword(password, user.passwordHash);
@@ -108,32 +132,57 @@ router.post("/admin/login", loginRateLimit, async (req: Request, res: Response):
       return;
     }
 
-    const [{ total }] = await db.select({ total: count() }).from(adminUsersTable);
-    if (total > 0) {
+    if (!tableEmpty) {
       // Unknown operator: burn the same CPU a real verify would, so response
       // time does not disclose which emails are provisioned.
       await verifyDummyPassword(password);
       res.status(401).json({ error: "unauthorized", message: "Invalid credentials" });
       return;
     }
+
+    // admin_users is genuinely empty (fresh DB, or the bootstrap insert failed).
+    // Accept the env credential to recover, then seed the row and bind a REAL
+    // session to it. ADMIN_SECRET is never issued by this endpoint: it stays an
+    // ops break-glass header an operator reads from the secret store, so that
+    // deactivation and password change always revoke every issued credential.
+    if (!(await envCredentialMatches(email, password))) {
+      // envCredentialMatches returns early on an email mismatch, before any
+      // PBKDF2. Without this the empty-table path would answer a wrong email in
+      // ~0ms and the right one in ~100ms, disclosing ADMIN_EMAIL — and, by
+      // contrast with the populated path above, disclosing that the bootstrap
+      // window is currently open.
+      await verifyDummyPassword(password);
+      res.status(401).json({ error: "unauthorized", message: "Invalid credentials" });
+      return;
+    }
+
+    await ensureBootstrapAdmin();
+    const seeded = await db.query.adminUsersTable.findFirst({
+      where: eq(adminUsersTable.email, email),
+    });
+    if (!seeded) {
+      // The seed did not take — most likely ADMIN_PASSWORD_HASH is not a valid
+      // PBKDF2 digest, which ensureBootstrapAdmin refuses to persist.
+      console.error(
+        "[adminLogin] env credential matched but no admin_users row could be seeded; " +
+          "check ADMIN_PASSWORD_HASH is a 'salt:hash' PBKDF2 digest"
+      );
+      res.status(503).json({
+        error: "not_configured",
+        message: "Admin account could not be provisioned",
+      });
+      return;
+    }
+
+    const session = await createAdminSession(seeded.id);
+    res.json({ token: session.token, expiresAt: session.expiresAt.toISOString() });
   } catch (err) {
-    console.error("adminLogin lookup error (falling back to env credential):", err);
+    console.error("adminLogin failed after lookup:", err);
+    res.status(503).json({
+      error: "unavailable",
+      message: "Login is temporarily unavailable. Please try again.",
+    });
   }
-
-  // Fallback: table empty (or unreachable) — accept the env credential. There
-  // is no admin_users row to bind a session to here, so this path (and only
-  // this path) hands back the ops break-glass secret.
-  if (!(await envCredentialMatches(email, password))) {
-    res.status(401).json({ error: "unauthorized", message: "Invalid credentials" });
-    return;
-  }
-
-  const adminSecret = process.env.ADMIN_SECRET;
-  if (!adminSecret) {
-    res.status(503).json({ error: "not_configured", message: "Admin credentials not configured" });
-    return;
-  }
-  res.json({ token: adminSecret });
 });
 
 router.use("/admin", adminAuth);
