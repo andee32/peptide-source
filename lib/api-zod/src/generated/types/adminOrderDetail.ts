@@ -8,6 +8,7 @@
 import type { Account } from "./account";
 import type { AdminOrderAttestation } from "./adminOrderAttestation";
 import type { AdminOrderDetailChannel } from "./adminOrderDetailChannel";
+import type { AdminOrderDetailDiscountSource } from "./adminOrderDetailDiscountSource";
 import type { OrderLineItem } from "./orderLineItem";
 import type { OrderStatus } from "./orderStatus";
 import type { PaymentMethod } from "./paymentMethod";
@@ -22,6 +23,14 @@ export interface AdminOrderDetail {
   lineItems: OrderLineItem[];
   subtotalCents: number;
   discountCents: number;
+  /** Slot-A promotion source; null when no promotion applied. */
+  discountSource?: AdminOrderDetailDiscountSource;
+  /** Snapshot of the redeemed code; set iff discountSource is 'code'. */
+  discountCode?: string | null;
+  /** Slot-A (promotion) amount. promoDiscountCents + cryptoDiscountCents === discountCents. */
+  promoDiscountCents: number;
+  /** Slot-B (crypto payment incentive) amount. */
+  cryptoDiscountCents: number;
   totalCents: number;
   paymentMethod: PaymentMethod;
   channel: AdminOrderDetailChannel;

@@ -345,6 +345,157 @@ export interface SkuNotAvailable {
   code: SkuNotAvailableCode;
 }
 
+export type DiscountCodeErrorCode =
+  (typeof DiscountCodeErrorCode)[keyof typeof DiscountCodeErrorCode];
+
+export const DiscountCodeErrorCode = {
+  CODE_NOT_APPLICABLE: "CODE_NOT_APPLICABLE",
+  INVALID_DISCOUNT_CODE: "INVALID_DISCOUNT_CODE",
+  CODE_EXHAUSTED: "CODE_EXHAUSTED",
+} as const;
+
+/**
+ * Discount-code rejection (422). Codes hard-fail — an invalid code never silently degrades to no-discount.
+ */
+export interface DiscountCodeError {
+  error: string;
+  message: string;
+  code: DiscountCodeErrorCode;
+}
+
+/**
+ * Line item for order creation — server resolves price and names from variantId
+ */
+export interface CreateOrderLineItem {
+  variantId: number;
+  /**
+   * @minimum 1
+   * @maximum 100
+   */
+  quantity: number;
+}
+
+/**
+ * Payment rail. Crypto-first (BTCPay) + ACH/wire only. Card is not supported.
+ */
+export type PaymentMethod = (typeof PaymentMethod)[keyof typeof PaymentMethod];
+
+export const PaymentMethod = {
+  crypto_btc: "crypto_btc",
+  crypto_usdc: "crypto_usdc",
+  ach: "ach",
+  wire: "wire",
+} as const;
+
+/**
+ * Pricing-relevant subset of CreateOrderRequest. Runs the identical pipeline with no writes.
+ */
+export interface QuoteOrderRequest {
+  accountId?: string | null;
+  token?: string | null;
+  /** @minItems 1 */
+  lineItems: CreateOrderLineItem[];
+  paymentMethod: PaymentMethod;
+  /** @maxLength 64 */
+  discountCode?: string | null;
+}
+
+export type OrderQuoteDiscountSource =
+  | (typeof OrderQuoteDiscountSource)[keyof typeof OrderQuoteDiscountSource]
+  | null;
+
+export const OrderQuoteDiscountSource = {
+  code: "code",
+  subscription: "subscription",
+} as const;
+
+/**
+ * Server-priced order preview. Amounts are authoritative for these inputs but freeze only at order creation.
+ */
+export interface OrderQuote {
+  subtotalCents: number;
+  promoDiscountCents: number;
+  cryptoDiscountCents: number;
+  discountCents: number;
+  totalCents: number;
+  discountSource?: OrderQuoteDiscountSource;
+  /** Normalized (uppercased) code that was applied. */
+  discountCode?: string | null;
+}
+
+/**
+ * Admin view of a promo code, including confirmed-order report figures.
+ */
+export interface DiscountCodeAdmin {
+  id: number;
+  code: string;
+  percentBps: number;
+  active: boolean;
+  expiresAt: string | null;
+  maxUses: number | null;
+  timesUsed: number;
+  note: string | null;
+  createdAt: string;
+  /** Count of confirmed orders that redeemed this code. */
+  confirmedOrders: number;
+  /** Sum of totalCents across confirmed orders that redeemed this code. */
+  confirmedRevenueCents: number;
+}
+
+export interface CreateDiscountCodeRequest {
+  /**
+   * Stored uppercased. Letters, digits, hyphens.
+   * @minLength 2
+   * @maxLength 64
+   * @pattern ^[A-Za-z0-9-]+$
+   */
+  code: string;
+  /**
+   * @minimum 1
+   * @maximum 5000
+   */
+  percentBps: number;
+  expiresAt?: string | null;
+  /** @minimum 1 */
+  maxUses?: number | null;
+  /** @maxLength 500 */
+  note?: string | null;
+}
+
+/**
+ * Once a code has been redeemed (timesUsed > 0), code and percentBps are frozen (422) — deactivate and mint a new code to change economics. expiresAt, maxUses, active, note stay editable.
+ */
+export interface PatchDiscountCodeRequest {
+  /**
+   * @minLength 2
+   * @maxLength 64
+   * @pattern ^[A-Za-z0-9-]+$
+   */
+  code?: string;
+  /**
+   * @minimum 1
+   * @maximum 5000
+   */
+  percentBps?: number;
+  expiresAt?: string | null;
+  /** @minimum 1 */
+  maxUses?: number | null;
+  active?: boolean;
+  /** @maxLength 500 */
+  note?: string | null;
+}
+
+/**
+ * Per-code affiliate/campaign payout report. Confirmed-only, sidestepping abandoned-order overcount.
+ */
+export interface DiscountCodeReport {
+  id: number;
+  code: string;
+  timesUsed: number;
+  confirmedOrders: number;
+  confirmedRevenueCents: number;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -462,30 +613,6 @@ export interface OrderLineItem {
   unitPriceCents: number;
 }
 
-/**
- * Line item for order creation — server resolves price and names from variantId
- */
-export interface CreateOrderLineItem {
-  variantId: number;
-  /**
-   * @minimum 1
-   * @maximum 100
-   */
-  quantity: number;
-}
-
-/**
- * Payment rail. Crypto-first (BTCPay) + ACH/wire only. Card is not supported.
- */
-export type PaymentMethod = (typeof PaymentMethod)[keyof typeof PaymentMethod];
-
-export const PaymentMethod = {
-  crypto_btc: "crypto_btc",
-  crypto_usdc: "crypto_usdc",
-  ach: "ach",
-  wire: "wire",
-} as const;
-
 export interface CreateOrderRequest {
   /** B2B wholesale account ID. When present with a valid token, the order is placed on the wholesale channel with tier-resolved pricing and kit/MOQ enforcement. */
   accountId?: string | null;
@@ -495,6 +622,11 @@ export interface CreateOrderRequest {
   /** @minItems 1 */
   lineItems: CreateOrderLineItem[];
   paymentMethod: PaymentMethod;
+  /**
+   * Optional promo code (retail only). Trimmed and uppercased server-side. Invalid, expired, or exhausted codes hard-reject the order (422) — never silently ignored. Submitting a code on a wholesale order is a 422.
+   * @maxLength 64
+   */
+  discountCode?: string | null;
   /** Must be true. Server-side RUO (Research Use Only) affirmation; the order is rejected (400) when not exactly true. */
   ruoAffirmed: boolean;
   /**
@@ -512,6 +644,18 @@ export interface CreateOrderRequest {
   shippingZip: string;
   shippingCountry?: string;
 }
+
+/**
+ * Slot-A promotion source; null when no promotion applied.
+ */
+export type OrderSummaryDiscountSource =
+  | (typeof OrderSummaryDiscountSource)[keyof typeof OrderSummaryDiscountSource]
+  | null;
+
+export const OrderSummaryDiscountSource = {
+  code: "code",
+  subscription: "subscription",
+} as const;
 
 export type OrderSummaryStatus =
   (typeof OrderSummaryStatus)[keyof typeof OrderSummaryStatus];
@@ -537,6 +681,14 @@ export interface OrderSummary {
   id: string;
   subtotalCents: number;
   discountCents: number;
+  /** Slot-A promotion source; null when no promotion applied. */
+  discountSource?: OrderSummaryDiscountSource;
+  /** Snapshot of the redeemed code; set iff discountSource is 'code'. */
+  discountCode?: string | null;
+  /** Slot-A (promotion) amount. promoDiscountCents + cryptoDiscountCents === discountCents. */
+  promoDiscountCents: number;
+  /** Slot-B (crypto payment incentive) amount. */
+  cryptoDiscountCents: number;
   totalCents: number;
   paymentMethod: PaymentMethod;
   status: OrderSummaryStatus;
@@ -681,6 +833,12 @@ export interface ConfirmAchResponse {
 export interface StoreSettings {
   /** When false, product vial/placeholder images are hidden across the storefront. */
   showVialImages: boolean;
+  /**
+   * Retail crypto-payment discount in basis points (1000 = 10%). 0 disables the discount. Never applied to wholesale orders.
+   * @minimum 0
+   * @maximum 5000
+   */
+  cryptoDiscountBps: number;
 }
 
 /**
@@ -688,6 +846,11 @@ export interface StoreSettings {
  */
 export interface PatchStoreSettingsRequest {
   showVialImages?: boolean;
+  /**
+   * @minimum 0
+   * @maximum 5000
+   */
+  cryptoDiscountBps?: number;
 }
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
@@ -758,6 +921,18 @@ export interface AdminOrderAttestation {
   createdAt: string;
 }
 
+/**
+ * Slot-A promotion source; null when no promotion applied.
+ */
+export type AdminOrderDetailDiscountSource =
+  | (typeof AdminOrderDetailDiscountSource)[keyof typeof AdminOrderDetailDiscountSource]
+  | null;
+
+export const AdminOrderDetailDiscountSource = {
+  code: "code",
+  subscription: "subscription",
+} as const;
+
 export type AdminOrderDetailChannel =
   (typeof AdminOrderDetailChannel)[keyof typeof AdminOrderDetailChannel];
 
@@ -775,6 +950,14 @@ export interface AdminOrderDetail {
   lineItems: OrderLineItem[];
   subtotalCents: number;
   discountCents: number;
+  /** Slot-A promotion source; null when no promotion applied. */
+  discountSource?: AdminOrderDetailDiscountSource;
+  /** Snapshot of the redeemed code; set iff discountSource is 'code'. */
+  discountCode?: string | null;
+  /** Slot-A (promotion) amount. promoDiscountCents + cryptoDiscountCents === discountCents. */
+  promoDiscountCents: number;
+  /** Slot-B (crypto payment incentive) amount. */
+  cryptoDiscountCents: number;
   totalCents: number;
   paymentMethod: PaymentMethod;
   channel: AdminOrderDetailChannel;
@@ -1010,6 +1193,18 @@ export const CustomerOrderSummaryChannel = {
   wholesale: "wholesale",
 } as const;
 
+/**
+ * Slot-A promotion source; null when no promotion applied.
+ */
+export type CustomerOrderSummaryDiscountSource =
+  | (typeof CustomerOrderSummaryDiscountSource)[keyof typeof CustomerOrderSummaryDiscountSource]
+  | null;
+
+export const CustomerOrderSummaryDiscountSource = {
+  code: "code",
+  subscription: "subscription",
+} as const;
+
 export interface CustomerOrderSummary {
   id: string;
   status: OrderStatus;
@@ -1017,6 +1212,14 @@ export interface CustomerOrderSummary {
   paymentMethod: PaymentMethod;
   subtotalCents: number;
   discountCents: number;
+  /** Slot-A promotion source; null when no promotion applied. */
+  discountSource?: CustomerOrderSummaryDiscountSource;
+  /** Snapshot of the redeemed code; set iff discountSource is 'code'. */
+  discountCode?: string | null;
+  /** Slot-A (promotion) amount. promoDiscountCents + cryptoDiscountCents === discountCents. */
+  promoDiscountCents: number;
+  /** Slot-B (crypto payment incentive) amount. */
+  cryptoDiscountCents: number;
   totalCents: number;
   lineItems: OrderLineItem[];
   trackingNumber?: string | null;

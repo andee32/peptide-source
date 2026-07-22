@@ -17,6 +17,11 @@ export interface CreateOrderRequest {
   /** @minItems 1 */
   lineItems: CreateOrderLineItem[];
   paymentMethod: PaymentMethod;
+  /**
+   * Optional promo code (retail only). Trimmed and uppercased server-side. Invalid, expired, or exhausted codes hard-reject the order (422) — never silently ignored. Submitting a code on a wholesale order is a 422.
+   * @maxLength 64
+   */
+  discountCode?: string | null;
   /** Must be true. Server-side RUO (Research Use Only) affirmation; the order is rejected (400) when not exactly true. */
   ruoAffirmed: boolean;
   /**

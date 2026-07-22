@@ -10,6 +10,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { customerAccountsTable } from "./customerAccounts";
 import { customerUsersTable } from "./customerUsers";
+import { discountCodesTable } from "./discountCodes";
 
 export const paymentMethodEnum = pgEnum("payment_method", [
   "crypto_btc",
@@ -41,7 +42,20 @@ export const ordersTable = pgTable("orders", {
   sessionId: text("session_id").notNull(),
   lineItems: jsonb("line_items").notNull(),
   subtotalCents: integer("subtotal_cents").notNull(),
+  // discountCents stays authoritative for totals; the columns below give it
+  // provenance. Order creation asserts
+  // discountCents === promoDiscountCents + cryptoDiscountCents.
   discountCents: integer("discount_cents").notNull().default(0),
+  // Slot A source: 'code' | 'subscription' (validated in app code, no pgEnum);
+  // null when no promotion applied.
+  discountSource: text("discount_source"),
+  // Snapshot of the code string as redeemed; set iff discountSource === 'code'.
+  discountCode: text("discount_code"),
+  discountCodeId: integer("discount_code_id").references(
+    () => discountCodesTable.id
+  ),
+  promoDiscountCents: integer("promo_discount_cents").notNull().default(0),
+  cryptoDiscountCents: integer("crypto_discount_cents").notNull().default(0),
   totalCents: integer("total_cents").notNull(),
   paymentMethod: paymentMethodEnum("payment_method").notNull(),
   channel: orderChannelEnum("channel").notNull().default("retail"),

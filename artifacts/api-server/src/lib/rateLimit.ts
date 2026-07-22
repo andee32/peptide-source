@@ -46,3 +46,27 @@ export const registerRateLimit = rateLimit({
   keyGenerator: ipAndEmailKey,
   message: TOO_MANY,
 });
+
+/** Public order-quote endpoint. Bounded per IP so code enumeration stays
+ * expensive; generous enough for normal checkout interaction (code entry,
+ * payment-method switches re-quote). */
+export const quoteRateLimit = rateLimit({
+  windowMs: WINDOW_MS,
+  limit: 120,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(req.ip ?? "unknown"),
+  message: TOO_MANY,
+});
+
+/** Order creation. Tighter than quote — every accepted body writes an order +
+ * attestation row with no payment required, and the same 422 rejections would
+ * otherwise make it an unthrottled code-enumeration oracle. */
+export const createOrderRateLimit = rateLimit({
+  windowMs: WINDOW_MS,
+  limit: 30,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(req.ip ?? "unknown"),
+  message: TOO_MANY,
+});

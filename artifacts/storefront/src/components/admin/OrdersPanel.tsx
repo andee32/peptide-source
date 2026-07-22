@@ -68,8 +68,8 @@ function statusLabel(status: string): string {
 
 function OrderStatusBadge({ status }: { status: OrderStatusValue }) {
   const cls: Record<OrderStatusValue, string> = {
-    confirmed: "bg-primary/20 text-primary border-primary/30",
-    awaiting_payment: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
+    confirmed: "bg-primary/15 text-teal-ink border-primary/30",
+    awaiting_payment: "bg-warn-tint text-warn border-warn/30",
     pending: "bg-secondary text-secondary-foreground border-border/40",
     refunded: "bg-muted text-muted-foreground border-border/40",
     expired: "bg-muted text-muted-foreground border-border/40",
@@ -258,9 +258,26 @@ function OrderDetailDialog({
                 <div className="text-muted-foreground">
                   Subtotal {formatMoney(order.subtotalCents)}
                 </div>
-                {order.discountCents > 0 && (
+                {order.promoDiscountCents > 0 && (
+                  <div className="text-good">
+                    Code {order.discountCode ?? ""} −
+                    {formatMoney(order.promoDiscountCents)}
+                  </div>
+                )}
+                {order.cryptoDiscountCents > 0 && (
+                  <div className="text-good">
+                    Crypto discount −{formatMoney(order.cryptoDiscountCents)}
+                  </div>
+                )}
+                {order.discountCents >
+                  order.promoDiscountCents + order.cryptoDiscountCents && (
                   <div className="text-muted-foreground">
-                    Discount −{formatMoney(order.discountCents)}
+                    Discount −
+                    {formatMoney(
+                      order.discountCents -
+                        order.promoDiscountCents -
+                        order.cryptoDiscountCents,
+                    )}
                   </div>
                 )}
                 <div className="font-semibold">Total {formatMoney(order.totalCents)}</div>
@@ -470,7 +487,7 @@ export function OrdersPanel({ adminKey }: { adminKey: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Orders</h1>
           <p className="text-muted-foreground text-sm mt-1 font-mono">

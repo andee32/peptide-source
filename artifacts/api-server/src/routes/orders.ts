@@ -1,6 +1,6 @@
 import { Router, type Request } from "express";
 import { z } from "zod/v4";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import QRCode from "qrcode";
 import { db } from "@atlab/db";
@@ -12,9 +12,17 @@ import {
   customerAccountsTable,
   priceListEntriesTable,
   orderAttestationsTable,
+  storeSettingsTable,
+  discountCodesTable,
 } from "@atlab/db/schema";
 import { btcpayService, PaymentRailUnavailableError, type CryptoCurrency } from "../services/btcpay";
 import { resolveCustomerUser } from "../lib/customerSession";
+import { quoteRateLimit, createOrderRateLimit } from "../lib/rateLimit";
+import {
+  resolveDiscounts,
+  normalizeCode,
+  type DiscountCodeRecord,
+} from "../lib/discounts";
 import {
   generateAchReferenceCode,
   buildBankInstructions,
@@ -24,7 +32,17 @@ import {
 
 const router = Router();
 
-const CRYPTO_DISCOUNT_RATE = 0.1;
+// Retail crypto discount is admin-configured (store_settings.crypto_discount_bps);
+// this default only covers a missing settings row.
+const DEFAULT_CRYPTO_DISCOUNT_BPS = 1000;
+
+async function getCryptoDiscountBps(): Promise<number> {
+  const row = await db.query.storeSettingsTable.findFirst({
+    where: eq(storeSettingsTable.id, "default"),
+    columns: { cryptoDiscountBps: true },
+  });
+  return row?.cryptoDiscountBps ?? DEFAULT_CRYPTO_DISCOUNT_BPS;
+}
 
 /**
  * Authorization for a single order. An order id is a UUID, but it is handed out
@@ -108,6 +126,7 @@ const createOrderSchema = z.object({
   ruoAffirmed: z.boolean(),
   signerName: z.string().min(1).max(200),
   paymentMethod: z.enum(["crypto_btc", "crypto_usdc", "ach", "wire"]),
+  discountCode: z.string().max(64).nullish(),
   shippingName: z.string().min(1).max(200),
   shippingEmail: z.string().email(),
   shippingAddress1: z.string().min(1).max(500),
@@ -118,26 +137,57 @@ const createOrderSchema = z.object({
   shippingCountry: z.string().default("US"),
 });
 
-router.post("/orders", async (req, res) => {
-  const parsed = createOrderSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "validation_error", message: String(parsed.error) });
-    return;
-  }
+// Pricing-relevant subset of createOrderSchema — POST /orders/quote runs the
+// identical pipeline with no writes.
+const quoteOrderSchema = z.object({
+  accountId: z.string().nullish(),
+  token: z.string().nullish(),
+  lineItems: z.array(lineItemInputSchema).min(1).max(50),
+  paymentMethod: z.enum(["crypto_btc", "crypto_usdc", "ach", "wire"]),
+  discountCode: z.string().max(64).nullish(),
+});
 
-  const data = parsed.data;
+// Thrown inside the order transaction when the atomic code consumption finds
+// the code no longer redeemable (raced to exhaustion, deactivated, or expired
+// between validation and insert). Rolls the whole order back.
+class CodeConsumptionError extends Error {}
 
-  // Server-side RUO affirmation gate. This must be exactly true — a missing or
-  // false value is a hard reject before any pricing or order work.
-  if (data.ruoAffirmed !== true) {
-    res.status(400).json({
-      error: "ruo_not_affirmed",
-      message: "The Research Use Only (RUO) attestation must be affirmed to place an order.",
-    });
-    return;
-  }
+type PricedOrder = {
+  ok: true;
+  isWholesale: boolean;
+  channel: "retail" | "wholesale";
+  resolvedLineItems: Array<{
+    variantId: number;
+    productName: string;
+    variantName: string;
+    quantity: number;
+    unitPriceCents: number;
+  }>;
+  subtotalCents: number;
+  promoDiscountCents: number;
+  cryptoDiscountCents: number;
+  discountCents: number;
+  totalCents: number;
+  discountSource: "code" | null;
+  discountCode: string | null;
+  discountCodeId: number | null;
+};
+type PricingError = { ok: false; status: number; body: Record<string, unknown> };
 
-  const variantIds = data.lineItems.map((li) => li.variantId);
+/**
+ * The single pricing + discount pipeline shared verbatim by POST /orders and
+ * POST /orders/quote (no-writes preview). Performs variant resolution, stock &
+ * compliance gates, wholesale auth/kit/MOQ/tier pricing, and discount
+ * resolution via resolveDiscounts(). Never writes.
+ */
+async function priceOrderRequest(input: {
+  accountId?: string | null;
+  token?: string | null;
+  lineItems: Array<{ variantId: number; quantity: number }>;
+  paymentMethod: "crypto_btc" | "crypto_usdc" | "ach" | "wire";
+  discountCode?: string | null;
+}): Promise<PricedOrder | PricingError> {
+  const variantIds = input.lineItems.map((li) => li.variantId);
 
   const variants = await db
     .select({
@@ -158,83 +208,101 @@ router.post("/orders", async (req, res) => {
 
   const missingIds = variantIds.filter((id) => !variantMap.has(id));
   if (missingIds.length > 0) {
-    res.status(400).json({
-      error: "invalid_variant",
-      message: `Variant(s) not found: ${missingIds.join(", ")}`,
-    });
-    return;
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        error: "invalid_variant",
+        message: `Variant(s) not found: ${missingIds.join(", ")}`,
+      },
+    };
   }
 
-  const outOfStock = data.lineItems.filter((li) => !variantMap.get(li.variantId)?.inStock);
+  const outOfStock = input.lineItems.filter((li) => !variantMap.get(li.variantId)?.inStock);
   if (outOfStock.length > 0) {
-    res.status(400).json({
-      error: "out_of_stock",
-      message: `Variant(s) out of stock: ${outOfStock.map((li) => li.variantId).join(", ")}`,
-    });
-    return;
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        error: "out_of_stock",
+        message: `Variant(s) out of stock: ${outOfStock.map((li) => li.variantId).join(", ")}`,
+      },
+    };
   }
 
   // Per-SKU compliance gate: a line item whose product is compliance-blocked is
   // unsellable. (restricted is still orderable — reserved for later.)
-  const blocked = data.lineItems.filter(
+  const blocked = input.lineItems.filter(
     (li) => variantMap.get(li.variantId)?.complianceStatus === "blocked"
   );
   if (blocked.length > 0) {
-    res.status(422).json({
-      error: "unprocessable_entity",
-      code: "SKU_NOT_AVAILABLE",
-      message: `One or more items are not available for sale: variant(s) ${blocked
-        .map((li) => li.variantId)
-        .join(", ")}.`,
-    });
-    return;
+    return {
+      ok: false,
+      status: 422,
+      body: {
+        error: "unprocessable_entity",
+        code: "SKU_NOT_AVAILABLE",
+        message: `One or more items are not available for sale: variant(s) ${blocked
+          .map((li) => li.variantId)
+          .join(", ")}.`,
+      },
+    };
   }
 
   // ── Wholesale path: authenticate account, enforce kit-only + MOQ, resolve
   // tier pricing. Retail path (no accountId) is unchanged.
-  const isWholesale = !!data.accountId;
+  const isWholesale = !!input.accountId;
   const priceOverrides = new Map<number, number>();
 
   if (isWholesale) {
     const account = await db.query.customerAccountsTable.findFirst({
-      where: eq(customerAccountsTable.id, data.accountId!),
+      where: eq(customerAccountsTable.id, input.accountId!),
     });
     if (
       !account ||
       account.status !== "approved" ||
-      !data.token ||
+      !input.token ||
       !account.accessToken ||
-      account.accessToken !== data.token
+      account.accessToken !== input.token
     ) {
-      res.status(403).json({
-        error: "forbidden",
-        message: "Wholesale account is not approved or the access token is invalid",
-      });
-      return;
+      return {
+        ok: false,
+        status: 403,
+        body: {
+          error: "forbidden",
+          message: "Wholesale account is not approved or the access token is invalid",
+        },
+      };
     }
 
-    const nonKit = data.lineItems.filter(
+    const nonKit = input.lineItems.filter(
       (li) => variantMap.get(li.variantId)?.unitType !== "kit"
     );
     if (nonKit.length > 0) {
-      res.status(422).json({
-        error: "unprocessable_entity",
-        code: "WHOLESALE_KIT_REQUIRED",
-        message: `Wholesale orders may only contain kit variants. Non-kit variant(s): ${nonKit
-          .map((li) => li.variantId)
-          .join(", ")}`,
-      });
-      return;
+      return {
+        ok: false,
+        status: 422,
+        body: {
+          error: "unprocessable_entity",
+          code: "WHOLESALE_KIT_REQUIRED",
+          message: `Wholesale orders may only contain kit variants. Non-kit variant(s): ${nonKit
+            .map((li) => li.variantId)
+            .join(", ")}`,
+        },
+      };
     }
 
-    const totalKits = data.lineItems.reduce((sum, li) => sum + li.quantity, 0);
+    const totalKits = input.lineItems.reduce((sum, li) => sum + li.quantity, 0);
     if (totalKits < 5) {
-      res.status(422).json({
-        error: "unprocessable_entity",
-        code: "MOQ_NOT_MET",
-        message: `Wholesale minimum order quantity is 5 kits (mixed SKUs count toward the total); this order has ${totalKits}.`,
-      });
-      return;
+      return {
+        ok: false,
+        status: 422,
+        body: {
+          error: "unprocessable_entity",
+          code: "MOQ_NOT_MET",
+          message: `Wholesale minimum order quantity is 5 kits (mixed SKUs count toward the total); this order has ${totalKits}.`,
+        },
+      };
     }
 
     if (account.priceTierId !== null) {
@@ -254,7 +322,7 @@ router.post("/orders", async (req, res) => {
     }
   }
 
-  const resolvedLineItems = data.lineItems.map((li) => {
+  const resolvedLineItems = input.lineItems.map((li) => {
     const v = variantMap.get(li.variantId)!;
     return {
       variantId: li.variantId,
@@ -269,14 +337,121 @@ router.post("/orders", async (req, res) => {
     (sum, item) => sum + item.unitPriceCents * item.quantity,
     0
   );
-  // Wholesale orders never receive the retail crypto discount.
-  const isCrypto = isCryptoMethod(data.paymentMethod);
-  const discountCents =
-    !isWholesale && isCrypto
-      ? Math.round(subtotalCents * CRYPTO_DISCOUNT_RATE)
-      : 0;
-  const totalCents = subtotalCents - discountCents;
-  const channel = isWholesale ? "wholesale" : "retail";
+
+  // ── Discounts: the resolveDiscounts() choke point. Look the code row up
+  // here (impure), decide there (pure).
+  const rawCode = input.discountCode?.trim() ? normalizeCode(input.discountCode) : null;
+  let codeRecord: DiscountCodeRecord | null = null;
+  if (rawCode && !isWholesale) {
+    codeRecord =
+      (await db.query.discountCodesTable.findFirst({
+        where: eq(discountCodesTable.code, rawCode),
+      })) ?? null;
+  }
+
+  const resolution = resolveDiscounts({
+    isWholesale,
+    isCrypto: isCryptoMethod(input.paymentMethod),
+    subtotalCents,
+    cryptoBps: await getCryptoDiscountBps(),
+    codeInput: input.discountCode,
+    codeRecord,
+  });
+
+  if (!resolution.ok) {
+    return {
+      ok: false,
+      status: 422,
+      body: {
+        error: "unprocessable_entity",
+        code: resolution.code,
+        message: resolution.message,
+      },
+    };
+  }
+
+  return {
+    ok: true,
+    isWholesale,
+    channel: isWholesale ? "wholesale" : "retail",
+    resolvedLineItems,
+    subtotalCents,
+    promoDiscountCents: resolution.promoDiscountCents,
+    cryptoDiscountCents: resolution.cryptoDiscountCents,
+    discountCents: resolution.discountCents,
+    totalCents: resolution.totalCents,
+    discountSource: resolution.discountSource,
+    discountCode: resolution.discountCode,
+    discountCodeId: resolution.discountCodeId,
+  };
+}
+
+router.post("/orders/quote", quoteRateLimit, async (req, res) => {
+  const parsed = quoteOrderSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "validation_error", message: String(parsed.error) });
+    return;
+  }
+  const priced = await priceOrderRequest(parsed.data);
+  if (!priced.ok) {
+    res.status(priced.status).json(priced.body);
+    return;
+  }
+  res.json({
+    subtotalCents: priced.subtotalCents,
+    promoDiscountCents: priced.promoDiscountCents,
+    cryptoDiscountCents: priced.cryptoDiscountCents,
+    discountCents: priced.discountCents,
+    totalCents: priced.totalCents,
+    discountSource: priced.discountSource,
+    discountCode: priced.discountCode,
+  });
+});
+
+router.post("/orders", createOrderRateLimit, async (req, res) => {
+  const parsed = createOrderSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "validation_error", message: String(parsed.error) });
+    return;
+  }
+
+  const data = parsed.data;
+
+  // Server-side RUO affirmation gate. This must be exactly true — a missing or
+  // false value is a hard reject before any pricing or order work.
+  if (data.ruoAffirmed !== true) {
+    res.status(400).json({
+      error: "ruo_not_affirmed",
+      message: "The Research Use Only (RUO) attestation must be affirmed to place an order.",
+    });
+    return;
+  }
+
+  const priced = await priceOrderRequest(data);
+  if (!priced.ok) {
+    res.status(priced.status).json(priced.body);
+    return;
+  }
+  const {
+    isWholesale,
+    channel,
+    resolvedLineItems,
+    subtotalCents,
+    promoDiscountCents,
+    cryptoDiscountCents,
+    discountCents,
+    totalCents,
+    discountSource,
+    discountCode,
+    discountCodeId,
+  } = priced;
+
+  // Provenance invariant — the flat columns must always reconstruct the
+  // authoritative discount (docs/discount-system-design.md).
+  if (discountCents !== promoDiscountCents + cryptoDiscountCents) {
+    throw new Error("discount provenance mismatch: slots do not sum to discountCents");
+  }
+
   const orderId = randomUUID();
 
   // Optional B2C account linkage: if a retail shopper is signed in, stamp the
@@ -286,13 +461,40 @@ router.post("/orders", async (req, res) => {
   // Insert the order and its RUO attestation atomically — the attestation is the
   // compliance record of record and must never exist without its order (or vice
   // versa). Capture the requester's IP + user-agent for the audit trail.
-  await db.transaction(async (tx) => {
-    await tx.insert(ordersTable).values({
+  try {
+    await db.transaction(async (tx) => {
+      // Atomic code consumption — the conditional UPDATE is the race fix. Zero
+      // rows updated means the code was exhausted/deactivated/expired between
+      // validation and here: roll the order back. Never check-then-increment.
+      if (discountCodeId !== null) {
+        const consumed = await tx
+          .update(discountCodesTable)
+          .set({ timesUsed: sql`${discountCodesTable.timesUsed} + 1` })
+          .where(
+            and(
+              eq(discountCodesTable.id, discountCodeId),
+              eq(discountCodesTable.active, true),
+              sql`(${discountCodesTable.expiresAt} IS NULL OR ${discountCodesTable.expiresAt} > now())`,
+              sql`(${discountCodesTable.maxUses} IS NULL OR ${discountCodesTable.timesUsed} < ${discountCodesTable.maxUses})`
+            )
+          )
+          .returning({ id: discountCodesTable.id });
+        if (consumed.length === 0) {
+          throw new CodeConsumptionError();
+        }
+      }
+
+      await tx.insert(ordersTable).values({
       id: orderId,
       sessionId: data.sessionId ?? randomUUID(),
       lineItems: resolvedLineItems,
       subtotalCents,
       discountCents,
+      discountSource,
+      discountCode,
+      discountCodeId,
+      promoDiscountCents,
+      cryptoDiscountCents,
       totalCents,
       paymentMethod: data.paymentMethod,
       channel,
@@ -309,22 +511,37 @@ router.post("/orders", async (req, res) => {
       shippingCountry: data.shippingCountry,
     });
 
-    await tx.insert(orderAttestationsTable).values({
-      orderId,
-      accountId: isWholesale ? data.accountId! : null,
-      attestationVersion: ATTESTATION_VERSION,
-      attestationText: ATTESTATION_TEXT,
-      ruoAffirmed: data.ruoAffirmed,
-      signerName: data.signerName,
-      ipAddress: req.ip ?? null,
-      userAgent: req.headers["user-agent"] ?? null,
+      await tx.insert(orderAttestationsTable).values({
+        orderId,
+        accountId: isWholesale ? data.accountId! : null,
+        attestationVersion: ATTESTATION_VERSION,
+        attestationText: ATTESTATION_TEXT,
+        ruoAffirmed: data.ruoAffirmed,
+        signerName: data.signerName,
+        ipAddress: req.ip ?? null,
+        userAgent: req.headers["user-agent"] ?? null,
+      });
     });
-  });
+  } catch (err) {
+    if (err instanceof CodeConsumptionError) {
+      res.status(422).json({
+        error: "unprocessable_entity",
+        code: "CODE_EXHAUSTED",
+        message: "That discount code has reached its redemption limit.",
+      });
+      return;
+    }
+    throw err;
+  }
 
   res.status(201).json({
     id: orderId,
     subtotalCents,
     discountCents,
+    discountSource,
+    discountCode,
+    promoDiscountCents,
+    cryptoDiscountCents,
     totalCents,
     paymentMethod: data.paymentMethod,
     status: "pending",

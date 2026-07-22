@@ -14,6 +14,7 @@ import {
   paymentRecordsTable,
   orderAttestationsTable,
   storeSettingsTable,
+  discountCodesTable,
   categoryEnum,
   batchStatusEnum,
   testTypeEnum,
@@ -1290,15 +1291,289 @@ router.patch("/admin/variants/:id", async (req, res) => {
   }
 });
 
+
+// ── Discount codes ───────────────────────────────────────────────────────────
+// Retail promo codes (docs/discount-system-design.md). Codes are never
+// hard-deleted — orders reference them for per-code reporting; deactivate
+// instead. Consumption happens atomically in POST /orders, not here.
+
+const CODE_PATTERN = /^[A-Za-z0-9-]+$/;
+
+const CreateDiscountCodeSchema = z.object({
+  code: z
+    .string()
+    .min(2)
+    .max(64)
+    .regex(CODE_PATTERN, "Letters, digits, and hyphens only"),
+  percentBps: z.number().int().min(1).max(5000),
+  expiresAt: z.string().nullish(),
+  maxUses: z.number().int().min(1).nullish(),
+  note: z.string().max(500).nullish(),
+});
+
+const PatchDiscountCodeSchema = z.object({
+  code: z
+    .string()
+    .min(2)
+    .max(64)
+    .regex(CODE_PATTERN, "Letters, digits, and hyphens only")
+    .optional(),
+  percentBps: z.number().int().min(1).max(5000).optional(),
+  expiresAt: z.string().nullish(),
+  maxUses: z.number().int().min(1).nullish(),
+  active: z.boolean().optional(),
+  note: z.string().max(500).nullish(),
+});
+
+function parseExpiry(
+  raw: string | null | undefined
+): { ok: true; value: Date | null } | { ok: false } {
+  if (raw === null || raw === undefined) return { ok: true, value: null };
+  // A bare date means "valid through the end of that day", not its first
+  // instant — new Date("2026-08-01") is UTC midnight, which would expire the
+  // code before the displayed day even starts in any western timezone.
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+  const d = new Date(dateOnly ? `${raw}T23:59:59.999Z` : raw);
+  if (Number.isNaN(d.getTime())) return { ok: false };
+  return { ok: true, value: d };
+}
+
+const discountCodeReportColumns = {
+  confirmedOrders: sql<number>`count(${ordersTable.id}) filter (where ${ordersTable.status} = 'confirmed')`.mapWith(Number),
+  confirmedRevenueCents: sql<number>`coalesce(sum(${ordersTable.totalCents}) filter (where ${ordersTable.status} = 'confirmed'), 0)`.mapWith(Number),
+};
+
+function discountCodeAdminShape(
+  row: typeof discountCodesTable.$inferSelect,
+  report: { confirmedOrders: number; confirmedRevenueCents: number }
+) {
+  return {
+    id: row.id,
+    code: row.code,
+    percentBps: row.percentBps,
+    active: row.active,
+    expiresAt: row.expiresAt ? row.expiresAt.toISOString() : null,
+    maxUses: row.maxUses,
+    timesUsed: row.timesUsed,
+    note: row.note,
+    createdAt: row.createdAt.toISOString(),
+    ...report,
+  };
+}
+
+router.get("/admin/discount-codes", async (_req, res) => {
+  try {
+    const rows = await db
+      .select({
+        row: discountCodesTable,
+        ...discountCodeReportColumns,
+      })
+      .from(discountCodesTable)
+      .leftJoin(ordersTable, eq(ordersTable.discountCodeId, discountCodesTable.id))
+      .groupBy(discountCodesTable.id)
+      .orderBy(desc(discountCodesTable.createdAt));
+
+    res.json(
+      rows.map((r) =>
+        discountCodeAdminShape(r.row, {
+          confirmedOrders: r.confirmedOrders,
+          confirmedRevenueCents: r.confirmedRevenueCents,
+        })
+      )
+    );
+  } catch (err) {
+    console.error("admin listDiscountCodes error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+router.post("/admin/discount-codes", async (req, res) => {
+  const parsed = CreateDiscountCodeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "bad_request", message: String(parsed.error) });
+    return;
+  }
+  const expiry = parseExpiry(parsed.data.expiresAt);
+  if (!expiry.ok) {
+    res.status(400).json({ error: "bad_request", message: "expiresAt is not a valid date" });
+    return;
+  }
+  try {
+    const [row] = await db
+      .insert(discountCodesTable)
+      .values({
+        code: parsed.data.code.toUpperCase(),
+        percentBps: parsed.data.percentBps,
+        expiresAt: expiry.value,
+        maxUses: parsed.data.maxUses ?? null,
+        note: parsed.data.note ?? null,
+      })
+      .returning();
+    res
+      .status(201)
+      .json(discountCodeAdminShape(row, { confirmedOrders: 0, confirmedRevenueCents: 0 }));
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      "code" in err &&
+      (err as { code?: string }).code === "23505"
+    ) {
+      res.status(409).json({ error: "conflict", message: "That code already exists" });
+      return;
+    }
+    console.error("admin createDiscountCode error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+router.patch("/admin/discount-codes/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "bad_request", message: "Invalid id" });
+    return;
+  }
+  const parsed = PatchDiscountCodeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "bad_request", message: String(parsed.error) });
+    return;
+  }
+  const expiryProvided = "expiresAt" in (req.body as Record<string, unknown>);
+  const expiry = parseExpiry(parsed.data.expiresAt);
+  if (!expiry.ok) {
+    res.status(400).json({ error: "bad_request", message: "expiresAt is not a valid date" });
+    return;
+  }
+  try {
+    const existing = await db.query.discountCodesTable.findFirst({
+      where: eq(discountCodesTable.id, id),
+    });
+    if (!existing) {
+      res.status(404).json({ error: "not_found", message: "Discount code not found" });
+      return;
+    }
+
+    // Freeze rule (server-enforced): once redeemed, the code's economics are
+    // history — deactivate and mint a new code instead of editing them. The
+    // pre-check gives a friendly 422; the conditional WHERE below closes the
+    // race with a first redemption landing mid-request.
+    const touchesFrozen =
+      parsed.data.code !== undefined || parsed.data.percentBps !== undefined;
+    if (existing.timesUsed > 0 && touchesFrozen) {
+      res.status(422).json({
+        error: "unprocessable_entity",
+        code: "CODE_FROZEN",
+        message:
+          "code and percentBps are frozen once a code has been redeemed. Deactivate this code and create a new one to change economics.",
+      });
+      return;
+    }
+
+    const updates: Partial<typeof discountCodesTable.$inferInsert> = {};
+    if (parsed.data.code !== undefined) updates.code = parsed.data.code.toUpperCase();
+    if (parsed.data.percentBps !== undefined) updates.percentBps = parsed.data.percentBps;
+    if (expiryProvided) updates.expiresAt = expiry.value;
+    if ("maxUses" in (req.body as Record<string, unknown>))
+      updates.maxUses = parsed.data.maxUses ?? null;
+    if (parsed.data.active !== undefined) updates.active = parsed.data.active;
+    if ("note" in (req.body as Record<string, unknown>)) updates.note = parsed.data.note ?? null;
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "bad_request", message: "No fields to update" });
+      return;
+    }
+
+    const [row] = await db
+      .update(discountCodesTable)
+      .set(updates)
+      .where(
+        touchesFrozen
+          ? and(
+              eq(discountCodesTable.id, id),
+              eq(discountCodesTable.timesUsed, 0)
+            )
+          : eq(discountCodesTable.id, id)
+      )
+      .returning();
+
+    if (!row) {
+      // The conditional WHERE matched nothing: a redemption raced in between
+      // the freeze pre-check and this update.
+      res.status(422).json({
+        error: "unprocessable_entity",
+        code: "CODE_FROZEN",
+        message:
+          "code and percentBps are frozen once a code has been redeemed. Deactivate this code and create a new one to change economics.",
+      });
+      return;
+    }
+
+    const [report] = await db
+      .select(discountCodeReportColumns)
+      .from(ordersTable)
+      .where(eq(ordersTable.discountCodeId, id));
+
+    res.json(
+      discountCodeAdminShape(row, {
+        confirmedOrders: report?.confirmedOrders ?? 0,
+        confirmedRevenueCents: report?.confirmedRevenueCents ?? 0,
+      })
+    );
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      "code" in err &&
+      (err as { code?: string }).code === "23505"
+    ) {
+      res.status(409).json({ error: "conflict", message: "That code already exists" });
+      return;
+    }
+    console.error("admin patchDiscountCode error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+router.get("/admin/discount-codes/:id/report", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: "bad_request", message: "Invalid id" });
+    return;
+  }
+  try {
+    const existing = await db.query.discountCodesTable.findFirst({
+      where: eq(discountCodesTable.id, id),
+    });
+    if (!existing) {
+      res.status(404).json({ error: "not_found", message: "Discount code not found" });
+      return;
+    }
+    const [report] = await db
+      .select(discountCodeReportColumns)
+      .from(ordersTable)
+      .where(eq(ordersTable.discountCodeId, id));
+    res.json({
+      id: existing.id,
+      code: existing.code,
+      timesUsed: existing.timesUsed,
+      confirmedOrders: report?.confirmedOrders ?? 0,
+      confirmedRevenueCents: report?.confirmedRevenueCents ?? 0,
+    });
+  } catch (err) {
+    console.error("admin discountCodeReport error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
 // ── Store settings ───────────────────────────────────────────────────────────
 // Global storefront toggles (single 'default' row). Upserts if the row is absent.
 const PatchSettingsSchema = z
   .object({
     showVialImages: z.boolean().optional(),
+    cryptoDiscountBps: z.number().int().min(0).max(5000).optional(),
   })
-  .refine((v) => v.showVialImages !== undefined, {
-    message: "At least one of showVialImages is required",
-  });
+  .refine(
+    (v) => v.showVialImages !== undefined || v.cryptoDiscountBps !== undefined,
+    { message: "At least one field is required" },
+  );
 
 router.patch("/admin/settings", async (req, res) => {
   const parsed = PatchSettingsSchema.safeParse(req.body);
@@ -1313,6 +1588,9 @@ router.patch("/admin/settings", async (req, res) => {
     if (parsed.data.showVialImages !== undefined) {
       updates.showVialImages = parsed.data.showVialImages;
     }
+    if (parsed.data.cryptoDiscountBps !== undefined) {
+      updates.cryptoDiscountBps = parsed.data.cryptoDiscountBps;
+    }
 
     const [row] = await db
       .insert(storeSettingsTable)
@@ -1320,7 +1598,10 @@ router.patch("/admin/settings", async (req, res) => {
       .onConflictDoUpdate({ target: storeSettingsTable.id, set: updates })
       .returning();
 
-    res.json({ showVialImages: row.showVialImages });
+    res.json({
+      showVialImages: row.showVialImages,
+      cryptoDiscountBps: row.cryptoDiscountBps,
+    });
   } catch (err) {
     console.error("admin patchSettings error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });

@@ -38,6 +38,7 @@ import type {
   ConfirmAchRequest,
   ConfirmAchResponse,
   CreateAdminUserRequest,
+  CreateDiscountCodeRequest,
   CreateOrderRequest,
   CreateReviewerSubmissionRequest,
   CreateSubscriptionRequest,
@@ -45,6 +46,9 @@ import type {
   CustomerOrderSummary,
   CustomerSession,
   CustomerUser,
+  DiscountCodeAdmin,
+  DiscountCodeError,
+  DiscountCodeReport,
   DispatchSubscriptionReminders200,
   GetAccountParams,
   GetSubscriptionParams,
@@ -58,9 +62,11 @@ import type {
   MoqError,
   OkResponse,
   OrderDetail,
+  OrderQuote,
   OrderSummary,
   PatchAccountRequest,
   PatchAdminUserRequest,
+  PatchDiscountCodeRequest,
   PatchOrderRequest,
   PatchProductRequest,
   PatchReviewerSubmissionRequest,
@@ -70,6 +76,7 @@ import type {
   Product,
   ProductDetail,
   ProductVariant,
+  QuoteOrderRequest,
   RegisterCustomerRequest,
   ReorderPayload,
   RetailProduct,
@@ -813,7 +820,7 @@ export function useGetBatch<
 }
 
 /**
- * Creates an order with optional 10% Transparency Discount when crypto payment is selected
+ * Creates an order. Retail orders paid with crypto receive the admin-configured crypto payment discount (store settings, basis points); wholesale orders never do.
  * @summary Create a new order
  */
 export const getCreateOrderUrl = () => {
@@ -833,7 +840,7 @@ export const createOrder = async (
 };
 
 export const getCreateOrderMutationOptions = <
-  TError = ErrorType<ApiError | MoqError | SkuNotAvailable>,
+  TError = ErrorType<ApiError | MoqError | SkuNotAvailable | DiscountCodeError>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -875,14 +882,14 @@ export type CreateOrderMutationResult = NonNullable<
 >;
 export type CreateOrderMutationBody = BodyType<CreateOrderRequest>;
 export type CreateOrderMutationError = ErrorType<
-  ApiError | MoqError | SkuNotAvailable
+  ApiError | MoqError | SkuNotAvailable | DiscountCodeError
 >;
 
 /**
  * @summary Create a new order
  */
 export const useCreateOrder = <
-  TError = ErrorType<ApiError | MoqError | SkuNotAvailable>,
+  TError = ErrorType<ApiError | MoqError | SkuNotAvailable | DiscountCodeError>,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -899,6 +906,95 @@ export const useCreateOrder = <
   TContext
 > => {
   return useMutation(getCreateOrderMutationOptions(options));
+};
+
+/**
+ * Runs the exact order pricing + discount pipeline (variant resolution, wholesale tier pricing, promo code validation, crypto incentive) with no writes and no code consumption. One code path with order creation prevents preview drift. Rate-limited; rejection details stay generic on this public surface.
+ * @summary Quote an order without creating it
+ */
+export const getQuoteOrderUrl = () => {
+  return `/api/orders/quote`;
+};
+
+export const quoteOrder = async (
+  quoteOrderRequest: QuoteOrderRequest,
+  options?: RequestInit,
+): Promise<OrderQuote> => {
+  return customFetch<OrderQuote>(getQuoteOrderUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(quoteOrderRequest),
+  });
+};
+
+export const getQuoteOrderMutationOptions = <
+  TError = ErrorType<ApiError | MoqError | SkuNotAvailable | DiscountCodeError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof quoteOrder>>,
+    TError,
+    { data: BodyType<QuoteOrderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof quoteOrder>>,
+  TError,
+  { data: BodyType<QuoteOrderRequest> },
+  TContext
+> => {
+  const mutationKey = ["quoteOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof quoteOrder>>,
+    { data: BodyType<QuoteOrderRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return quoteOrder(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type QuoteOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof quoteOrder>>
+>;
+export type QuoteOrderMutationBody = BodyType<QuoteOrderRequest>;
+export type QuoteOrderMutationError = ErrorType<
+  ApiError | MoqError | SkuNotAvailable | DiscountCodeError
+>;
+
+/**
+ * @summary Quote an order without creating it
+ */
+export const useQuoteOrder = <
+  TError = ErrorType<ApiError | MoqError | SkuNotAvailable | DiscountCodeError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof quoteOrder>>,
+    TError,
+    { data: BodyType<QuoteOrderRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof quoteOrder>>,
+  TError,
+  { data: BodyType<QuoteOrderRequest> },
+  TContext
+> => {
+  return useMutation(getQuoteOrderMutationOptions(options));
 };
 
 /**
@@ -1401,6 +1497,350 @@ export function useGetSettings<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Lists all promo codes newest-first with confirmed-order report figures. Requires x-admin-key header.
+ * @summary Admin — list discount codes
+ */
+export const getAdminListDiscountCodesUrl = () => {
+  return `/api/admin/discount-codes`;
+};
+
+export const adminListDiscountCodes = async (
+  options?: RequestInit,
+): Promise<DiscountCodeAdmin[]> => {
+  return customFetch<DiscountCodeAdmin[]>(getAdminListDiscountCodesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListDiscountCodesQueryKey = () => {
+  return [`/api/admin/discount-codes`] as const;
+};
+
+export const getAdminListDiscountCodesQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListDiscountCodes>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListDiscountCodes>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListDiscountCodesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListDiscountCodes>>
+  > = ({ signal }) => adminListDiscountCodes({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListDiscountCodes>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListDiscountCodesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListDiscountCodes>>
+>;
+export type AdminListDiscountCodesQueryError = ErrorType<void>;
+
+/**
+ * @summary Admin — list discount codes
+ */
+
+export function useAdminListDiscountCodes<
+  TData = Awaited<ReturnType<typeof adminListDiscountCodes>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListDiscountCodes>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListDiscountCodesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Creates a promo code (stored uppercase). Requires x-admin-key header.
+ * @summary Admin — create a discount code
+ */
+export const getAdminCreateDiscountCodeUrl = () => {
+  return `/api/admin/discount-codes`;
+};
+
+export const adminCreateDiscountCode = async (
+  createDiscountCodeRequest: CreateDiscountCodeRequest,
+  options?: RequestInit,
+): Promise<DiscountCodeAdmin> => {
+  return customFetch<DiscountCodeAdmin>(getAdminCreateDiscountCodeUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createDiscountCodeRequest),
+  });
+};
+
+export const getAdminCreateDiscountCodeMutationOptions = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateDiscountCode>>,
+    TError,
+    { data: BodyType<CreateDiscountCodeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateDiscountCode>>,
+  TError,
+  { data: BodyType<CreateDiscountCodeRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateDiscountCode"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateDiscountCode>>,
+    { data: BodyType<CreateDiscountCodeRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateDiscountCode(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateDiscountCodeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateDiscountCode>>
+>;
+export type AdminCreateDiscountCodeMutationBody =
+  BodyType<CreateDiscountCodeRequest>;
+export type AdminCreateDiscountCodeMutationError = ErrorType<ApiError | void>;
+
+/**
+ * @summary Admin — create a discount code
+ */
+export const useAdminCreateDiscountCode = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateDiscountCode>>,
+    TError,
+    { data: BodyType<CreateDiscountCodeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateDiscountCode>>,
+  TError,
+  { data: BodyType<CreateDiscountCodeRequest> },
+  TContext
+> => {
+  return useMutation(getAdminCreateDiscountCodeMutationOptions(options));
+};
+
+/**
+ * Edits a code. Server-enforced freeze — once timesUsed > 0, code and percentBps reject with 422; expiresAt, maxUses, active, note stay editable. Codes are never hard-deleted.
+ * @summary Admin — update a discount code
+ */
+export const getAdminPatchDiscountCodeUrl = (id: number) => {
+  return `/api/admin/discount-codes/${id}`;
+};
+
+export const adminPatchDiscountCode = async (
+  id: number,
+  patchDiscountCodeRequest: PatchDiscountCodeRequest,
+  options?: RequestInit,
+): Promise<DiscountCodeAdmin> => {
+  return customFetch<DiscountCodeAdmin>(getAdminPatchDiscountCodeUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(patchDiscountCodeRequest),
+  });
+};
+
+export const getAdminPatchDiscountCodeMutationOptions = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchDiscountCode>>,
+    TError,
+    { id: number; data: BodyType<PatchDiscountCodeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminPatchDiscountCode>>,
+  TError,
+  { id: number; data: BodyType<PatchDiscountCodeRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminPatchDiscountCode"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminPatchDiscountCode>>,
+    { id: number; data: BodyType<PatchDiscountCodeRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminPatchDiscountCode(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminPatchDiscountCodeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminPatchDiscountCode>>
+>;
+export type AdminPatchDiscountCodeMutationBody =
+  BodyType<PatchDiscountCodeRequest>;
+export type AdminPatchDiscountCodeMutationError = ErrorType<ApiError | void>;
+
+/**
+ * @summary Admin — update a discount code
+ */
+export const useAdminPatchDiscountCode = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchDiscountCode>>,
+    TError,
+    { id: number; data: BodyType<PatchDiscountCodeRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminPatchDiscountCode>>,
+  TError,
+  { id: number; data: BodyType<PatchDiscountCodeRequest> },
+  TContext
+> => {
+  return useMutation(getAdminPatchDiscountCodeMutationOptions(options));
+};
+
+/**
+ * timesUsed plus count and revenue of confirmed orders that redeemed the code. Requires x-admin-key header.
+ * @summary Admin — per-code payout report
+ */
+export const getAdminDiscountCodeReportUrl = (id: number) => {
+  return `/api/admin/discount-codes/${id}/report`;
+};
+
+export const adminDiscountCodeReport = async (
+  id: number,
+  options?: RequestInit,
+): Promise<DiscountCodeReport> => {
+  return customFetch<DiscountCodeReport>(getAdminDiscountCodeReportUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminDiscountCodeReportQueryKey = (id: number) => {
+  return [`/api/admin/discount-codes/${id}/report`] as const;
+};
+
+export const getAdminDiscountCodeReportQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminDiscountCodeReport>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminDiscountCodeReport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminDiscountCodeReportQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminDiscountCodeReport>>
+  > = ({ signal }) =>
+    adminDiscountCodeReport(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminDiscountCodeReport>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminDiscountCodeReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminDiscountCodeReport>>
+>;
+export type AdminDiscountCodeReportQueryError = ErrorType<void>;
+
+/**
+ * @summary Admin — per-code payout report
+ */
+
+export function useAdminDiscountCodeReport<
+  TData = Awaited<ReturnType<typeof adminDiscountCodeReport>>,
+  TError = ErrorType<void>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminDiscountCodeReport>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminDiscountCodeReportQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

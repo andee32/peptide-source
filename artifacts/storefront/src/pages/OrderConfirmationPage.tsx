@@ -36,6 +36,10 @@ interface OrderDetail {
   id: string;
   subtotalCents: number;
   discountCents: number;
+  discountSource: "code" | "subscription" | null;
+  discountCode: string | null;
+  promoDiscountCents: number;
+  cryptoDiscountCents: number;
   totalCents: number;
   paymentMethod: "crypto_btc" | "crypto_usdc" | "ach" | "wire";
   status: "pending" | "awaiting_payment" | "confirmed" | "failed" | "expired" | "refunded";
@@ -105,20 +109,20 @@ export function OrderConfirmationPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-zinc-700 border-t-teal-400 rounded-full animate-spin" />
+      <div className="min-h-[70vh] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-border border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
 
   if (error || !order) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-center px-4">
-        <XCircle className="w-12 h-12 text-red-400 mb-4" />
-        <h1 className="text-xl font-semibold text-white mb-2">
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4">
+        <XCircle className="w-12 h-12 text-crit mb-4" />
+        <h1 className="text-xl font-semibold text-foreground mb-2">
           Order Not Found
         </h1>
-        <p className="text-zinc-400 mb-6">{error ?? "Something went wrong."}</p>
+        <p className="text-muted-foreground mb-6">{error ?? "Something went wrong."}</p>
         <Button asChild variant="outline">
           <Link href="/shop">Return to Shop</Link>
         </Button>
@@ -133,11 +137,11 @@ export function OrderConfirmationPage() {
   const isFailed = status === "failed";
 
   return (
-    <div className="min-h-screen bg-zinc-950 px-4 py-12">
+    <div className="px-4 py-12">
       <div className="max-w-2xl mx-auto">
         <Link
           href="/shop"
-          className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors mb-8"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
         >
           <ArrowLeft className="w-4 h-4" />
           Continue shopping
@@ -146,14 +150,14 @@ export function OrderConfirmationPage() {
         <div className="text-center mb-8">
           {isConfirmed && (
             <div className="flex flex-col items-center gap-3">
-              <div className="w-16 h-16 rounded-full bg-emerald-950 border border-emerald-700 flex items-center justify-center">
-                <CheckCircle className="w-8 h-8 text-emerald-400" />
+              <div className="w-16 h-16 rounded-full bg-good-tint border border-good/40 flex items-center justify-center">
+                <CheckCircle className="w-8 h-8 text-good" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-white">
+                <h1 className="text-2xl font-semibold text-foreground">
                   Payment Confirmed
                 </h1>
-                <p className="text-zinc-400 text-sm mt-1">
+                <p className="text-muted-foreground text-sm mt-1">
                   Your order has been verified on-chain. Thank you for your
                   research investment.
                 </p>
@@ -162,14 +166,14 @@ export function OrderConfirmationPage() {
           )}
           {isAwaiting && (
             <div className="flex flex-col items-center gap-3">
-              <div className="w-16 h-16 rounded-full bg-teal-950 border border-teal-700 flex items-center justify-center">
-                <Clock className="w-8 h-8 text-teal-400" />
+              <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center">
+                <Clock className="w-8 h-8 text-primary" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-white">
+                <h1 className="text-2xl font-semibold text-foreground">
                   Awaiting Payment
                 </h1>
-                <p className="text-zinc-400 text-sm mt-1">
+                <p className="text-muted-foreground text-sm mt-1">
                   Your order is placed — waiting for on-chain settlement.
                 </p>
               </div>
@@ -177,14 +181,14 @@ export function OrderConfirmationPage() {
           )}
           {isExpired && (
             <div className="flex flex-col items-center gap-3">
-              <div className="w-16 h-16 rounded-full bg-amber-950 border border-amber-700 flex items-center justify-center">
-                <AlertTriangle className="w-8 h-8 text-amber-400" />
+              <div className="w-16 h-16 rounded-full bg-warn-tint border border-warn/40 flex items-center justify-center">
+                <AlertTriangle className="w-8 h-8 text-warn" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-white">
+                <h1 className="text-2xl font-semibold text-foreground">
                   Invoice Expired
                 </h1>
-                <p className="text-zinc-400 text-sm mt-1">
+                <p className="text-muted-foreground text-sm mt-1">
                   The payment window closed. Please place a new order.
                 </p>
               </div>
@@ -192,14 +196,14 @@ export function OrderConfirmationPage() {
           )}
           {isFailed && (
             <div className="flex flex-col items-center gap-3">
-              <div className="w-16 h-16 rounded-full bg-red-950 border border-red-700 flex items-center justify-center">
-                <XCircle className="w-8 h-8 text-red-400" />
+              <div className="w-16 h-16 rounded-full bg-crit-tint border border-crit/40 flex items-center justify-center">
+                <XCircle className="w-8 h-8 text-crit" />
               </div>
               <div>
-                <h1 className="text-2xl font-semibold text-white">
+                <h1 className="text-2xl font-semibold text-foreground">
                   Payment Failed
                 </h1>
-                <p className="text-zinc-400 text-sm mt-1">
+                <p className="text-muted-foreground text-sm mt-1">
                   Contact support with your order ID.
                 </p>
               </div>
@@ -209,35 +213,35 @@ export function OrderConfirmationPage() {
 
         <div className="space-y-5">
           {isConfirmed && payment?.txHash && (
-            <div className="bg-emerald-950/40 border border-emerald-800/50 rounded-xl p-5">
-              <p className="text-xs text-emerald-400/70 uppercase tracking-wider mb-1">
+            <div className="bg-good-tint border border-good/40 rounded-xl p-5">
+              <p className="text-xs text-good/80 uppercase tracking-wider mb-1">
                 Transaction Hash
               </p>
               <div className="flex items-center gap-3">
-                <code className="flex-1 text-xs font-mono text-emerald-300 break-all">
+                <code className="flex-1 text-xs font-mono text-good break-all">
                   {payment.txHash}
                 </code>
                 <a
                   href={explorerUrl(payment.txHash, payment.currency)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="shrink-0 text-emerald-400 hover:text-emerald-300 transition-colors"
+                  className="shrink-0 text-good hover:text-good/80 transition-colors"
                   title="View on explorer"
                 >
                   <ExternalLink className="w-4 h-4" />
                 </a>
               </div>
               {payment.confirmedAt && (
-                <p className="text-xs text-emerald-400/50 mt-2">
+                <p className="text-xs text-good/70 mt-2">
                   Confirmed at {new Date(payment.confirmedAt).toLocaleString()}
                 </p>
               )}
             </div>
           )}
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl divide-y divide-zinc-800">
+          <div className="bg-card border border-border rounded-xl divide-y divide-border shadow-sm">
             <div className="p-5">
-              <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">
                 Items Ordered
               </p>
               <div className="space-y-3">
@@ -247,15 +251,15 @@ export function OrderConfirmationPage() {
                     className="flex justify-between text-sm"
                   >
                     <div>
-                      <span className="text-white font-medium">
+                      <span className="text-foreground font-medium">
                         {item.productName}
                       </span>
                       <br />
-                      <span className="text-zinc-500">
+                      <span className="text-muted-foreground">
                         {item.variantName} × {item.quantity}
                       </span>
                     </div>
-                    <span className="font-mono text-zinc-300">
+                    <span className="font-mono text-foreground">
                       {formatCents(item.unitPriceCents * item.quantity)}
                     </span>
                   </div>
@@ -264,39 +268,63 @@ export function OrderConfirmationPage() {
             </div>
 
             <div className="p-5 space-y-2">
-              <div className="flex justify-between text-sm text-zinc-400">
+              <div className="flex justify-between text-sm text-muted-foreground">
                 <span>Subtotal</span>
                 <span className="font-mono">
                   {formatCents(order.subtotalCents)}
                 </span>
               </div>
-              {order.discountCents > 0 && (
-                <div className="flex justify-between text-sm text-emerald-400">
-                  <span>Transparency Discount (10%)</span>
+              {order.promoDiscountCents > 0 && (
+                <div className="flex justify-between text-sm text-good">
+                  <span>
+                    Discount code
+                    {order.discountCode ? ` ${order.discountCode}` : ""}
+                  </span>
                   <span className="font-mono">
-                    −{formatCents(order.discountCents)}
+                    −{formatCents(order.promoDiscountCents)}
                   </span>
                 </div>
               )}
-              <div className="flex justify-between text-base font-semibold text-white pt-2 border-t border-zinc-800">
+              {order.cryptoDiscountCents > 0 && (
+                <div className="flex justify-between text-sm text-good">
+                  <span>Crypto payment discount</span>
+                  <span className="font-mono">
+                    −{formatCents(order.cryptoDiscountCents)}
+                  </span>
+                </div>
+              )}
+              {order.discountCents >
+                order.promoDiscountCents + order.cryptoDiscountCents && (
+                <div className="flex justify-between text-sm text-good">
+                  <span>Discount</span>
+                  <span className="font-mono">
+                    −{formatCents(
+                      order.discountCents -
+                        order.promoDiscountCents -
+                        order.cryptoDiscountCents
+                    )}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between text-base font-semibold text-foreground pt-2 border-t border-border">
                 <span>Total Paid</span>
-                <span className="font-mono text-teal-300">
+                <span className="font-mono text-teal-ink">
                   {formatCents(order.totalCents)}
                 </span>
               </div>
               {payment && (
-                <p className="text-xs text-zinc-500 text-right">
+                <p className="text-xs text-muted-foreground text-right">
                   {payment.amount} {payment.currency}
                 </p>
               )}
             </div>
 
             <div className="p-5">
-              <p className="text-xs text-zinc-500 uppercase tracking-wider mb-3">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">
                 Ship To
               </p>
-              <div className="text-sm text-zinc-300 leading-relaxed">
-                <p className="text-white font-medium">{order.shippingName}</p>
+              <div className="text-sm text-foreground leading-relaxed">
+                <p className="text-foreground font-medium">{order.shippingName}</p>
                 <p>{order.shippingAddress1}</p>
                 {order.shippingAddress2 && <p>{order.shippingAddress2}</p>}
                 <p>
@@ -304,13 +332,13 @@ export function OrderConfirmationPage() {
                   {order.shippingZip}
                 </p>
                 <p>{order.shippingCountry}</p>
-                <p className="text-zinc-500 mt-1">{order.shippingEmail}</p>
+                <p className="text-muted-foreground mt-1">{order.shippingEmail}</p>
               </div>
             </div>
           </div>
 
           <div className="text-center">
-            <p className="text-xs text-zinc-600 font-mono mb-4">
+            <p className="text-xs text-muted-foreground font-mono mb-4">
               Order ID: {order.id}
             </p>
             {(isExpired || isFailed) && (

@@ -222,7 +222,7 @@ paths:
       operationId: createOrder
       tags: [orders]
       summary: Create a new order
-      description: Creates an order with optional 10% Transparency Discount when crypto payment is selected
+      description: Creates an order. Retail orders paid with crypto receive the admin-configured crypto payment discount (store settings, basis points); wholesale orders never do.
       requestBody:
         required: true
         content:
@@ -249,13 +249,55 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
         "422":
-          description: Order rule violation — wholesale kit-only/MOQ, or a line item whose SKU is compliance-blocked
+          description: Order rule violation — wholesale kit-only/MOQ, a compliance-blocked SKU, or a discount-code rejection (CODE_NOT_APPLICABLE / INVALID_DISCOUNT_CODE / CODE_EXHAUSTED)
           content:
             application/json:
               schema:
                 oneOf:
                   - $ref: "#/components/schemas/MoqError"
                   - $ref: "#/components/schemas/SkuNotAvailable"
+                  - $ref: "#/components/schemas/DiscountCodeError"
+
+  /orders/quote:
+    post:
+      operationId: quoteOrder
+      tags: [orders]
+      summary: Quote an order without creating it
+      description: Runs the exact order pricing + discount pipeline (variant resolution, wholesale tier pricing, promo code validation, crypto incentive) with no writes and no code consumption. One code path with order creation prevents preview drift. Rate-limited; rejection details stay generic on this public surface.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuoteOrderRequest"
+      responses:
+        "200":
+          description: Priced quote
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderQuote"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "403":
+          description: Wholesale account not approved or token mismatch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "422":
+          description: Order rule violation or discount-code rejection
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/MoqError"
+                  - $ref: "#/components/schemas/SkuNotAvailable"
+                  - $ref: "#/components/schemas/DiscountCodeError"
 
   /orders/{id}:
     get:
@@ -427,6 +469,122 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StoreSettings"
+
+  /admin/discount-codes:
+    get:
+      operationId: adminListDiscountCodes
+      tags: [admin]
+      summary: Admin — list discount codes
+      description: Lists all promo codes newest-first with confirmed-order report figures. Requires x-admin-key header.
+      responses:
+        "200":
+          description: List of discount codes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DiscountCodeAdmin"
+        "401":
+          description: Admin key required
+    post:
+      operationId: adminCreateDiscountCode
+      tags: [admin]
+      summary: Admin — create a discount code
+      description: Creates a promo code (stored uppercase). Requires x-admin-key header.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDiscountCodeRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscountCodeAdmin"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Admin key required
+        "409":
+          description: Code already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /admin/discount-codes/{id}:
+    patch:
+      operationId: adminPatchDiscountCode
+      tags: [admin]
+      summary: Admin — update a discount code
+      description: Edits a code. Server-enforced freeze — once timesUsed > 0, code and percentBps reject with 422; expiresAt, maxUses, active, note stay editable. Codes are never hard-deleted.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchDiscountCodeRequest"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscountCodeAdmin"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Admin key required
+        "404":
+          description: Not found
+        "422":
+          description: Attempted to edit a frozen field on a redeemed code
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /admin/discount-codes/{id}/report:
+    get:
+      operationId: adminDiscountCodeReport
+      tags: [admin]
+      summary: Admin — per-code payout report
+      description: timesUsed plus count and revenue of confirmed orders that redeemed the code. Requires x-admin-key header.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiscountCodeReport"
+        "401":
+          description: Admin key required
+        "404":
+          description: Not found
 
   /admin/settings:
     patch:
@@ -2077,6 +2235,200 @@ components:
         - message
         - code
 
+    DiscountCodeError:
+      type: object
+      description: Discount-code rejection (422). Codes hard-fail — an invalid code never silently degrades to no-discount.
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+          enum: [CODE_NOT_APPLICABLE, INVALID_DISCOUNT_CODE, CODE_EXHAUSTED]
+      required:
+        - error
+        - message
+        - code
+
+    QuoteOrderRequest:
+      type: object
+      description: Pricing-relevant subset of CreateOrderRequest. Runs the identical pipeline with no writes.
+      properties:
+        accountId:
+          type: string
+          nullable: true
+        token:
+          type: string
+          nullable: true
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/CreateOrderLineItem"
+          minItems: 1
+        paymentMethod:
+          $ref: "#/components/schemas/PaymentMethod"
+        discountCode:
+          type: string
+          maxLength: 64
+          nullable: true
+      required:
+        - lineItems
+        - paymentMethod
+
+    OrderQuote:
+      type: object
+      description: Server-priced order preview. Amounts are authoritative for these inputs but freeze only at order creation.
+      properties:
+        subtotalCents:
+          type: integer
+        promoDiscountCents:
+          type: integer
+        cryptoDiscountCents:
+          type: integer
+        discountCents:
+          type: integer
+        totalCents:
+          type: integer
+        discountSource:
+          type: string
+          enum: [code, subscription]
+          nullable: true
+        discountCode:
+          type: string
+          nullable: true
+          description: Normalized (uppercased) code that was applied.
+      required:
+        - subtotalCents
+        - promoDiscountCents
+        - cryptoDiscountCents
+        - discountCents
+        - totalCents
+
+    DiscountCodeAdmin:
+      type: object
+      description: Admin view of a promo code, including confirmed-order report figures.
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        percentBps:
+          type: integer
+        active:
+          type: boolean
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        maxUses:
+          type: integer
+          nullable: true
+        timesUsed:
+          type: integer
+        note:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        confirmedOrders:
+          type: integer
+          description: Count of confirmed orders that redeemed this code.
+        confirmedRevenueCents:
+          type: integer
+          description: Sum of totalCents across confirmed orders that redeemed this code.
+      required:
+        - id
+        - code
+        - percentBps
+        - active
+        - expiresAt
+        - maxUses
+        - timesUsed
+        - note
+        - createdAt
+        - confirmedOrders
+        - confirmedRevenueCents
+
+    CreateDiscountCodeRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 2
+          maxLength: 64
+          pattern: "^[A-Za-z0-9-]+$"
+          description: Stored uppercased. Letters, digits, hyphens.
+        percentBps:
+          type: integer
+          minimum: 1
+          maximum: 5000
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        maxUses:
+          type: integer
+          minimum: 1
+          nullable: true
+        note:
+          type: string
+          maxLength: 500
+          nullable: true
+      required:
+        - code
+        - percentBps
+
+    PatchDiscountCodeRequest:
+      type: object
+      description: Once a code has been redeemed (timesUsed > 0), code and percentBps are frozen (422) — deactivate and mint a new code to change economics. expiresAt, maxUses, active, note stay editable.
+      properties:
+        code:
+          type: string
+          minLength: 2
+          maxLength: 64
+          pattern: "^[A-Za-z0-9-]+$"
+        percentBps:
+          type: integer
+          minimum: 1
+          maximum: 5000
+        expiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        maxUses:
+          type: integer
+          minimum: 1
+          nullable: true
+        active:
+          type: boolean
+        note:
+          type: string
+          maxLength: 500
+          nullable: true
+
+    DiscountCodeReport:
+      type: object
+      description: Per-code affiliate/campaign payout report. Confirmed-only, sidestepping abandoned-order overcount.
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        timesUsed:
+          type: integer
+        confirmedOrders:
+          type: integer
+        confirmedRevenueCents:
+          type: integer
+      required:
+        - id
+        - code
+        - timesUsed
+        - confirmedOrders
+        - confirmedRevenueCents
+
     HealthStatus:
       type: object
       properties:
@@ -2352,6 +2704,11 @@ components:
           minItems: 1
         paymentMethod:
           $ref: "#/components/schemas/PaymentMethod"
+        discountCode:
+          type: string
+          maxLength: 64
+          nullable: true
+          description: Optional promo code (retail only). Trimmed and uppercased server-side. Invalid, expired, or exhausted codes hard-reject the order (422) — never silently ignored. Submitting a code on a wholesale order is a 422.
         ruoAffirmed:
           type: boolean
           description: Must be true. Server-side RUO (Research Use Only) affirmation; the order is rejected (400) when not exactly true.
@@ -2405,6 +2762,21 @@ components:
           type: integer
         discountCents:
           type: integer
+        discountSource:
+          type: string
+          enum: [code, subscription]
+          nullable: true
+          description: Slot-A promotion source; null when no promotion applied.
+        discountCode:
+          type: string
+          nullable: true
+          description: Snapshot of the redeemed code; set iff discountSource is 'code'.
+        promoDiscountCents:
+          type: integer
+          description: Slot-A (promotion) amount. promoDiscountCents + cryptoDiscountCents === discountCents.
+        cryptoDiscountCents:
+          type: integer
+          description: Slot-B (crypto payment incentive) amount.
         totalCents:
           type: integer
         paymentMethod:
@@ -2419,6 +2791,8 @@ components:
         - id
         - subtotalCents
         - discountCents
+        - promoDiscountCents
+        - cryptoDiscountCents
         - totalCents
         - paymentMethod
         - status
@@ -2645,8 +3019,14 @@ components:
         showVialImages:
           type: boolean
           description: When false, product vial/placeholder images are hidden across the storefront.
+        cryptoDiscountBps:
+          type: integer
+          minimum: 0
+          maximum: 5000
+          description: Retail crypto-payment discount in basis points (1000 = 10%). 0 disables the discount. Never applied to wholesale orders.
       required:
         - showVialImages
+        - cryptoDiscountBps
       additionalProperties: false
 
     PatchStoreSettingsRequest:
@@ -2655,6 +3035,10 @@ components:
       properties:
         showVialImages:
           type: boolean
+        cryptoDiscountBps:
+          type: integer
+          minimum: 0
+          maximum: 5000
       additionalProperties: false
 
     OrderStatus:
@@ -2781,6 +3165,21 @@ components:
           type: integer
         discountCents:
           type: integer
+        discountSource:
+          type: string
+          enum: [code, subscription]
+          nullable: true
+          description: Slot-A promotion source; null when no promotion applied.
+        discountCode:
+          type: string
+          nullable: true
+          description: Snapshot of the redeemed code; set iff discountSource is 'code'.
+        promoDiscountCents:
+          type: integer
+          description: Slot-A (promotion) amount. promoDiscountCents + cryptoDiscountCents === discountCents.
+        cryptoDiscountCents:
+          type: integer
+          description: Slot-B (crypto payment incentive) amount.
         totalCents:
           type: integer
         paymentMethod:
@@ -2839,6 +3238,8 @@ components:
         - lineItems
         - subtotalCents
         - discountCents
+        - promoDiscountCents
+        - cryptoDiscountCents
         - totalCents
         - paymentMethod
         - channel
@@ -3188,6 +3589,21 @@ components:
           type: integer
         discountCents:
           type: integer
+        discountSource:
+          type: string
+          enum: [code, subscription]
+          nullable: true
+          description: Slot-A promotion source; null when no promotion applied.
+        discountCode:
+          type: string
+          nullable: true
+          description: Snapshot of the redeemed code; set iff discountSource is 'code'.
+        promoDiscountCents:
+          type: integer
+          description: Slot-A (promotion) amount. promoDiscountCents + cryptoDiscountCents === discountCents.
+        cryptoDiscountCents:
+          type: integer
+          description: Slot-B (crypto payment incentive) amount.
         totalCents:
           type: integer
         lineItems:
@@ -3210,6 +3626,8 @@ components:
         - paymentMethod
         - subtotalCents
         - discountCents
+        - promoDiscountCents
+        - cryptoDiscountCents
         - totalCents
         - lineItems
         - createdAt

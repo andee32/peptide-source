@@ -11,4 +11,9 @@
  */
 export interface PatchStoreSettingsRequest {
   showVialImages?: boolean;
+  /**
+   * @minimum 0
+   * @maximum 5000
+   */
+  cryptoDiscountBps?: number;
 }

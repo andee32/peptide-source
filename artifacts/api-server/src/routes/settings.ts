@@ -15,6 +15,7 @@ router.get("/settings", async (_req, res) => {
     });
     const validated = GetSettingsResponse.parse({
       showVialImages: row?.showVialImages ?? true,
+      cryptoDiscountBps: row?.cryptoDiscountBps ?? 1000,
     });
     res.json(validated);
   } catch (err) {

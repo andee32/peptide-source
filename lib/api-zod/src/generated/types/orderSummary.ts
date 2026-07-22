@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { OrderSummaryChannel } from "./orderSummaryChannel";
+import type { OrderSummaryDiscountSource } from "./orderSummaryDiscountSource";
 import type { OrderSummaryStatus } from "./orderSummaryStatus";
 import type { PaymentMethod } from "./paymentMethod";
 
@@ -13,6 +14,14 @@ export interface OrderSummary {
   id: string;
   subtotalCents: number;
   discountCents: number;
+  /** Slot-A promotion source; null when no promotion applied. */
+  discountSource?: OrderSummaryDiscountSource;
+  /** Snapshot of the redeemed code; set iff discountSource is 'code'. */
+  discountCode?: string | null;
+  /** Slot-A (promotion) amount. promoDiscountCents + cryptoDiscountCents === discountCents. */
+  promoDiscountCents: number;
+  /** Slot-B (crypto payment incentive) amount. */
+  cryptoDiscountCents: number;
   totalCents: number;
   paymentMethod: PaymentMethod;
   status: OrderSummaryStatus;

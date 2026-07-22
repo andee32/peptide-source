@@ -328,10 +328,12 @@ export const GetBatchResponse = zod
   );
 
 /**
- * Creates an order with optional 10% Transparency Discount when crypto payment is selected
+ * Creates an order. Retail orders paid with crypto receive the admin-configured crypto payment discount (store settings, basis points); wholesale orders never do.
  * @summary Create a new order
  */
 export const createOrderBodyLineItemsItemQuantityMax = 100;
+
+export const createOrderBodyDiscountCodeMax = 64;
 
 export const createOrderBodySignerNameMax = 200;
 
@@ -371,6 +373,13 @@ export const CreateOrderBody = zod.object({
     .describe(
       "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
     ),
+  discountCode: zod
+    .string()
+    .max(createOrderBodyDiscountCodeMax)
+    .nullish()
+    .describe(
+      "Optional promo code (retail only). Trimmed and uppercased server-side. Invalid, expired, or exhausted codes hard-reject the order (422) — never silently ignored. Submitting a code on a wholesale order is a 422.",
+    ),
   ruoAffirmed: zod
     .boolean()
     .describe(
@@ -394,6 +403,61 @@ export const CreateOrderBody = zod.object({
 });
 
 /**
+ * Runs the exact order pricing + discount pipeline (variant resolution, wholesale tier pricing, promo code validation, crypto incentive) with no writes and no code consumption. One code path with order creation prevents preview drift. Rate-limited; rejection details stay generic on this public surface.
+ * @summary Quote an order without creating it
+ */
+export const quoteOrderBodyLineItemsItemQuantityMax = 100;
+
+export const quoteOrderBodyDiscountCodeMax = 64;
+
+export const QuoteOrderBody = zod
+  .object({
+    accountId: zod.string().nullish(),
+    token: zod.string().nullish(),
+    lineItems: zod
+      .array(
+        zod
+          .object({
+            variantId: zod.number(),
+            quantity: zod
+              .number()
+              .min(1)
+              .max(quoteOrderBodyLineItemsItemQuantityMax),
+          })
+          .describe(
+            "Line item for order creation — server resolves price and names from variantId",
+          ),
+      )
+      .min(1),
+    paymentMethod: zod
+      .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
+      .describe(
+        "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
+      ),
+    discountCode: zod.string().max(quoteOrderBodyDiscountCodeMax).nullish(),
+  })
+  .describe(
+    "Pricing-relevant subset of CreateOrderRequest. Runs the identical pipeline with no writes.",
+  );
+
+export const QuoteOrderResponse = zod
+  .object({
+    subtotalCents: zod.number(),
+    promoDiscountCents: zod.number(),
+    cryptoDiscountCents: zod.number(),
+    discountCents: zod.number(),
+    totalCents: zod.number(),
+    discountSource: zod.enum(["code", "subscription"]).nullish(),
+    discountCode: zod
+      .string()
+      .nullish()
+      .describe("Normalized (uppercased) code that was applied."),
+  })
+  .describe(
+    "Server-priced order preview. Amounts are authoritative for these inputs but freeze only at order creation.",
+  );
+
+/**
  * Returns order with current status and payment record
  * @summary Get order by ID
  */
@@ -406,6 +470,24 @@ export const GetOrderResponse = zod
     id: zod.string(),
     subtotalCents: zod.number(),
     discountCents: zod.number(),
+    discountSource: zod
+      .enum(["code", "subscription"])
+      .nullish()
+      .describe("Slot-A promotion source; null when no promotion applied."),
+    discountCode: zod
+      .string()
+      .nullish()
+      .describe(
+        "Snapshot of the redeemed code; set iff discountSource is 'code'.",
+      ),
+    promoDiscountCents: zod
+      .number()
+      .describe(
+        "Slot-A (promotion) amount. promoDiscountCents + cryptoDiscountCents === discountCents.",
+      ),
+    cryptoDiscountCents: zod
+      .number()
+      .describe("Slot-B (crypto payment incentive) amount."),
     totalCents: zod.number(),
     paymentMethod: zod
       .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
@@ -564,6 +646,9 @@ export const AdminConfirmAchResponse = zod.object({
  * Public endpoint returning global storefront settings. Returns defaults (showVialImages=true) if the settings row is absent.
  * @summary Get public store settings
  */
+export const getSettingsResponseCryptoDiscountBpsMin = 0;
+export const getSettingsResponseCryptoDiscountBpsMax = 5000;
+
 export const GetSettingsResponse = zod
   .object({
     showVialImages: zod
@@ -571,18 +656,178 @@ export const GetSettingsResponse = zod
       .describe(
         "When false, product vial\/placeholder images are hidden across the storefront.",
       ),
+    cryptoDiscountBps: zod
+      .number()
+      .min(getSettingsResponseCryptoDiscountBpsMin)
+      .max(getSettingsResponseCryptoDiscountBpsMax)
+      .describe(
+        "Retail crypto-payment discount in basis points (1000 = 10%). 0 disables the discount. Never applied to wholesale orders.",
+      ),
   })
   .describe("Global storefront settings.");
+
+/**
+ * Lists all promo codes newest-first with confirmed-order report figures. Requires x-admin-key header.
+ * @summary Admin — list discount codes
+ */
+export const AdminListDiscountCodesResponseItem = zod
+  .object({
+    id: zod.number(),
+    code: zod.string(),
+    percentBps: zod.number(),
+    active: zod.boolean(),
+    expiresAt: zod.date().nullable(),
+    maxUses: zod.number().nullable(),
+    timesUsed: zod.number(),
+    note: zod.string().nullable(),
+    createdAt: zod.date(),
+    confirmedOrders: zod
+      .number()
+      .describe("Count of confirmed orders that redeemed this code."),
+    confirmedRevenueCents: zod
+      .number()
+      .describe(
+        "Sum of totalCents across confirmed orders that redeemed this code.",
+      ),
+  })
+  .describe(
+    "Admin view of a promo code, including confirmed-order report figures.",
+  );
+export const AdminListDiscountCodesResponse = zod.array(
+  AdminListDiscountCodesResponseItem,
+);
+
+/**
+ * Creates a promo code (stored uppercase). Requires x-admin-key header.
+ * @summary Admin — create a discount code
+ */
+export const adminCreateDiscountCodeBodyCodeMin = 2;
+export const adminCreateDiscountCodeBodyCodeMax = 64;
+
+export const adminCreateDiscountCodeBodyCodeRegExp = new RegExp(
+  "^[A-Za-z0-9-]+$",
+);
+export const adminCreateDiscountCodeBodyPercentBpsMax = 5000;
+
+export const adminCreateDiscountCodeBodyNoteMax = 500;
+
+export const AdminCreateDiscountCodeBody = zod.object({
+  code: zod
+    .string()
+    .min(adminCreateDiscountCodeBodyCodeMin)
+    .max(adminCreateDiscountCodeBodyCodeMax)
+    .regex(adminCreateDiscountCodeBodyCodeRegExp)
+    .describe("Stored uppercased. Letters, digits, hyphens."),
+  percentBps: zod.number().min(1).max(adminCreateDiscountCodeBodyPercentBpsMax),
+  expiresAt: zod.date().nullish(),
+  maxUses: zod.number().min(1).nullish(),
+  note: zod.string().max(adminCreateDiscountCodeBodyNoteMax).nullish(),
+});
+
+/**
+ * Edits a code. Server-enforced freeze — once timesUsed > 0, code and percentBps reject with 422; expiresAt, maxUses, active, note stay editable. Codes are never hard-deleted.
+ * @summary Admin — update a discount code
+ */
+export const AdminPatchDiscountCodeParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const adminPatchDiscountCodeBodyCodeMin = 2;
+export const adminPatchDiscountCodeBodyCodeMax = 64;
+
+export const adminPatchDiscountCodeBodyCodeRegExp = new RegExp(
+  "^[A-Za-z0-9-]+$",
+);
+export const adminPatchDiscountCodeBodyPercentBpsMax = 5000;
+
+export const adminPatchDiscountCodeBodyNoteMax = 500;
+
+export const AdminPatchDiscountCodeBody = zod
+  .object({
+    code: zod
+      .string()
+      .min(adminPatchDiscountCodeBodyCodeMin)
+      .max(adminPatchDiscountCodeBodyCodeMax)
+      .regex(adminPatchDiscountCodeBodyCodeRegExp)
+      .optional(),
+    percentBps: zod
+      .number()
+      .min(1)
+      .max(adminPatchDiscountCodeBodyPercentBpsMax)
+      .optional(),
+    expiresAt: zod.date().nullish(),
+    maxUses: zod.number().min(1).nullish(),
+    active: zod.boolean().optional(),
+    note: zod.string().max(adminPatchDiscountCodeBodyNoteMax).nullish(),
+  })
+  .describe(
+    "Once a code has been redeemed (timesUsed > 0), code and percentBps are frozen (422) — deactivate and mint a new code to change economics. expiresAt, maxUses, active, note stay editable.",
+  );
+
+export const AdminPatchDiscountCodeResponse = zod
+  .object({
+    id: zod.number(),
+    code: zod.string(),
+    percentBps: zod.number(),
+    active: zod.boolean(),
+    expiresAt: zod.date().nullable(),
+    maxUses: zod.number().nullable(),
+    timesUsed: zod.number(),
+    note: zod.string().nullable(),
+    createdAt: zod.date(),
+    confirmedOrders: zod
+      .number()
+      .describe("Count of confirmed orders that redeemed this code."),
+    confirmedRevenueCents: zod
+      .number()
+      .describe(
+        "Sum of totalCents across confirmed orders that redeemed this code.",
+      ),
+  })
+  .describe(
+    "Admin view of a promo code, including confirmed-order report figures.",
+  );
+
+/**
+ * timesUsed plus count and revenue of confirmed orders that redeemed the code. Requires x-admin-key header.
+ * @summary Admin — per-code payout report
+ */
+export const AdminDiscountCodeReportParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDiscountCodeReportResponse = zod
+  .object({
+    id: zod.number(),
+    code: zod.string(),
+    timesUsed: zod.number(),
+    confirmedOrders: zod.number(),
+    confirmedRevenueCents: zod.number(),
+  })
+  .describe(
+    "Per-code affiliate\/campaign payout report. Confirmed-only, sidestepping abandoned-order overcount.",
+  );
 
 /**
  * Admin-only. Updates global storefront settings; upserts the single 'default' row if absent. Requires x-admin-key header.
  * @summary Update store settings (admin)
  */
+export const adminPatchSettingsBodyCryptoDiscountBpsMin = 0;
+export const adminPatchSettingsBodyCryptoDiscountBpsMax = 5000;
+
 export const AdminPatchSettingsBody = zod
   .object({
     showVialImages: zod.boolean().optional(),
+    cryptoDiscountBps: zod
+      .number()
+      .min(adminPatchSettingsBodyCryptoDiscountBpsMin)
+      .max(adminPatchSettingsBodyCryptoDiscountBpsMax)
+      .optional(),
   })
   .describe("Update store settings. At least one field must be provided.");
+
+export const adminPatchSettingsResponseCryptoDiscountBpsMin = 0;
+export const adminPatchSettingsResponseCryptoDiscountBpsMax = 5000;
 
 export const AdminPatchSettingsResponse = zod
   .object({
@@ -590,6 +835,13 @@ export const AdminPatchSettingsResponse = zod
       .boolean()
       .describe(
         "When false, product vial\/placeholder images are hidden across the storefront.",
+      ),
+    cryptoDiscountBps: zod
+      .number()
+      .min(adminPatchSettingsResponseCryptoDiscountBpsMin)
+      .max(adminPatchSettingsResponseCryptoDiscountBpsMax)
+      .describe(
+        "Retail crypto-payment discount in basis points (1000 = 10%). 0 disables the discount. Never applied to wholesale orders.",
       ),
   })
   .describe("Global storefront settings.");
@@ -1131,6 +1383,24 @@ export const AdminGetOrderResponse = zod
     ),
     subtotalCents: zod.number(),
     discountCents: zod.number(),
+    discountSource: zod
+      .enum(["code", "subscription"])
+      .nullish()
+      .describe("Slot-A promotion source; null when no promotion applied."),
+    discountCode: zod
+      .string()
+      .nullish()
+      .describe(
+        "Snapshot of the redeemed code; set iff discountSource is 'code'.",
+      ),
+    promoDiscountCents: zod
+      .number()
+      .describe(
+        "Slot-A (promotion) amount. promoDiscountCents + cryptoDiscountCents === discountCents.",
+      ),
+    cryptoDiscountCents: zod
+      .number()
+      .describe("Slot-B (crypto payment incentive) amount."),
     totalCents: zod.number(),
     paymentMethod: zod
       .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
@@ -1275,6 +1545,24 @@ export const AdminPatchOrderResponse = zod
     ),
     subtotalCents: zod.number(),
     discountCents: zod.number(),
+    discountSource: zod
+      .enum(["code", "subscription"])
+      .nullish()
+      .describe("Slot-A promotion source; null when no promotion applied."),
+    discountCode: zod
+      .string()
+      .nullish()
+      .describe(
+        "Snapshot of the redeemed code; set iff discountSource is 'code'.",
+      ),
+    promoDiscountCents: zod
+      .number()
+      .describe(
+        "Slot-A (promotion) amount. promoDiscountCents + cryptoDiscountCents === discountCents.",
+      ),
+    cryptoDiscountCents: zod
+      .number()
+      .describe("Slot-B (crypto payment incentive) amount."),
     totalCents: zod.number(),
     paymentMethod: zod
       .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
@@ -1395,6 +1683,24 @@ export const AdminRefundOrderResponse = zod
     ),
     subtotalCents: zod.number(),
     discountCents: zod.number(),
+    discountSource: zod
+      .enum(["code", "subscription"])
+      .nullish()
+      .describe("Slot-A promotion source; null when no promotion applied."),
+    discountCode: zod
+      .string()
+      .nullish()
+      .describe(
+        "Snapshot of the redeemed code; set iff discountSource is 'code'.",
+      ),
+    promoDiscountCents: zod
+      .number()
+      .describe(
+        "Slot-A (promotion) amount. promoDiscountCents + cryptoDiscountCents === discountCents.",
+      ),
+    cryptoDiscountCents: zod
+      .number()
+      .describe("Slot-B (crypto payment incentive) amount."),
     totalCents: zod.number(),
     paymentMethod: zod
       .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
@@ -1869,6 +2175,24 @@ export const ListCustomerOrdersResponseItem = zod.object({
     ),
   subtotalCents: zod.number(),
   discountCents: zod.number(),
+  discountSource: zod
+    .enum(["code", "subscription"])
+    .nullish()
+    .describe("Slot-A promotion source; null when no promotion applied."),
+  discountCode: zod
+    .string()
+    .nullish()
+    .describe(
+      "Snapshot of the redeemed code; set iff discountSource is 'code'.",
+    ),
+  promoDiscountCents: zod
+    .number()
+    .describe(
+      "Slot-A (promotion) amount. promoDiscountCents + cryptoDiscountCents === discountCents.",
+    ),
+  cryptoDiscountCents: zod
+    .number()
+    .describe("Slot-B (crypto payment incentive) amount."),
   totalCents: zod.number(),
   lineItems: zod.array(
     zod.object({

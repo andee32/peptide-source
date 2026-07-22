@@ -63,10 +63,11 @@ import { OrdersPanel } from "@/components/admin/OrdersPanel";
 import { CatalogPanel } from "@/components/admin/CatalogPanel";
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { UsersPanel } from "@/components/admin/UsersPanel";
+import { DiscountsPanel } from "@/components/admin/DiscountsPanel";
 
 type BatchStatus = "pending" | "released" | "quarantined";
 type TestType = "purity" | "endotoxin" | "sterility" | "heavyMetals";
-type AdminTab = "dashboard" | "orders" | "catalog" | "batches" | "subscriptions" | "products" | "accounts" | "users" | "settings";
+type AdminTab = "dashboard" | "orders" | "catalog" | "batches" | "subscriptions" | "products" | "accounts" | "discounts" | "users" | "settings";
 
 type AdminCoaResult = {
   id: string;
@@ -141,7 +142,7 @@ function adminFetch<T = unknown>(
 function StatusBadge({ status }: { status: BatchStatus }) {
   if (status === "released")
     return (
-      <Badge className="bg-primary/20 text-primary border-primary/30 gap-1 font-mono text-xs">
+      <Badge className="bg-primary/20 text-teal-ink border-primary/30 gap-1 font-mono text-xs">
         <CheckCircle2 className="h-3 w-3" /> Released
       </Badge>
     );
@@ -152,7 +153,7 @@ function StatusBadge({ status }: { status: BatchStatus }) {
       </Badge>
     );
   return (
-    <Badge className="bg-yellow-500/10 text-yellow-400 border-yellow-500/30 gap-1 font-mono text-xs">
+    <Badge className="bg-warn-tint text-warn border-warn/30 gap-1 font-mono text-xs">
       <Clock className="h-3 w-3" /> Pending
     </Badge>
   );
@@ -536,7 +537,7 @@ function AddCoaDialog({
                   <SelectValue placeholder="Select result" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="true" className="font-mono text-primary">Pass</SelectItem>
+                  <SelectItem value="true" className="font-mono text-teal-ink">Pass</SelectItem>
                   <SelectItem value="false" className="font-mono text-destructive">Fail</SelectItem>
                 </SelectContent>
               </Select>
@@ -599,6 +600,7 @@ function AddCoaDialog({
                       className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                       disabled={heavyMetalRows.length === 1}
                       onClick={() => setHeavyMetalRows(rows => rows.filter((_, i) => i !== idx))}
+                      aria-label="Remove heavy metal row"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -828,7 +830,7 @@ function BatchDetailPanel({
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="font-mono text-base flex items-center gap-2">
-              <FlaskConical className="h-4 w-4 text-primary" />
+              <FlaskConical className="h-4 w-4 text-teal-ink" />
               COA Results
             </CardTitle>
             <Button
@@ -859,7 +861,7 @@ function BatchDetailPanel({
                       </span>
                       {coa.testType === "sterility" && coa.sterilityPass !== null && (
                         <Badge className={coa.sterilityPass
-                          ? "bg-primary/20 text-primary border-primary/30 text-xs font-mono"
+                          ? "bg-primary/20 text-teal-ink border-primary/30 text-xs font-mono"
                           : "bg-destructive/20 text-destructive border-destructive/30 text-xs font-mono"
                         }>
                           {coa.sterilityPass ? "PASS" : "FAIL"}
@@ -880,6 +882,7 @@ function BatchDetailPanel({
                     className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 ml-2 shrink-0"
                     disabled={deletingId === coa.id}
                     onClick={() => handleDeleteCoa(coa.id)}
+                    aria-label="Delete COA result"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -994,6 +997,7 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
             { key: "batches", label: "Batch Management" },
             { key: "subscriptions", label: "Subscriptions" },
             { key: "accounts", label: "Accounts" },
+            { key: "discounts", label: "Discounts" },
             { key: "products", label: "Products" },
             { key: "users", label: "Users" },
             { key: "settings", label: "Settings" },
@@ -1003,7 +1007,7 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
               onClick={() => { setActiveTab(tab.key); setSelectedBatch(null); }}
               className={`shrink-0 px-4 sm:px-5 py-3 text-sm font-mono font-medium border-b-2 transition-colors ${
                 activeTab === tab.key
-                  ? "border-primary text-primary"
+                  ? "border-primary text-teal-ink"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -1026,6 +1030,8 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
           <AccountsPanel adminKey={adminKey} />
         ) : activeTab === "subscriptions" ? (
           <AdminSubscriptionsPanel adminKey={adminKey} />
+        ) : activeTab === "discounts" ? (
+          <DiscountsPanel adminKey={adminKey} />
         ) : activeTab === "users" ? (
           <UsersPanel adminKey={adminKey} />
         ) : activeTab === "settings" ? (
@@ -1089,6 +1095,7 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
               </Card>
             ) : (
               <Card className="border-border/30 overflow-hidden">
+                <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="border-border/30 hover:bg-transparent">
@@ -1121,6 +1128,7 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               </Card>
             )}
           </div>
@@ -1167,7 +1175,7 @@ function AdminSubscriptionsPanel({ adminKey }: { adminKey: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [actioningId, setActioningId] = useState<number | null>(null);
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "paused" | "cancelled">("active");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "paused" | "cancelled">("all");
   const [renewFilter, setRenewFilter] = useState<"all" | "7" | "30">("all");
 
   const loadData = async () => {
@@ -1240,9 +1248,9 @@ function AdminSubscriptionsPanel({ adminKey }: { adminKey: string }) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: "Total", value: data?.total ?? 0, color: "text-foreground" },
-          { label: "Active", value: data?.active ?? 0, color: "text-teal-400" },
-          { label: "Renewing (7d)", value: data?.renewingIn7Days ?? 0, color: "text-amber-400" },
-          { label: "Renewing (30d)", value: data?.renewingIn30Days ?? 0, color: "text-blue-400" },
+          { label: "Active", value: data?.active ?? 0, color: "text-teal-ink" },
+          { label: "Renewing (7d)", value: data?.renewingIn7Days ?? 0, color: "text-warn" },
+          { label: "Renewing (30d)", value: data?.renewingIn30Days ?? 0, color: "text-[var(--atl-blue)]" },
         ].map((stat) => (
           <Card key={stat.label} className="border border-border bg-card/60 rounded-xl">
             <CardContent className="p-4">
@@ -1262,7 +1270,7 @@ function AdminSubscriptionsPanel({ adminKey }: { adminKey: string }) {
             onClick={() => setStatusFilter(f)}
             className={`px-3 py-1 rounded-full text-xs font-mono border transition-colors ${
               statusFilter === f
-                ? "bg-primary/20 border-primary/40 text-primary"
+                ? "bg-primary/20 border-primary/40 text-teal-ink"
                 : "border-border text-muted-foreground hover:border-primary/30"
             }`}
           >
@@ -1280,7 +1288,7 @@ function AdminSubscriptionsPanel({ adminKey }: { adminKey: string }) {
               onClick={() => setRenewFilter(f)}
               className={`px-3 py-1 rounded-full text-xs font-mono border transition-colors ${
                 renewFilter === f
-                  ? "bg-primary/20 border-primary/40 text-primary"
+                  ? "bg-primary/20 border-primary/40 text-teal-ink"
                   : "border-border text-muted-foreground hover:border-primary/30"
               }`}
             >
@@ -1296,7 +1304,11 @@ function AdminSubscriptionsPanel({ adminKey }: { adminKey: string }) {
       {/* Table */}
       {filteredSubs.length === 0 ? (
         <div className="text-center py-16 border border-dashed border-border rounded-xl">
-          <p className="text-muted-foreground text-sm font-mono">No subscriptions match the current filters.</p>
+          <p className="text-muted-foreground text-sm font-mono">
+            {statusFilter === "all" && renewFilter === "all"
+              ? "No subscriptions yet."
+              : "No subscriptions match the current filters."}
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -1325,10 +1337,10 @@ function AdminSubscriptionsPanel({ adminKey }: { adminKey: string }) {
                         <span
                           className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full border ${
                             sub.status === "active"
-                              ? "bg-teal-500/15 text-teal-400 border-teal-500/30"
+                              ? "bg-primary/15 text-teal-ink border-primary/30"
                               : sub.status === "paused"
-                                ? "bg-amber-500/15 text-amber-400 border-amber-500/30"
-                                : "bg-red-500/15 text-red-400 border-red-500/30"
+                                ? "bg-warn-tint text-warn border-warn/30"
+                                : "bg-crit-tint text-crit border-crit/30"
                           }`}
                         >
                           {sub.status}
@@ -1346,7 +1358,7 @@ function AdminSubscriptionsPanel({ adminKey }: { adminKey: string }) {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-xs font-mono border-teal-500/40 text-teal-400 hover:bg-teal-500/10"
+                          className="text-xs font-mono border-primary/40 text-teal-ink hover:bg-primary/10"
                           disabled={actioningId === sub.id}
                           onClick={() => void patchStatus(sub.id, "active")}
                         >
@@ -1357,7 +1369,7 @@ function AdminSubscriptionsPanel({ adminKey }: { adminKey: string }) {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="text-xs font-mono border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                          className="text-xs font-mono border-warn/40 text-warn hover:bg-warn/10"
                           disabled={actioningId === sub.id}
                           onClick={() => void patchStatus(sub.id, "paused")}
                         >
@@ -1603,7 +1615,7 @@ function VariantDialog({
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-mono">{isEdit ? "Edit Variant" : "New Variant"}</DialogTitle>
           <DialogDescription>
@@ -1732,7 +1744,7 @@ function ProductsPanel({ adminKey }: { adminKey: string }) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-lg font-bold flex items-center gap-2">
-            <Package className="h-5 w-5 text-primary" />
+            <Package className="h-5 w-5 text-teal-ink" />
             Products
             <span className="text-muted-foreground font-normal text-sm">({products.length})</span>
           </h2>
@@ -1776,14 +1788,14 @@ function ProductsPanel({ adminKey }: { adminKey: string }) {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-semibold text-sm">{product.name}</span>
                         <span className="font-mono text-xs text-muted-foreground">/{product.slug}</span>
-                        <Badge className="text-xs capitalize border-0 bg-primary/10 text-primary">{product.category}</Badge>
+                        <Badge className="text-xs capitalize border-0 bg-primary/10 text-teal-ink">{product.category}</Badge>
                         {product.featured && (
-                          <Badge className="text-xs bg-yellow-500/10 text-yellow-400 border-yellow-500/30 gap-1">
+                          <Badge className="text-xs bg-brand-gold/15 text-structure border-brand-gold/40 gap-1">
                             <Star className="h-2.5 w-2.5" /> Featured
                           </Badge>
                         )}
                         {product.published ? (
-                          <Badge className="text-xs bg-green-500/10 text-green-400 border-green-500/30 gap-1">
+                          <Badge className="text-xs bg-good-tint text-good border-good/30 gap-1">
                             <Eye className="h-2.5 w-2.5" /> Published
                           </Badge>
                         ) : (
@@ -1804,6 +1816,7 @@ function ProductsPanel({ adminKey }: { adminKey: string }) {
                       variant="ghost"
                       className="h-8 w-8 p-0"
                       title="Edit product"
+                      aria-label="Edit product"
                       onClick={() => { setEditingProduct(product); setShowProductDialog(true); }}
                     >
                       <Pencil className="h-3.5 w-3.5" />
@@ -1813,6 +1826,7 @@ function ProductsPanel({ adminKey }: { adminKey: string }) {
                       variant="ghost"
                       className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                       title="Delete product"
+                      aria-label="Delete product"
                       disabled={deletingProductId === product.id}
                       onClick={() => {
                         if (confirm(`Delete "${product.name}"? This cannot be undone.`)) {
@@ -1826,6 +1840,7 @@ function ProductsPanel({ adminKey }: { adminKey: string }) {
                       size="sm"
                       variant="ghost"
                       className="h-8 w-8 p-0 text-muted-foreground"
+                      aria-label={isExpanded ? "Collapse variants" : "Expand variants"}
                       onClick={() => setExpandedId(isExpanded ? null : product.id)}
                     >
                       {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
@@ -1853,6 +1868,7 @@ function ProductsPanel({ adminKey }: { adminKey: string }) {
                     {variants.length === 0 ? (
                       <p className="text-muted-foreground text-sm text-center py-4">No variants yet. Add one to make this product purchasable.</p>
                     ) : (
+                      <div className="overflow-x-auto">
                       <Table>
                         <TableHeader>
                           <TableRow className="border-border/30 hover:bg-transparent">
@@ -1875,7 +1891,7 @@ function ProductsPanel({ adminKey }: { adminKey: string }) {
                               <TableCell className="text-xs font-mono text-muted-foreground">{variant.sku}</TableCell>
                               <TableCell>
                                 {variant.inStock ? (
-                                  <Badge className="text-xs bg-green-500/10 text-green-400 border-green-500/30">In Stock</Badge>
+                                  <Badge className="text-xs bg-good-tint text-good border-good/30">In Stock</Badge>
                                 ) : (
                                   <Badge className="text-xs bg-destructive/10 text-destructive border-destructive/30">Out of Stock</Badge>
                                 )}
@@ -1886,6 +1902,7 @@ function ProductsPanel({ adminKey }: { adminKey: string }) {
                                     size="sm"
                                     variant="ghost"
                                     className="h-7 w-7 p-0"
+                                    aria-label="Edit variant"
                                     onClick={() => {
                                       setVariantProductId(product.id);
                                       setEditingVariant(variant);
@@ -1899,6 +1916,7 @@ function ProductsPanel({ adminKey }: { adminKey: string }) {
                                     variant="ghost"
                                     className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                                     disabled={deletingVariantId === variant.id}
+                                    aria-label="Delete variant"
                                     onClick={() => {
                                       if (confirm(`Delete variant "${variant.name}"?`)) {
                                         void handleDeleteVariant(variant.id);
@@ -1913,6 +1931,7 @@ function ProductsPanel({ adminKey }: { adminKey: string }) {
                           ))}
                         </TableBody>
                       </Table>
+                      </div>
                     )}
                   </div>
                 )}
@@ -1944,7 +1963,7 @@ function ProductsPanel({ adminKey }: { adminKey: string }) {
 function AccountStatusBadge({ status }: { status: AccountStatus }) {
   if (status === "approved")
     return (
-      <Badge className="bg-primary/20 text-primary border-primary/30 gap-1 font-mono text-xs">
+      <Badge className="bg-primary/20 text-teal-ink border-primary/30 gap-1 font-mono text-xs">
         <CheckCircle2 className="h-3 w-3" /> Approved
       </Badge>
     );
@@ -1956,12 +1975,12 @@ function AccountStatusBadge({ status }: { status: AccountStatus }) {
     );
   if (status === "suspended")
     return (
-      <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/30 gap-1 font-mono text-xs">
+      <Badge className="bg-warn-tint text-warn border-warn/30 gap-1 font-mono text-xs">
         <Clock className="h-3 w-3" /> Suspended
       </Badge>
     );
   return (
-    <Badge className="bg-yellow-500/10 text-yellow-400 border-yellow-500/30 gap-1 font-mono text-xs">
+    <Badge className="bg-warn-tint text-warn border-warn/30 gap-1 font-mono text-xs">
       <Clock className="h-3 w-3" /> Pending
     </Badge>
   );
@@ -2031,7 +2050,7 @@ function AccountRow({
               {account.resaleCertUrl && (
                 <div>
                   Resale cert:{" "}
-                  <a href={account.resaleCertUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                  <a href={account.resaleCertUrl} target="_blank" rel="noopener noreferrer" className="text-teal-ink hover:underline">
                     {account.resaleCertUrl}
                   </a>
                 </div>
@@ -2060,7 +2079,7 @@ function AccountRow({
             <div className="flex gap-2">
               <Button
                 size="sm"
-                className="flex-1 font-mono text-xs bg-emerald-600 hover:bg-emerald-500 text-white"
+                className="flex-1 font-mono text-xs"
                 disabled={patch.isPending}
                 onClick={() => submit("approved")}
               >

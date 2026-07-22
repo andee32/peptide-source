@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useCart } from "@/contexts/cart";
 import { useWholesaleSession } from "@/hooks/useWholesaleSession";
+import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { bearerHeaders, useCustomerSession } from "@/hooks/useCustomerAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,7 +80,8 @@ type CheckoutStep =
   | "expired"
   | "failed";
 
-const CRYPTO_DISCOUNT_RATE = 0.1;
+// Crypto discount rate comes from admin settings (GET /settings, basis points);
+// the server recomputes it authoritatively at order creation.
 const POLL_INTERVAL_MS = 6000;
 
 // ACH / wire is off by default — crypto is the primary, working rail. Only expose
@@ -89,6 +91,11 @@ const ACH_ENABLED = import.meta.env.VITE_ACH_ENABLED === "true";
 
 function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
+}
+
+function formatBpsPct(bps: number): string {
+  const pct = bps / 100;
+  return Number.isInteger(pct) ? String(pct) : pct.toFixed(1);
 }
 
 function CopyableAddress({ address }: { address: string }) {
@@ -101,19 +108,19 @@ function CopyableAddress({ address }: { address: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-700 rounded-lg p-3">
-      <code className="flex-1 text-xs font-mono text-teal-300 break-all leading-relaxed">
+    <div className="flex items-center gap-2 bg-muted border border-border rounded-lg p-3">
+      <code className="flex-1 text-xs font-mono text-teal-ink break-all leading-relaxed">
         {address}
       </code>
       <button
         onClick={handleCopy}
-        className="shrink-0 p-1.5 rounded hover:bg-zinc-700 transition-colors"
+        className="shrink-0 p-1.5 rounded hover:bg-border transition-colors"
         title="Copy address"
       >
         {copied ? (
-          <Check className="w-4 h-4 text-emerald-400" />
+          <Check className="w-4 h-4 text-good" />
         ) : (
-          <Copy className="w-4 h-4 text-zinc-400" />
+          <Copy className="w-4 h-4 text-muted-foreground" />
         )}
       </button>
     </div>
@@ -140,7 +147,7 @@ function CountdownTimer({ expiresAt }: { expiresAt: string }) {
   return (
     <div
       className={`flex items-center gap-2 text-sm font-mono ${
-        isUrgent ? "text-amber-400" : "text-zinc-400"
+        isUrgent ? "text-warn" : "text-muted-foreground"
       }`}
     >
       <Clock className="w-4 h-4" />
@@ -154,77 +161,93 @@ function CountdownTimer({ expiresAt }: { expiresAt: string }) {
 
 function OrderSummaryPanel({
   subtotalCents,
-  discountCents,
+  promoDiscountCents,
+  cryptoDiscountCents,
+  appliedCode,
+  discountBps,
   paymentMethod,
 }: {
   subtotalCents: number;
-  discountCents: number;
+  promoDiscountCents: number;
+  cryptoDiscountCents: number;
+  appliedCode: string | null;
+  discountBps: number;
   paymentMethod: PaymentMethod;
 }) {
   const { cartItems } = useCart();
   const { session } = useWholesaleSession();
+  const discountCents = promoDiscountCents + cryptoDiscountCents;
   const totalCents = subtotalCents - discountCents;
   const isCrypto = paymentMethod === "crypto_btc" || paymentMethod === "crypto_usdc";
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 sticky top-6">
-      <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-4">
+    <div className="bg-card border border-border rounded-xl p-6 shadow-sm sticky top-6">
+      <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-4">
         Order Summary
       </h2>
 
       <div className="space-y-3 mb-5">
         {cartItems.map((item) => (
           <div key={item.variantId} className="flex justify-between text-sm">
-            <div className="text-zinc-300 leading-snug">
-              <span className="text-white font-medium">{item.productName}</span>
+            <div className="text-foreground leading-snug">
+              <span className="text-foreground font-medium">{item.productName}</span>
               <br />
-              <span className="text-zinc-500">
+              <span className="text-muted-foreground">
                 {item.variantName} × {item.quantity}
               </span>
             </div>
-            <span className="text-zinc-300 font-mono ml-4 shrink-0">
+            <span className="text-foreground font-mono ml-4 shrink-0">
               {formatCents(item.priceCents * item.quantity)}
             </span>
           </div>
         ))}
       </div>
 
-      <div className="border-t border-zinc-800 pt-4 space-y-2">
-        <div className="flex justify-between text-sm text-zinc-400">
+      <div className="border-t border-border pt-4 space-y-2">
+        <div className="flex justify-between text-sm text-muted-foreground">
           <span>Subtotal</span>
           <span className="font-mono">{formatCents(subtotalCents)}</span>
         </div>
 
-        {isCrypto && discountCents > 0 && (
-          <div className="flex justify-between text-sm text-emerald-400">
+        {promoDiscountCents > 0 && (
+          <div className="flex justify-between text-sm text-good">
             <span className="flex items-center gap-1">
               <Tag className="w-3.5 h-3.5" />
-              Transparency Discount (10%)
+              Code {appliedCode ?? ""}
             </span>
-            <span className="font-mono">−{formatCents(discountCents)}</span>
+            <span className="font-mono">−{formatCents(promoDiscountCents)}</span>
+          </div>
+        )}
+        {isCrypto && cryptoDiscountCents > 0 && (
+          <div className="flex justify-between text-sm text-good">
+            <span className="flex items-center gap-1">
+              <Tag className="w-3.5 h-3.5" />
+              Crypto payment discount ({formatBpsPct(discountBps)}%)
+            </span>
+            <span className="font-mono">−{formatCents(cryptoDiscountCents)}</span>
           </div>
         )}
 
-        <div className="flex justify-between text-base font-semibold text-white pt-1 border-t border-zinc-800">
+        <div className="flex justify-between text-base font-semibold text-foreground pt-1 border-t border-border">
           <span>Total</span>
-          <span className="font-mono text-teal-300">
+          <span className="font-mono text-teal-ink">
             {formatCents(totalCents)}
           </span>
         </div>
       </div>
 
       {session && (
-        <div className="mt-4 bg-teal-950/50 border border-teal-800/50 rounded-lg p-3 text-xs text-teal-300 leading-relaxed">
+        <div className="mt-4 bg-accent border border-accent-foreground/20 rounded-lg p-3 text-xs text-accent-foreground leading-relaxed">
           Prices shown are catalog list prices. Your{" "}
           {session.priceTierName ?? "wholesale"} tier pricing is applied by the
           server — the final amount due reflects your tier.
         </div>
       )}
 
-      {isCrypto && (
-        <div className="mt-4 bg-teal-950/50 border border-teal-800/50 rounded-lg p-3 text-xs text-teal-300 leading-relaxed">
-          Research transparency verified on-chain. 10% discount applied
-          automatically for all crypto payments.
+      {isCrypto && discountCents > 0 && (
+        <div className="mt-4 bg-accent border border-accent-foreground/20 rounded-lg p-3 text-xs text-accent-foreground leading-relaxed">
+          A {formatBpsPct(discountBps)}% discount is applied automatically to
+          retail orders paid with crypto.
         </div>
       )}
     </div>
@@ -243,6 +266,12 @@ export function CheckoutPage() {
   const totalKits = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const isWholesale = !!session;
   const moqMet = !isWholesale || totalKits >= WHOLESALE_MOQ_KITS;
+
+  const { cryptoDiscountBps } = useStoreSettings();
+  // Percent label for method cards/badges; empty string hides the "% off" copy.
+  const discountPctLabel =
+    !isWholesale && cryptoDiscountBps > 0 ? formatBpsPct(cryptoDiscountBps) : "";
+
 
   const [step, setStep] = useState<CheckoutStep>("form");
   const [paymentMethod, setPaymentMethod] =
@@ -271,6 +300,93 @@ export function CheckoutPage() {
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Server-priced preview — POST /orders/quote runs the exact pipeline order
+  // creation runs (same variant prices, same discount resolver), so what the
+  // buyer sees is what the invoice will charge, even if their cart holds stale
+  // localStorage price snapshots. Quoted for every retail cart, code or not.
+  const [codeInput, setCodeInput] = useState("");
+  const [appliedCode, setAppliedCode] = useState<string | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [quote, setQuote] = useState<{
+    subtotalCents: number;
+    promoDiscountCents: number;
+    cryptoDiscountCents: number;
+    discountCents: number;
+    totalCents: number;
+    discountCode: string | null;
+  } | null>(null);
+  const [quoting, setQuoting] = useState(false);
+
+  // A wholesale session gets no discounts of any kind — drop any retail code
+  // state the moment one activates so a stale quote can't be shown (or a code
+  // silently stripped at submit).
+  useEffect(() => {
+    if (isWholesale) {
+      setAppliedCode(null);
+      setQuote(null);
+      setCodeError(null);
+      setCodeInput("");
+    }
+  }, [isWholesale]);
+
+  useEffect(() => {
+    if (isWholesale || cartItems.length === 0) {
+      setQuote(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setQuoting(true);
+      try {
+        const res = await fetch("/api/orders/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lineItems: cartItems.map((i) => ({
+              variantId: i.variantId,
+              quantity: i.quantity,
+            })),
+            paymentMethod,
+            ...(appliedCode ? { discountCode: appliedCode } : {}),
+          }),
+        });
+        if (cancelled) return;
+        if (!res.ok) {
+          const err = (await res.json().catch(() => ({}))) as {
+            message?: string;
+            code?: string;
+          };
+          if (
+            res.status === 422 &&
+            (err.code === "INVALID_DISCOUNT_CODE" ||
+              err.code === "CODE_EXHAUSTED" ||
+              err.code === "CODE_NOT_APPLICABLE")
+          ) {
+            // The code itself was rejected — drop it, say why.
+            setQuote(null);
+            setAppliedCode(null);
+            setCodeError(err.message ?? "That code could not be applied.");
+          }
+          // Anything else (rate limit, stock change, server error) is
+          // transient: keep the code and the last good quote; the next cart or
+          // method change re-quotes.
+          return;
+        }
+        setQuote((await res.json()) as typeof quote);
+        setCodeError(null);
+      } catch {
+        // Network failure — keep existing state; totals fall back to the
+        // client-side preview until the next successful quote.
+      } finally {
+        if (!cancelled) setQuoting(false);
+      }
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [appliedCode, cartItems, paymentMethod, isWholesale]);
+
   // Every per-order endpoint (read, crypto invoice, ACH instructions) now
   // requires the credential the order was placed under — the order id alone is
   // only sufficient for a true guest order.
@@ -283,11 +399,22 @@ export function CheckoutPage() {
   );
 
   const isCrypto = paymentMethod === "crypto_btc" || paymentMethod === "crypto_usdc";
-  const subtotalCents = totalCents;
-  const discountCents = isCrypto
-    ? Math.round(subtotalCents * CRYPTO_DISCOUNT_RATE)
-    : 0;
-  const finalCents = subtotalCents - discountCents;
+  // When a server quote exists it is used verbatim — subtotal included — so a
+  // stale localStorage price snapshot can never understate the amount the
+  // invoice will charge. The client-side math below is only the fallback while
+  // no quote has landed (wholesale, or a transient quote failure).
+  const cartSubtotalCents = totalCents;
+  const subtotalCents = quote?.subtotalCents ?? cartSubtotalCents;
+  const promoDiscountCents = quote?.promoDiscountCents ?? 0;
+  const cryptoDiscountCents = quote
+    ? quote.cryptoDiscountCents
+    : isCrypto && !isWholesale
+      ? Math.round((subtotalCents * cryptoDiscountBps) / 10000)
+      : 0;
+  const discountCents = quote
+    ? quote.discountCents
+    : promoDiscountCents + cryptoDiscountCents;
+  const finalCents = quote ? quote.totalCents : subtotalCents - discountCents;
 
   function validate(): boolean {
     const errs: Partial<ShippingForm> = {};
@@ -373,6 +500,7 @@ export function CheckoutPage() {
             : {}),
           lineItems,
           paymentMethod,
+          ...(appliedCode && !isWholesale ? { discountCode: appliedCode } : {}),
           ruoAffirmed,
           signerName: signerName.trim(),
           shippingName: shipping.name,
@@ -391,6 +519,20 @@ export function CheckoutPage() {
           message?: string;
           code?: string;
         };
+        if (
+          createRes.status === 422 &&
+          (err.code === "INVALID_DISCOUNT_CODE" ||
+            err.code === "CODE_EXHAUSTED" ||
+            err.code === "CODE_NOT_APPLICABLE")
+        ) {
+          // Never silently retry without the code — surface it and let the
+          // buyer decide.
+          setAppliedCode(null);
+          setQuote(null);
+          const msg = err.message ?? "The discount code could not be applied.";
+          setCodeError(msg);
+          throw new Error(msg);
+        }
         if (createRes.status === 422 && err.code === "MOQ_NOT_MET") {
           throw new Error(
             err.message ??
@@ -528,12 +670,12 @@ export function CheckoutPage() {
 
   if (cartItems.length === 0 && step === "form") {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-center px-4">
-        <ShoppingBag className="w-16 h-16 text-zinc-600 mb-4" />
-        <h1 className="text-2xl font-semibold text-white mb-2">
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4">
+        <ShoppingBag className="w-16 h-16 text-muted-foreground mb-4" />
+        <h1 className="text-2xl font-semibold text-foreground mb-2">
           Your cart is empty
         </h1>
-        <p className="text-zinc-400 mb-6">
+        <p className="text-muted-foreground mb-6">
           Add some research-grade peptides before checking out.
         </p>
         <Button asChild>
@@ -548,33 +690,33 @@ export function CheckoutPage() {
 
   if (step === "awaiting_payment" && invoice && orderId) {
     return (
-      <div className="min-h-screen bg-zinc-950 px-4 py-12">
+      <div className="px-4 py-12">
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 bg-teal-950 border border-teal-700 rounded-full px-4 py-1.5 text-sm text-teal-300 mb-4">
-              <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
+            <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-full px-4 py-1.5 text-sm text-teal-ink mb-4">
+              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
               Awaiting On-Chain Payment
             </div>
-            <h1 className="text-2xl font-semibold text-white mb-1">
+            <h1 className="text-2xl font-semibold text-foreground mb-1">
               Send {invoice.currency} to complete your order
             </h1>
-            <p className="text-zinc-400 text-sm">
+            <p className="text-muted-foreground text-sm">
               Send exactly the amount shown. This address is unique to your
               order.
             </p>
           </div>
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
+          <div className="bg-card border border-border rounded-2xl p-6 space-y-6 shadow-sm">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
-                <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                   Amount Due
                 </p>
-                <p className="text-3xl font-mono font-bold text-white">
+                <p className="text-3xl font-mono font-bold text-foreground">
                   {invoice.amount}{" "}
-                  <span className="text-teal-400">{invoice.currency}</span>
+                  <span className="text-teal-ink">{invoice.currency}</span>
                 </p>
-                <p className="text-sm text-zinc-500 mt-0.5">
+                <p className="text-sm text-muted-foreground mt-0.5">
                   ≈ {formatCents(invoice.amountCents)} USD
                 </p>
               </div>
@@ -582,18 +724,18 @@ export function CheckoutPage() {
             </div>
 
             <div>
-              <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
                 Payment Address
               </p>
               {invoice.paymentAddress ? (
                 <CopyableAddress address={invoice.paymentAddress} />
               ) : (
-                <p className="text-zinc-500 text-sm">Address unavailable</p>
+                <p className="text-muted-foreground text-sm">Address unavailable</p>
               )}
             </div>
 
             <div className="flex justify-center">
-              <div className="bg-white p-3 rounded-xl shadow-lg">
+              <div className="bg-white p-3 rounded-xl shadow-sm border border-border">
                 <img
                   src={`/api/orders/${orderId}/payment-qr`}
                   alt="Scan to pay"
@@ -604,10 +746,10 @@ export function CheckoutPage() {
               </div>
             </div>
 
-            <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4 flex items-start gap-3">
-              <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse mt-1.5 shrink-0" />
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                <span className="text-white font-medium">
+            <div className="bg-muted border border-border rounded-lg p-4 flex items-start gap-3">
+              <div className="w-2 h-2 rounded-full bg-primary animate-pulse mt-1.5 shrink-0" />
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                <span className="text-foreground font-medium">
                   Auto-detecting payment every 6 seconds.
                 </span>{" "}
                 You will be redirected automatically when your transaction
@@ -620,14 +762,14 @@ export function CheckoutPage() {
                 href={invoice.paymentUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 text-sm text-teal-400 hover:text-teal-300 transition-colors"
+                className="flex items-center justify-center gap-2 text-sm text-teal-ink hover:underline underline-offset-4 transition-colors"
               >
                 Open in BTCPayServer <ChevronRight className="w-4 h-4" />
               </a>
             ) : null}
           </div>
 
-          <p className="text-center text-xs text-zinc-600 mt-4">
+          <p className="text-center text-xs text-muted-foreground mt-4">
             Order ID: <span className="font-mono">{orderId}</span>
           </p>
         </div>
@@ -637,37 +779,37 @@ export function CheckoutPage() {
 
   if (step === "awaiting_ach" && ach && orderId) {
     return (
-      <div className="min-h-screen bg-zinc-950 px-4 py-12">
+      <div className="px-4 py-12">
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 bg-teal-950 border border-teal-700 rounded-full px-4 py-1.5 text-sm text-teal-300 mb-4">
+            <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-full px-4 py-1.5 text-sm text-teal-ink mb-4">
               <Landmark className="w-4 h-4" />
               Awaiting Bank Transfer
             </div>
-            <h1 className="text-2xl font-semibold text-white mb-1">
+            <h1 className="text-2xl font-semibold text-foreground mb-1">
               Send your ACH / wire transfer to complete this order
             </h1>
-            <p className="text-zinc-400 text-sm">
+            <p className="text-muted-foreground text-sm">
               Include the reference code below in the transfer memo so we can match
               your payment. Your order confirms once funds are received.
             </p>
           </div>
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 space-y-6">
+          <div className="bg-card border border-border rounded-2xl p-6 space-y-6 shadow-sm">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
-                <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                   Amount Due
                 </p>
-                <p className="text-3xl font-mono font-bold text-white">
+                <p className="text-3xl font-mono font-bold text-foreground">
                   {formatCents(ach.amountCents)}{" "}
-                  <span className="text-teal-400">{ach.currency}</span>
+                  <span className="text-teal-ink">{ach.currency}</span>
                 </p>
               </div>
             </div>
 
             <div>
-              <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">
                 Reference Code (include in memo)
               </p>
               <CopyableAddress address={ach.referenceCode} />
@@ -681,22 +823,22 @@ export function CheckoutPage() {
                 ["Account Number", ach.instructions.accountNumber],
                 ["Account Type", ach.instructions.accountType],
               ].map(([label, value]) => (
-                <div key={label} className="bg-zinc-950 border border-zinc-800 rounded-lg p-3">
-                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">
+                <div key={label} className="bg-muted border border-border rounded-lg p-3">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     {label}
                   </p>
-                  <p className="text-zinc-200 font-mono break-all">{value}</p>
+                  <p className="text-foreground font-mono break-all">{value}</p>
                 </div>
               ))}
             </div>
 
-            <div className="bg-zinc-950 border border-zinc-800 rounded-lg p-4 text-sm text-zinc-400 leading-relaxed">
+            <div className="bg-muted border border-border rounded-lg p-4 text-sm text-muted-foreground leading-relaxed">
               After you send the transfer, our team confirms receipt and your order
               status updates to confirmed. You can safely close this tab.
             </div>
           </div>
 
-          <p className="text-center text-xs text-zinc-600 mt-4">
+          <p className="text-center text-xs text-muted-foreground mt-4">
             Order ID: <span className="font-mono">{orderId}</span>
           </p>
         </div>
@@ -706,30 +848,30 @@ export function CheckoutPage() {
 
   if (step === "confirmed") {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-center px-4">
-        <div className="w-16 h-16 rounded-full bg-emerald-950 border border-emerald-700 flex items-center justify-center mb-4">
-          <Check className="w-8 h-8 text-emerald-400" />
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4">
+        <div className="w-16 h-16 rounded-full bg-good-tint border border-good/40 flex items-center justify-center mb-4">
+          <Check className="w-8 h-8 text-good" />
         </div>
-        <h1 className="text-2xl font-semibold text-white mb-2">
+        <h1 className="text-2xl font-semibold text-foreground mb-2">
           Payment Confirmed
         </h1>
-        <p className="text-zinc-400">Redirecting to your order…</p>
+        <p className="text-muted-foreground">Redirecting to your order…</p>
       </div>
     );
   }
 
   if (step === "expired") {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-center px-4">
-        <AlertTriangle className="w-12 h-12 text-amber-400 mb-4" />
-        <h1 className="text-2xl font-semibold text-white mb-2">
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4">
+        <AlertTriangle className="w-12 h-12 text-warn mb-4" />
+        <h1 className="text-2xl font-semibold text-foreground mb-2">
           Invoice Expired
         </h1>
-        <p className="text-zinc-400 mb-2 max-w-sm">
+        <p className="text-muted-foreground mb-2 max-w-sm">
           The 30-minute payment window closed before the transaction was
           broadcast. Your cart is still intact.
         </p>
-        <p className="text-zinc-500 text-sm mb-6 max-w-sm">
+        <p className="text-muted-foreground text-sm mb-6 max-w-sm">
           Please try again with a new crypto invoice, or choose ACH / wire at
           checkout.
         </p>
@@ -740,21 +882,21 @@ export function CheckoutPage() {
 
   if (step === "failed") {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center text-center px-4">
-        <AlertTriangle className="w-12 h-12 text-red-400 mb-4" />
-        <h1 className="text-2xl font-semibold text-white mb-2">
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4">
+        <AlertTriangle className="w-12 h-12 text-crit mb-4" />
+        <h1 className="text-2xl font-semibold text-foreground mb-2">
           Payment Failed
         </h1>
-        <p className="text-zinc-400 mb-2 max-w-sm">
+        <p className="text-muted-foreground mb-2 max-w-sm">
           The invoice was marked invalid by the payment processor. Your cart is
           still intact.
         </p>
         {orderId && (
-          <p className="text-xs font-mono text-zinc-600 mb-2">
+          <p className="text-xs font-mono text-muted-foreground mb-2">
             Order: {orderId}
           </p>
         )}
-        <p className="text-zinc-500 text-sm mb-6 max-w-sm">
+        <p className="text-muted-foreground text-sm mb-6 max-w-sm">
           Please try again with a fresh crypto invoice, or contact support if
           funds were already sent.
         </p>
@@ -764,12 +906,12 @@ export function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 px-4 py-12">
+    <div className="px-4 py-12">
       <div className="max-w-5xl mx-auto">
         <div className="mb-8">
           <Link
             href="/shop"
-            className="inline-flex items-center gap-2 text-sm text-zinc-400 hover:text-white transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to shop
@@ -780,9 +922,9 @@ export function CheckoutPage() {
           <div className="lg:col-span-2">
             <form onSubmit={handleSubmit} className="space-y-6">
               {isWholesale && (
-                <div className="bg-teal-950/40 border border-teal-800/50 rounded-xl p-5">
+                <div className="bg-accent border border-accent-foreground/20 rounded-xl p-5">
                   <div className="flex items-center justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-2 text-teal-300">
+                    <div className="flex items-center gap-2 text-accent-foreground">
                       <Building2 className="w-4 h-4" />
                       <span className="text-sm font-semibold">
                         Wholesale · {session!.businessName || "Account"}
@@ -790,16 +932,16 @@ export function CheckoutPage() {
                     </div>
                     <span
                       className={`text-xs font-mono ${
-                        moqMet ? "text-emerald-400" : "text-amber-400"
+                        moqMet ? "text-good" : "text-warn"
                       }`}
                     >
                       {totalKits} / {WHOLESALE_MOQ_KITS} kits
                     </span>
                   </div>
-                  <p className="text-xs text-teal-300/80 leading-relaxed">
+                  <p className="text-xs text-accent-foreground/80 leading-relaxed">
                     Your{" "}
                     {session!.priceTierName ? (
-                      <span className="font-medium text-teal-200">
+                      <span className="font-medium text-accent-foreground">
                         {session!.priceTierName}
                       </span>
                     ) : (
@@ -809,7 +951,7 @@ export function CheckoutPage() {
                     server at order creation and reflected in the amount due.
                   </p>
                   {!moqMet && (
-                    <p className="mt-2 text-xs text-amber-400">
+                    <p className="mt-2 text-xs text-warn">
                       Add {WHOLESALE_MOQ_KITS - totalKits} more kit
                       {WHOLESALE_MOQ_KITS - totalKits === 1 ? "" : "s"} to reach the{" "}
                       {WHOLESALE_MOQ_KITS}-kit minimum before ordering.
@@ -817,15 +959,15 @@ export function CheckoutPage() {
                   )}
                 </div>
               )}
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-base font-semibold text-white mb-5">
+              <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                <h2 className="text-base font-semibold text-foreground mb-5">
                   Shipping Information
                 </h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
                     <Label
                       htmlFor="name"
-                      className="text-zinc-400 text-sm mb-1.5 block"
+                      className="text-muted-foreground text-sm mb-1.5 block"
                     >
                       Full Name
                     </Label>
@@ -834,17 +976,16 @@ export function CheckoutPage() {
                       value={shipping.name}
                       onChange={handleField("name")}
                       placeholder="Dr. Jane Smith"
-                      className="bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-600 focus-visible:ring-teal-600"
                     />
                     {errors.name && (
-                      <p className="text-red-400 text-xs mt-1">{errors.name}</p>
+                      <p className="text-crit text-xs mt-1">{errors.name}</p>
                     )}
                   </div>
 
                   <div className="sm:col-span-2">
                     <Label
                       htmlFor="email"
-                      className="text-zinc-400 text-sm mb-1.5 block"
+                      className="text-muted-foreground text-sm mb-1.5 block"
                     >
                       Email Address
                     </Label>
@@ -854,10 +995,9 @@ export function CheckoutPage() {
                       value={shipping.email}
                       onChange={handleField("email")}
                       placeholder="researcher@institution.edu"
-                      className="bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-600 focus-visible:ring-teal-600"
                     />
                     {errors.email && (
-                      <p className="text-red-400 text-xs mt-1">
+                      <p className="text-crit text-xs mt-1">
                         {errors.email}
                       </p>
                     )}
@@ -866,7 +1006,7 @@ export function CheckoutPage() {
                   <div className="sm:col-span-2">
                     <Label
                       htmlFor="address1"
-                      className="text-zinc-400 text-sm mb-1.5 block"
+                      className="text-muted-foreground text-sm mb-1.5 block"
                     >
                       Street Address
                     </Label>
@@ -875,10 +1015,9 @@ export function CheckoutPage() {
                       value={shipping.address1}
                       onChange={handleField("address1")}
                       placeholder="123 Research Blvd"
-                      className="bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-600 focus-visible:ring-teal-600"
                     />
                     {errors.address1 && (
-                      <p className="text-red-400 text-xs mt-1">
+                      <p className="text-crit text-xs mt-1">
                         {errors.address1}
                       </p>
                     )}
@@ -887,24 +1026,23 @@ export function CheckoutPage() {
                   <div className="sm:col-span-2">
                     <Label
                       htmlFor="address2"
-                      className="text-zinc-400 text-sm mb-1.5 block"
+                      className="text-muted-foreground text-sm mb-1.5 block"
                     >
                       Apt / Suite{" "}
-                      <span className="text-zinc-600">(optional)</span>
+                      <span className="text-muted-foreground">(optional)</span>
                     </Label>
                     <Input
                       id="address2"
                       value={shipping.address2}
                       onChange={handleField("address2")}
                       placeholder="Suite 400"
-                      className="bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-600 focus-visible:ring-teal-600"
                     />
                   </div>
 
                   <div>
                     <Label
                       htmlFor="city"
-                      className="text-zinc-400 text-sm mb-1.5 block"
+                      className="text-muted-foreground text-sm mb-1.5 block"
                     >
                       City
                     </Label>
@@ -913,17 +1051,16 @@ export function CheckoutPage() {
                       value={shipping.city}
                       onChange={handleField("city")}
                       placeholder="San Francisco"
-                      className="bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-600 focus-visible:ring-teal-600"
                     />
                     {errors.city && (
-                      <p className="text-red-400 text-xs mt-1">{errors.city}</p>
+                      <p className="text-crit text-xs mt-1">{errors.city}</p>
                     )}
                   </div>
 
                   <div>
                     <Label
                       htmlFor="state"
-                      className="text-zinc-400 text-sm mb-1.5 block"
+                      className="text-muted-foreground text-sm mb-1.5 block"
                     >
                       State / Province
                     </Label>
@@ -932,10 +1069,9 @@ export function CheckoutPage() {
                       value={shipping.state}
                       onChange={handleField("state")}
                       placeholder="CA"
-                      className="bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-600 focus-visible:ring-teal-600"
                     />
                     {errors.state && (
-                      <p className="text-red-400 text-xs mt-1">
+                      <p className="text-crit text-xs mt-1">
                         {errors.state}
                       </p>
                     )}
@@ -944,7 +1080,7 @@ export function CheckoutPage() {
                   <div>
                     <Label
                       htmlFor="zip"
-                      className="text-zinc-400 text-sm mb-1.5 block"
+                      className="text-muted-foreground text-sm mb-1.5 block"
                     >
                       ZIP / Postal Code
                     </Label>
@@ -953,17 +1089,16 @@ export function CheckoutPage() {
                       value={shipping.zip}
                       onChange={handleField("zip")}
                       placeholder="94102"
-                      className="bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-600 focus-visible:ring-teal-600"
                     />
                     {errors.zip && (
-                      <p className="text-red-400 text-xs mt-1">{errors.zip}</p>
+                      <p className="text-crit text-xs mt-1">{errors.zip}</p>
                     )}
                   </div>
 
                   <div>
                     <Label
                       htmlFor="country"
-                      className="text-zinc-400 text-sm mb-1.5 block"
+                      className="text-muted-foreground text-sm mb-1.5 block"
                     >
                       Country
                     </Label>
@@ -972,20 +1107,21 @@ export function CheckoutPage() {
                       value={shipping.country}
                       onChange={handleField("country")}
                       placeholder="US"
-                      className="bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-600 focus-visible:ring-teal-600"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-base font-semibold text-white mb-1">
+              <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                <h2 className="text-base font-semibold text-foreground mb-1">
                   Payment Method
                 </h2>
-                <p className="text-xs text-zinc-500 mb-5">
-                  Crypto payments receive a 10% Transparency Discount —
-                  applied automatically.
-                </p>
+                {cryptoDiscountBps > 0 && !isWholesale && (
+                  <p className="text-xs text-muted-foreground mb-5">
+                    Crypto payments receive a {formatBpsPct(cryptoDiscountBps)}%
+                    discount — applied automatically.
+                  </p>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {(
@@ -993,14 +1129,14 @@ export function CheckoutPage() {
                       {
                         value: "crypto_btc" as PaymentMethod,
                         label: "Bitcoin",
-                        sub: "BTC · 10% off",
+                        sub: discountPctLabel ? `BTC · ${discountPctLabel}% off` : "BTC",
                         icon: <Bitcoin className="w-5 h-5" />,
                         available: true,
                       },
                       {
                         value: "crypto_usdc" as PaymentMethod,
                         label: "USD Coin",
-                        sub: "USDC · 10% off",
+                        sub: discountPctLabel ? `USDC · ${discountPctLabel}% off` : "USDC",
                         icon: (
                           <span className="w-5 h-5 text-xs font-bold flex items-center justify-center rounded-full bg-blue-600 text-white">
                             $
@@ -1028,54 +1164,120 @@ export function CheckoutPage() {
                         }
                         className={`relative flex flex-col items-start gap-2 rounded-xl border p-4 text-left transition-all ${
                           !method.available
-                            ? "opacity-40 cursor-not-allowed border-zinc-800 bg-zinc-950"
+                            ? "opacity-40 cursor-not-allowed border-border bg-muted"
                             : selected
-                            ? "border-teal-500 bg-teal-950/40 ring-1 ring-teal-500/30"
-                            : "border-zinc-700 bg-zinc-950 hover:border-zinc-500"
+                            ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                            : "border-border bg-card hover:border-primary/50"
                         }`}
                       >
                         <div
                           className={`${
-                            selected ? "text-teal-400" : "text-zinc-400"
+                            selected ? "text-teal-ink" : "text-muted-foreground"
                           }`}
                         >
                           {method.icon}
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-white">
+                          <p className="text-sm font-medium text-foreground">
                             {method.label}
                           </p>
                           <p
                             className={`text-xs ${
                               method.value === "crypto_btc" ||
                               method.value === "crypto_usdc"
-                                ? "text-emerald-400"
-                                : "text-zinc-500"
+                                ? "text-good"
+                                : "text-muted-foreground"
                             }`}
                           >
                             {method.sub}
                           </p>
                         </div>
                         {selected && (
-                          <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-teal-500 flex items-center justify-center">
-                            <Check className="w-2.5 h-2.5 text-zinc-950" />
+                          <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="w-2.5 h-2.5 text-primary-foreground" />
                           </div>
                         )}
                       </button>
                     );
                   })}
                 </div>
+
+                {!isWholesale && (
+                  <div className="mt-5 pt-5 border-t border-border">
+                    <Label
+                      htmlFor="discount-code"
+                      className="text-muted-foreground text-sm mb-1.5 block"
+                    >
+                      Discount code <span className="text-muted-foreground/70">(optional)</span>
+                    </Label>
+                    {appliedCode && quote ? (
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-good-tint text-good border-good/30 font-mono">
+                          {quote.discountCode}
+                        </Badge>
+                        <span className="text-xs text-good">
+                          −{formatCents(quote.promoDiscountCents)} applied
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs text-muted-foreground"
+                          onClick={() => {
+                            setAppliedCode(null);
+                            setQuote(null);
+                            setCodeInput("");
+                            setCodeError(null);
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Input
+                          id="discount-code"
+                          value={codeInput}
+                          onChange={(e) => {
+                            setCodeInput(e.target.value);
+                            if (codeError) setCodeError(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (codeInput.trim()) setAppliedCode(codeInput.trim().toUpperCase());
+                            }
+                          }}
+                          placeholder="e.g. LAUNCH10"
+                          maxLength={64}
+                          className="max-w-xs font-mono uppercase"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={!codeInput.trim() || quoting}
+                          onClick={() => setAppliedCode(codeInput.trim().toUpperCase())}
+                        >
+                          {quoting ? "Checking\u2026" : "Apply"}
+                        </Button>
+                      </div>
+                    )}
+                    {codeError && (
+                      <p className="text-crit text-xs mt-1.5">{codeError}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                <h2 className="text-base font-semibold text-white mb-5">
+              <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                <h2 className="text-base font-semibold text-foreground mb-5">
                   Research Use Only (RUO) Attestation
                 </h2>
 
                 <div className="mb-4">
                   <Label
                     htmlFor="signerName"
-                    className="text-zinc-400 text-sm mb-1.5 block"
+                    className="text-muted-foreground text-sm mb-1.5 block"
                   >
                     Signer Name
                   </Label>
@@ -1088,10 +1290,9 @@ export function CheckoutPage() {
                         setAttestErrors((prev) => ({ ...prev, signerName: undefined }));
                     }}
                     placeholder="Dr. Jane Smith"
-                    className="bg-zinc-950 border-zinc-700 text-white placeholder:text-zinc-600 focus-visible:ring-teal-600"
                   />
                   {attestErrors.signerName && (
-                    <p className="text-red-400 text-xs mt-1">{attestErrors.signerName}</p>
+                    <p className="text-crit text-xs mt-1">{attestErrors.signerName}</p>
                   )}
                 </div>
 
@@ -1104,19 +1305,19 @@ export function CheckoutPage() {
                       if (attestErrors.ruo)
                         setAttestErrors((prev) => ({ ...prev, ruo: undefined }));
                     }}
-                    className="mt-1 h-4 w-4 shrink-0 accent-teal-600"
+                    className="mt-1 h-4 w-4 shrink-0 accent-primary"
                   />
-                  <span className="text-sm text-zinc-300 leading-relaxed">
+                  <span className="text-sm text-foreground leading-relaxed">
                     {RUO_ATTESTATION_LABEL}
                   </span>
                 </label>
                 {attestErrors.ruo && (
-                  <p className="text-red-400 text-xs mt-2">{attestErrors.ruo}</p>
+                  <p className="text-crit text-xs mt-2">{attestErrors.ruo}</p>
                 )}
               </div>
 
               {submitError && (
-                <div className="flex items-start gap-3 bg-red-950/50 border border-red-800 rounded-xl p-4 text-sm text-red-300">
+                <div className="flex items-start gap-3 bg-crit-tint border border-crit/40 rounded-xl p-4 text-sm text-crit">
                   <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                   {submitError}
                 </div>
@@ -1125,11 +1326,11 @@ export function CheckoutPage() {
               <Button
                 type="submit"
                 disabled={submitting || !ruoAffirmed || !signerName.trim() || !moqMet}
-                className="w-full bg-teal-600 hover:bg-teal-500 text-white font-semibold py-3 h-auto rounded-xl disabled:opacity-50"
+                className="w-full font-semibold py-3 h-auto rounded-xl"
               >
                 {submitting ? (
                   <span className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
                     Creating Order…
                   </span>
                 ) : isWholesale ? (
@@ -1149,9 +1350,9 @@ export function CheckoutPage() {
                       <Landmark className="w-4 h-4" />
                     )}
                     Place Order · {formatCents(finalCents)}
-                    {isCrypto && (
-                      <Badge className="bg-emerald-700 text-emerald-100 text-[10px] px-1.5 py-0">
-                        −10%
+                    {isCrypto && discountCents > 0 && (
+                      <Badge className="bg-good text-white text-[10px] px-1.5 py-0">
+                        −{formatBpsPct(cryptoDiscountBps)}%
                       </Badge>
                     )}
                   </span>
@@ -1163,7 +1364,10 @@ export function CheckoutPage() {
           <div className="lg:col-span-1">
             <OrderSummaryPanel
               subtotalCents={subtotalCents}
-              discountCents={discountCents}
+              promoDiscountCents={promoDiscountCents}
+              cryptoDiscountCents={cryptoDiscountCents}
+              appliedCode={quote?.discountCode ?? null}
+              discountBps={isWholesale ? 0 : cryptoDiscountBps}
               paymentMethod={paymentMethod}
             />
           </div>

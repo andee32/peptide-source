@@ -12,4 +12,10 @@
 export interface StoreSettings {
   /** When false, product vial/placeholder images are hidden across the storefront. */
   showVialImages: boolean;
+  /**
+   * Retail crypto-payment discount in basis points (1000 = 10%). 0 disables the discount. Never applied to wholesale orders.
+   * @minimum 0
+   * @maximum 5000
+   */
+  cryptoDiscountBps: number;
 }
