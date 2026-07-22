@@ -1679,3 +1679,241 @@ export const HandleBtcpayWebhookBody = zod
 export const HandleBtcpayWebhookResponse = zod.object({
   received: zod.boolean().optional(),
 });
+
+/**
+ * Returns all admin users. Never returns passwordHash. Requires x-admin-key header.
+ * @summary Admin — list back-office admin users
+ */
+export const AdminListAdminUsersResponseItem = zod
+  .object({
+    id: zod.string(),
+    email: zod.string().email(),
+    name: zod.string().nullish(),
+    isActive: zod.boolean(),
+    createdAt: zod.date(),
+  })
+  .describe("A back-office operator. passwordHash is never serialized.");
+export const AdminListAdminUsersResponse = zod.array(
+  AdminListAdminUsersResponseItem,
+);
+
+/**
+ * Hashes the supplied password (PBKDF2) and stores it. Requires x-admin-key header.
+ * @summary Admin — create an admin user
+ */
+export const adminCreateAdminUserBodyEmailMax = 320;
+
+export const adminCreateAdminUserBodyPasswordMin = 8;
+export const adminCreateAdminUserBodyPasswordMax = 200;
+
+export const adminCreateAdminUserBodyNameMax = 200;
+
+export const AdminCreateAdminUserBody = zod.object({
+  email: zod.string().email().max(adminCreateAdminUserBodyEmailMax),
+  password: zod
+    .string()
+    .min(adminCreateAdminUserBodyPasswordMin)
+    .max(adminCreateAdminUserBodyPasswordMax),
+  name: zod.string().min(1).max(adminCreateAdminUserBodyNameMax).optional(),
+});
+
+/**
+ * Deactivating the last active admin user is rejected. Requires x-admin-key header.
+ * @summary Admin — rename, deactivate, or reactivate an admin user
+ */
+export const AdminPatchAdminUserParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const adminPatchAdminUserBodyNameMax = 200;
+
+export const AdminPatchAdminUserBody = zod
+  .object({
+    name: zod.string().min(1).max(adminPatchAdminUserBodyNameMax).nullish(),
+    isActive: zod.boolean().optional(),
+  })
+  .describe(
+    "Rename and\/or toggle active status. At least one field must be provided.",
+  );
+
+export const AdminPatchAdminUserResponse = zod
+  .object({
+    id: zod.string(),
+    email: zod.string().email(),
+    name: zod.string().nullish(),
+    isActive: zod.boolean(),
+    createdAt: zod.date(),
+  })
+  .describe("A back-office operator. passwordHash is never serialized.");
+
+/**
+ * Supply currentPassword for a self-service change; omit it for an admin-performed reset. Requires x-admin-key header.
+ * @summary Admin — set or reset an admin user's password
+ */
+export const AdminSetAdminUserPasswordParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const adminSetAdminUserPasswordBodyPasswordMin = 8;
+export const adminSetAdminUserPasswordBodyPasswordMax = 200;
+
+export const adminSetAdminUserPasswordBodyCurrentPasswordMax = 200;
+
+export const AdminSetAdminUserPasswordBody = zod.object({
+  password: zod
+    .string()
+    .min(adminSetAdminUserPasswordBodyPasswordMin)
+    .max(adminSetAdminUserPasswordBodyPasswordMax),
+  currentPassword: zod
+    .string()
+    .min(1)
+    .max(adminSetAdminUserPasswordBodyCurrentPasswordMax)
+    .optional()
+    .describe(
+      "Required only for a self-service change; omit for an admin reset.",
+    ),
+});
+
+export const AdminSetAdminUserPasswordResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * Creates a retail shopper account and returns a bearer session token. Retail accounts are optional — guest checkout remains open.
+ * @summary Register a B2C retail account
+ */
+export const registerCustomerBodyEmailMax = 320;
+
+export const registerCustomerBodyPasswordMin = 8;
+export const registerCustomerBodyPasswordMax = 200;
+
+export const registerCustomerBodyNameMax = 200;
+
+export const RegisterCustomerBody = zod.object({
+  email: zod.string().email().max(registerCustomerBodyEmailMax),
+  password: zod
+    .string()
+    .min(registerCustomerBodyPasswordMin)
+    .max(registerCustomerBodyPasswordMax),
+  name: zod.string().min(1).max(registerCustomerBodyNameMax).optional(),
+});
+
+/**
+ * Returns a bearer session token. Send it as an Authorization bearer header on subsequent /auth calls and at checkout.
+ * @summary Sign in to a B2C retail account
+ */
+export const loginCustomerBodyEmailMax = 320;
+
+export const loginCustomerBodyPasswordMax = 200;
+
+export const LoginCustomerBody = zod.object({
+  email: zod.string().email().max(loginCustomerBodyEmailMax),
+  password: zod.string().min(1).max(loginCustomerBodyPasswordMax),
+});
+
+export const LoginCustomerResponse = zod.object({
+  token: zod
+    .string()
+    .describe("Opaque bearer token; send as an Authorization bearer header."),
+  expiresAt: zod.date(),
+  user: zod
+    .object({
+      id: zod.string(),
+      email: zod.string().email(),
+      name: zod.string().nullish(),
+      createdAt: zod.date(),
+    })
+    .describe("A B2C retail shopper. Distinct from a B2B wholesale Account."),
+});
+
+/**
+ * Deletes the session named by the Authorization bearer token. Always succeeds.
+ * @summary Sign out (revokes the bearer session)
+ */
+export const LogoutCustomerResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
+ * Requires an Authorization bearer session token.
+ * @summary Current signed-in retail customer
+ */
+export const GetCurrentCustomerResponse = zod
+  .object({
+    id: zod.string(),
+    email: zod.string().email(),
+    name: zod.string().nullish(),
+    createdAt: zod.date(),
+  })
+  .describe("A B2C retail shopper. Distinct from a B2B wholesale Account.");
+
+/**
+ * Returns retail orders stamped with this customer's id at checkout plus any guest order placed to the same shipping email. Requires an Authorization bearer session token.
+ * @summary This customer's retail order history
+ */
+export const ListCustomerOrdersResponseItem = zod.object({
+  id: zod.string(),
+  status: zod.enum([
+    "pending",
+    "awaiting_payment",
+    "confirmed",
+    "failed",
+    "expired",
+    "refunded",
+  ]),
+  channel: zod.enum(["retail", "wholesale"]),
+  paymentMethod: zod
+    .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
+    .describe(
+      "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
+    ),
+  subtotalCents: zod.number(),
+  discountCents: zod.number(),
+  totalCents: zod.number(),
+  lineItems: zod.array(
+    zod.object({
+      variantId: zod.number(),
+      productName: zod.string(),
+      variantName: zod.string(),
+      quantity: zod.number(),
+      unitPriceCents: zod.number(),
+    }),
+  ),
+  trackingNumber: zod.string().nullish(),
+  carrier: zod.string().nullish(),
+  createdAt: zod.date(),
+});
+export const ListCustomerOrdersResponse = zod.array(
+  ListCustomerOrdersResponseItem,
+);
+
+/**
+ * Prices are re-derived from the current catalog; out-of-stock or removed variants are returned in `unavailable`. Requires an Authorization bearer session token.
+ * @summary Rebuild a cart payload from a past order
+ */
+export const ReorderFromOrderParams = zod.object({
+  orderId: zod.coerce.string(),
+});
+
+export const ReorderFromOrderResponse = zod.object({
+  sourceOrderId: zod.string(),
+  lineItems: zod.array(
+    zod.object({
+      variantId: zod.number(),
+      productName: zod.string(),
+      productSlug: zod.string(),
+      variantName: zod.string(),
+      quantity: zod.number(),
+      unitPriceCents: zod
+        .number()
+        .describe(
+          "Current catalog price — never the stale price from the source order.",
+        ),
+    }),
+  ),
+  unavailable: zod
+    .array(zod.number())
+    .describe(
+      "Variant IDs from the source order that are out of stock or no longer in the catalog.",
+    ),
+});

@@ -9,6 +9,8 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { bearerHeaders, useCustomerSession } from "@/hooks/useCustomerAuth";
+import { useWholesaleSession } from "@/hooks/useWholesaleSession";
 
 interface OrderLineItem {
   variantId: number;
@@ -66,6 +68,14 @@ export function OrderConfirmationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // GET /orders/:id is only an open capability URL for true guest orders. An
+  // order stamped with a customer or a wholesale account requires the matching
+  // credential, so present whichever session this browser holds.
+  const customerSession = useCustomerSession();
+  const { session: wholesaleSession } = useWholesaleSession();
+  const customerToken = customerSession?.token ?? null;
+  const accountToken = wholesaleSession?.token ?? null;
+
   useEffect(() => {
     if (!id) {
       navigate("/shop");
@@ -73,7 +83,12 @@ export function OrderConfirmationPage() {
     }
     async function load() {
       try {
-        const res = await fetch(`/api/orders/${id}`);
+        const res = await fetch(`/api/orders/${id}`, {
+          headers: {
+            ...bearerHeaders(customerToken),
+            ...(accountToken ? { "x-account-token": accountToken } : {}),
+          },
+        });
         if (!res.ok) {
           setError("Order not found");
           return;
@@ -86,7 +101,7 @@ export function OrderConfirmationPage() {
       }
     }
     load();
-  }, [id, navigate]);
+  }, [id, navigate, customerToken, accountToken]);
 
   if (loading) {
     return (

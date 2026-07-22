@@ -10,6 +10,7 @@ import reviewerSubmissionsRouter from "./reviewerSubmissions";
 import subscriptionsRouter from "./subscriptions";
 import accountsRouter from "./accounts";
 import settingsRouter from "./settings";
+import authRouter from "./auth";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(reviewerSubmissionsRouter);
 router.use(subscriptionsRouter);
 router.use(accountsRouter);
 router.use(settingsRouter);
+router.use(authRouter);
 
 export default router;

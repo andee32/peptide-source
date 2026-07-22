@@ -3,6 +3,7 @@ import { db } from "@atlab/db";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { subscriptionsTable, subscriptionPlansTable } from "@atlab/db/schema";
 import { sendSubscriptionReminderEmail } from "./services/email";
+import { ensureBootstrapAdmin } from "./lib/bootstrapAdmin";
 
 const rawPort = process.env["PORT"];
 
@@ -64,9 +65,22 @@ async function dispatchReminders() {
   }
 }
 
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-  dispatchReminders();
-  setInterval(dispatchReminders, TWENTY_FOUR_HOURS);
+// Migrate the env-provisioned owner credential into admin_users (idempotent)
+// BEFORE accepting traffic — otherwise the first /admin/login can race the seed
+// and fall through to the env break-glass path. Wrapped in an async entrypoint
+// because the server bundles to CJS, which has no top-level await.
+async function start(): Promise<void> {
+  await ensureBootstrapAdmin();
+
+  app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+    dispatchReminders();
+    setInterval(dispatchReminders, TWENTY_FOUR_HOURS);
+  });
+}
+
+start().catch((err) => {
+  console.error("Fatal startup error:", err);
+  process.exit(1);
 });

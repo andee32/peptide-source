@@ -9,6 +9,7 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { customerAccountsTable } from "./customerAccounts";
+import { customerUsersTable } from "./customerUsers";
 
 export const paymentMethodEnum = pgEnum("payment_method", [
   "crypto_btc",
@@ -45,6 +46,11 @@ export const ordersTable = pgTable("orders", {
   paymentMethod: paymentMethodEnum("payment_method").notNull(),
   channel: orderChannelEnum("channel").notNull().default("retail"),
   accountId: text("account_id").references(() => customerAccountsTable.id),
+  // Set at checkout when a B2C shopper is signed in. Null for guest orders —
+  // those are still reachable by shippingEmail match.
+  customerUserId: text("customer_user_id").references(
+    () => customerUsersTable.id
+  ),
   status: orderStatusEnum("status").notNull().default("pending"),
   shippingName: text("shipping_name").notNull(),
   shippingEmail: text("shipping_email").notNull(),

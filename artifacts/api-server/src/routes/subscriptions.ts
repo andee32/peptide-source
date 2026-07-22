@@ -14,10 +14,10 @@ import {
   sendSubscriptionReminderEmail,
   sendManagementLinkEmail,
 } from "../services/email";
+import { isAdminRequest } from "../lib/adminSession";
 
 const router: IRouter = Router();
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET;
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 const MGMT_TOKEN_SECRET = (() => {
@@ -40,10 +40,6 @@ const MGMT_TOKEN_SECRET = (() => {
 
 const MGMT_TOKEN_EXPIRE_MS = 15 * 60 * 1000;
 
-function isAdmin(req: Request): boolean {
-  return !!ADMIN_SECRET && req.headers["x-admin-key"] === ADMIN_SECRET;
-}
-
 function extractRequestToken(req: Request): string | undefined {
   const fromBody = req.body?.token as string | undefined;
   const fromQuery = req.query.token as string | undefined;
@@ -56,11 +52,11 @@ function extractMgmtToken(req: Request): string | undefined {
   return fromBody || fromQuery || undefined;
 }
 
-function isAuthorizedForSub(
+async function isAuthorizedForSub(
   req: Request,
   sub: { accessToken: string; customerEmail: string }
-): boolean {
-  if (isAdmin(req)) return true;
+): Promise<boolean> {
+  if (await isAdminRequest(req)) return true;
   const accessToken = extractRequestToken(req);
   if (accessToken && accessToken === sub.accessToken) return true;
   const mgmtToken = extractMgmtToken(req);
@@ -264,7 +260,7 @@ router.post("/subscriptions/request-management-link", async (req: Request, res: 
 });
 
 router.get("/subscriptions", async (req: Request, res: Response) => {
-  if (isAdmin(req)) {
+  if (await isAdminRequest(req)) {
     try {
       const subs = await db
         .select({
@@ -382,7 +378,7 @@ router.get("/subscriptions/:id", async (req: Request, res: Response) => {
       return;
     }
 
-    if (!isAuthorizedForSub(req, row)) {
+    if (!(await isAuthorizedForSub(req, row))) {
       res.status(403).json({
         error: "forbidden",
         message: "Provide a valid access token or management link token",
@@ -417,7 +413,7 @@ router.patch("/subscriptions/:id/skip", async (req: Request, res: Response) => {
       return;
     }
 
-    if (!isAuthorizedForSub(req, sub)) {
+    if (!(await isAuthorizedForSub(req, sub))) {
       res.status(403).json({
         error: "forbidden",
         message: "Provide a valid access token or management link token",
@@ -477,7 +473,7 @@ router.delete("/subscriptions/:id", async (req: Request, res: Response) => {
       return;
     }
 
-    if (!isAuthorizedForSub(req, sub)) {
+    if (!(await isAuthorizedForSub(req, sub))) {
       res.status(403).json({
         error: "forbidden",
         message: "Provide a valid access token or management link token",
@@ -493,7 +489,7 @@ router.delete("/subscriptions/:id", async (req: Request, res: Response) => {
     await db.insert(subscriptionEventsTable).values({
       subscriptionId: id,
       eventType: "cancelled",
-      metadata: { cancelledBy: isAdmin(req) ? "admin" : "customer" },
+      metadata: { cancelledBy: (await isAdminRequest(req)) ? "admin" : "customer" },
     });
 
     res.json({ id, status: "cancelled" });
@@ -503,7 +499,7 @@ router.delete("/subscriptions/:id", async (req: Request, res: Response) => {
 });
 
 router.get("/admin/subscriptions", async (req: Request, res: Response) => {
-  if (!isAdmin(req)) {
+  if (!(await isAdminRequest(req))) {
     res.status(401).json({ error: "unauthorized", message: "Admin key required" });
     return;
   }
@@ -559,7 +555,7 @@ router.get("/admin/subscriptions", async (req: Request, res: Response) => {
 });
 
 router.post("/admin/subscriptions/dispatch-reminders", async (req: Request, res: Response) => {
-  if (!isAdmin(req)) {
+  if (!(await isAdminRequest(req))) {
     res.status(401).json({ error: "unauthorized", message: "Admin key required" });
     return;
   }
@@ -617,7 +613,7 @@ router.post("/admin/subscriptions/dispatch-reminders", async (req: Request, res:
 });
 
 router.patch("/admin/subscriptions/:id/status", async (req: Request, res: Response) => {
-  if (!isAdmin(req)) {
+  if (!(await isAdminRequest(req))) {
     res.status(401).json({ error: "unauthorized", message: "Admin key required" });
     return;
   }

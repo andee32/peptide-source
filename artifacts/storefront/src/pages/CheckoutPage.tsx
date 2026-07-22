@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { useCart } from "@/contexts/cart";
 import { useWholesaleSession } from "@/hooks/useWholesaleSession";
+import { bearerHeaders, useCustomerSession } from "@/hooks/useCustomerAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -233,6 +234,9 @@ function OrderSummaryPanel({
 export function CheckoutPage() {
   const { cartItems, totalCents, clearCart } = useCart();
   const { session } = useWholesaleSession();
+  // Retail shopper session (optional): the bearer token below is what makes the
+  // server stamp customerUserId on the order. Guest checkout sends no header.
+  const customerSession = useCustomerSession();
   const [, navigate] = useLocation();
 
   // All catalog variants are kits, so total kits = total quantity.
@@ -267,6 +271,17 @@ export function CheckoutPage() {
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Every per-order endpoint (read, crypto invoice, ACH instructions) now
+  // requires the credential the order was placed under — the order id alone is
+  // only sufficient for a true guest order.
+  const orderAuthHeaders = useMemo(
+    (): Record<string, string> => ({
+      ...bearerHeaders(isWholesale ? null : customerSession?.token),
+      ...(session ? { "x-account-token": session.token } : {}),
+    }),
+    [isWholesale, customerSession?.token, session],
+  );
+
   const isCrypto = paymentMethod === "crypto_btc" || paymentMethod === "crypto_usdc";
   const subtotalCents = totalCents;
   const discountCents = isCrypto
@@ -296,7 +311,9 @@ export function CheckoutPage() {
   const pollOrder = useCallback(
     async (id: string) => {
       try {
-        const res = await fetch(`/api/orders/${id}`);
+        const res = await fetch(`/api/orders/${id}`, {
+          headers: orderAuthHeaders,
+        });
         if (!res.ok) return;
         const data = (await res.json()) as { status: string };
         if (data.status === "confirmed") {
@@ -315,7 +332,7 @@ export function CheckoutPage() {
         // silently retry
       }
     },
-    [clearCart, navigate]
+    [clearCart, navigate, orderAuthHeaders]
   );
 
   useEffect(() => {
@@ -344,7 +361,10 @@ export function CheckoutPage() {
 
       const createRes = await fetch("/api/orders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(isWholesale ? {} : bearerHeaders(customerSession?.token)),
+        },
         body: JSON.stringify({
           // Wholesale session: backend switches to wholesale channel, applies
           // the account's tier pricing, and enforces the 5-kit MOQ.
@@ -454,7 +474,7 @@ export function CheckoutPage() {
       if (isCrypto) {
         const invoiceRes = await fetch(
           `/api/orders/${order.id}/crypto-invoice`,
-          { method: "POST" }
+          { method: "POST", headers: orderAuthHeaders }
         );
         if (!invoiceRes.ok) {
           const err = (await invoiceRes.json()) as { message?: string };
@@ -472,7 +492,7 @@ export function CheckoutPage() {
         // ACH / wire rail: fetch bank instructions + reference code and show them.
         const achRes = await fetch(
           `/api/orders/${order.id}/ach-instructions`,
-          { method: "POST" }
+          { method: "POST", headers: orderAuthHeaders }
         );
         if (!achRes.ok) {
           const err = (await achRes.json()) as { message?: string };

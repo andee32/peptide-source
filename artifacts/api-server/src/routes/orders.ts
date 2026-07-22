@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request } from "express";
 import { z } from "zod/v4";
 import { eq, and, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
@@ -14,6 +14,7 @@ import {
   orderAttestationsTable,
 } from "@atlab/db/schema";
 import { btcpayService, PaymentRailUnavailableError, type CryptoCurrency } from "../services/btcpay";
+import { resolveCustomerUser } from "../lib/customerSession";
 import {
   generateAchReferenceCode,
   buildBankInstructions,
@@ -24,6 +25,50 @@ import {
 const router = Router();
 
 const CRYPTO_DISCOUNT_RATE = 0.1;
+
+/**
+ * Authorization for a single order. An order id is a UUID, but it is handed out
+ * in confirmation links and (previously) in order-history listings, so it can
+ * not be the only thing standing between a caller and the buyer's full name,
+ * email and shipping address.
+ *
+ * - customerUserId set  -> require that customer's session
+ * - accountId set       -> require that wholesale account's access token
+ *   (same predicate as GET /accounts/:id)
+ * - neither set         -> genuine guest order; the id stays a capability URL,
+ *   which is what lets the confirmation page work with no credential
+ */
+async function canReadOrder(
+  req: Request,
+  order: { customerUserId: string | null; accountId: string | null }
+): Promise<boolean> {
+  if (order.customerUserId) {
+    const user = await resolveCustomerUser(req);
+    return user?.id === order.customerUserId;
+  }
+
+  if (order.accountId) {
+    const account = await db.query.customerAccountsTable.findFirst({
+      where: eq(customerAccountsTable.id, order.accountId),
+    });
+    if (!account?.accessToken) return false;
+    return extractAccountToken(req) === account.accessToken;
+  }
+
+  return true;
+}
+
+function extractAccountToken(req: Request): string | undefined {
+  const fromHeader = req.headers["x-account-token"];
+  const headerVal = Array.isArray(fromHeader) ? fromHeader[0] : fromHeader;
+  const fromQuery = req.query.token as string | undefined;
+  return headerVal || fromQuery || undefined;
+}
+
+const FORBIDDEN = {
+  error: "forbidden",
+  message: "Not authorized to access this order",
+};
 
 // RUO (Research Use Only) attestation snapshot. The full text is persisted with
 // every order so we can prove exactly what the signer affirmed at purchase time.
@@ -234,6 +279,10 @@ router.post("/orders", async (req, res) => {
   const channel = isWholesale ? "wholesale" : "retail";
   const orderId = randomUUID();
 
+  // Optional B2C account linkage: if a retail shopper is signed in, stamp the
+  // order so it shows up in their history. Guest checkout is unaffected.
+  const customerUser = isWholesale ? null : await resolveCustomerUser(req);
+
   // Insert the order and its RUO attestation atomically — the attestation is the
   // compliance record of record and must never exist without its order (or vice
   // versa). Capture the requester's IP + user-agent for the audit trail.
@@ -248,6 +297,7 @@ router.post("/orders", async (req, res) => {
       paymentMethod: data.paymentMethod,
       channel,
       accountId: isWholesale ? data.accountId! : null,
+      customerUserId: customerUser?.id ?? null,
       status: "pending",
       shippingName: data.shippingName,
       shippingEmail: data.shippingEmail,
@@ -290,6 +340,10 @@ router.get("/orders/:id", async (req, res) => {
     res.status(404).json({ error: "not_found", message: "Order not found" });
     return;
   }
+  if (!(await canReadOrder(req, order))) {
+    res.status(403).json(FORBIDDEN);
+    return;
+  }
   const payment = await db.query.paymentRecordsTable.findFirst({
     where: eq(paymentRecordsTable.orderId, order.id),
   });
@@ -302,6 +356,10 @@ router.post("/orders/:id/crypto-invoice", async (req, res) => {
   });
   if (!order) {
     res.status(404).json({ error: "not_found", message: "Order not found" });
+    return;
+  }
+  if (!(await canReadOrder(req, order))) {
+    res.status(403).json(FORBIDDEN);
     return;
   }
   if (!isCryptoMethod(order.paymentMethod)) {
@@ -392,6 +450,10 @@ router.post("/orders/:id/ach-instructions", async (req, res) => {
   });
   if (!order) {
     res.status(404).json({ error: "not_found", message: "Order not found" });
+    return;
+  }
+  if (!(await canReadOrder(req, order))) {
+    res.status(403).json(FORBIDDEN);
     return;
   }
   if (order.paymentMethod !== "ach" && order.paymentMethod !== "wire") {

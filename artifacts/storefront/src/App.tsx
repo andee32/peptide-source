@@ -32,6 +32,9 @@ import { ContactPage } from "@/pages/ContactPage";
 // Retail (B2C) portal
 import { RetailShopPage } from "@/pages/retail/RetailShopPage";
 import { RetailProductPage } from "@/pages/retail/RetailProductPage";
+import { LoginPage } from "@/pages/account/LoginPage";
+import { RegisterPage } from "@/pages/account/RegisterPage";
+import { AccountPage } from "@/pages/account/AccountPage";
 import { AgeGate } from "@/components/retail/AgeGate";
 
 const queryClient = new QueryClient();
@@ -66,6 +69,9 @@ function StorefrontRouter() {
           <Route path="/kits/subscribe" component={KitSubscribePage} />
           <Route path="/account/subscriptions" component={CustomerSubscriptionsPage} />
           <Route path="/account/subscriptions/new" component={CustomerSubscriptionsPage} />
+          <Route path="/account/login" component={LoginPage} />
+          <Route path="/account/register" component={RegisterPage} />
+          <Route path="/account" component={AccountPage} />
           <Route component={NotFound} />
         </Switch>
       </main>

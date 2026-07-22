@@ -1,14 +1,16 @@
 import { Link } from "wouter";
-import { ShoppingCart, Menu, Building2, X } from "lucide-react";
+import { ShoppingCart, Menu, Building2, X, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/cart";
 import { useWholesaleSession } from "@/hooks/useWholesaleSession";
+import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useState } from "react";
 
 export function Navbar() {
   const { totalItems, setIsCartOpen } = useCart();
   const { session, clear: clearSession } = useWholesaleSession();
+  const { customer } = useCustomerAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
@@ -16,9 +18,14 @@ export function Navbar() {
     { href: "/retail", label: "Shop (Retail)" },
     { href: "/verify", label: "COA Verification" },
     { href: "/wholesale", label: "Wholesale / Apply" },
-    { href: "/wholesale/account", label: "Account" },
+    { href: "/wholesale/account", label: "Wholesale Account" },
     { href: "/contact", label: "Contact" },
   ];
+
+  // Retail (B2C) account entry point — the wholesale chip below is separate.
+  const accountLink = customer
+    ? { href: "/account", label: customer.name?.trim().split(/\s+/)[0] || "My Account" }
+    : { href: "/account/login", label: "Sign in" };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-border bg-background/80 backdrop-blur-md">
@@ -47,6 +54,14 @@ export function Navbar() {
                     {link.label}
                   </Link>
                 ))}
+                <Link
+                  href={accountLink.href}
+                  className="flex items-center gap-2 text-lg font-medium hover:text-primary transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <User className="h-4 w-4" />
+                  {accountLink.label}
+                </Link>
               </nav>
             </SheetContent>
           </Sheet>
@@ -95,9 +110,19 @@ export function Navbar() {
               </button>
             </div>
           )}
+          <Link
+            href={accountLink.href}
+            className="hidden sm:flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-mono uppercase tracking-widest text-muted-foreground hover:text-primary hover:border-primary/40 transition-colors"
+            title={customer ? "Your account" : "Sign in to your retail account"}
+          >
+            <User className="h-3.5 w-3.5 shrink-0" />
+            <span className="max-w-[120px] truncate normal-case tracking-normal">
+              {accountLink.label}
+            </span>
+          </Link>
           <Button
-            variant="ghost" 
-            size="icon" 
+            variant="ghost"
+            size="icon"
             className="relative hover-elevate"
             onClick={() => setIsCartOpen(true)}
           >

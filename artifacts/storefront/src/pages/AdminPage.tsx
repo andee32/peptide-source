@@ -62,10 +62,11 @@ import { DashboardPanel } from "@/components/admin/DashboardPanel";
 import { OrdersPanel } from "@/components/admin/OrdersPanel";
 import { CatalogPanel } from "@/components/admin/CatalogPanel";
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
+import { UsersPanel } from "@/components/admin/UsersPanel";
 
 type BatchStatus = "pending" | "released" | "quarantined";
 type TestType = "purity" | "endotoxin" | "sterility" | "heavyMetals";
-type AdminTab = "dashboard" | "orders" | "catalog" | "batches" | "subscriptions" | "products" | "accounts" | "settings";
+type AdminTab = "dashboard" | "orders" | "catalog" | "batches" | "subscriptions" | "products" | "accounts" | "users" | "settings";
 
 type AdminCoaResult = {
   id: string;
@@ -994,6 +995,7 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
             { key: "subscriptions", label: "Subscriptions" },
             { key: "accounts", label: "Accounts" },
             { key: "products", label: "Products" },
+            { key: "users", label: "Users" },
             { key: "settings", label: "Settings" },
           ] as { key: AdminTab; label: string }[]).map((tab) => (
             <button
@@ -1024,6 +1026,8 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
           <AccountsPanel adminKey={adminKey} />
         ) : activeTab === "subscriptions" ? (
           <AdminSubscriptionsPanel adminKey={adminKey} />
+        ) : activeTab === "users" ? (
+          <UsersPanel adminKey={adminKey} />
         ) : activeTab === "settings" ? (
           <SettingsPanel adminKey={adminKey} />
         ) : loading && batches.length === 0 ? (

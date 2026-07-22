@@ -904,6 +904,143 @@ export interface PatchVariantRequest {
   inStock?: boolean;
 }
 
+export interface OkResponse {
+  ok: boolean;
+}
+
+/**
+ * A back-office operator. passwordHash is never serialized.
+ */
+export interface AdminUser {
+  id: string;
+  email: string;
+  name?: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface CreateAdminUserRequest {
+  /** @maxLength 320 */
+  email: string;
+  /**
+   * @minLength 8
+   * @maxLength 200
+   */
+  password: string;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  name?: string;
+}
+
+/**
+ * Rename and/or toggle active status. At least one field must be provided.
+ */
+export interface PatchAdminUserRequest {
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  name?: string | null;
+  isActive?: boolean;
+}
+
+export interface SetAdminPasswordRequest {
+  /**
+   * @minLength 8
+   * @maxLength 200
+   */
+  password: string;
+  /**
+   * Required only for a self-service change; omit for an admin reset.
+   * @minLength 1
+   * @maxLength 200
+   */
+  currentPassword?: string;
+}
+
+/**
+ * A B2C retail shopper. Distinct from a B2B wholesale Account.
+ */
+export interface CustomerUser {
+  id: string;
+  email: string;
+  name?: string | null;
+  createdAt: string;
+}
+
+export interface CustomerSession {
+  /** Opaque bearer token; send as an Authorization bearer header. */
+  token: string;
+  expiresAt: string;
+  user: CustomerUser;
+}
+
+export interface RegisterCustomerRequest {
+  /** @maxLength 320 */
+  email: string;
+  /**
+   * @minLength 8
+   * @maxLength 200
+   */
+  password: string;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  name?: string;
+}
+
+export interface LoginCustomerRequest {
+  /** @maxLength 320 */
+  email: string;
+  /**
+   * @minLength 1
+   * @maxLength 200
+   */
+  password: string;
+}
+
+export type CustomerOrderSummaryChannel =
+  (typeof CustomerOrderSummaryChannel)[keyof typeof CustomerOrderSummaryChannel];
+
+export const CustomerOrderSummaryChannel = {
+  retail: "retail",
+  wholesale: "wholesale",
+} as const;
+
+export interface CustomerOrderSummary {
+  id: string;
+  status: OrderStatus;
+  channel: CustomerOrderSummaryChannel;
+  paymentMethod: PaymentMethod;
+  subtotalCents: number;
+  discountCents: number;
+  totalCents: number;
+  lineItems: OrderLineItem[];
+  trackingNumber?: string | null;
+  carrier?: string | null;
+  createdAt: string;
+}
+
+export interface ReorderLineItem {
+  variantId: number;
+  productName: string;
+  productSlug: string;
+  variantName: string;
+  quantity: number;
+  /** Current catalog price — never the stale price from the source order. */
+  unitPriceCents: number;
+}
+
+export interface ReorderPayload {
+  sourceOrderId: string;
+  lineItems: ReorderLineItem[];
+  /** Variant IDs from the source order that are out of stock or no longer in the catalog. */
+  unavailable: number[];
+}
+
 export type ListProductsParams = {
   category?: string;
   featured?: boolean;

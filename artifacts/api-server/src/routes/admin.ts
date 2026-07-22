@@ -1,12 +1,13 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, and, asc, desc, count, sql } from "drizzle-orm";
-import { pbkdf2Sync, timingSafeEqual } from "crypto";
+import { createHash, timingSafeEqual } from "crypto";
 import { db } from "@atlab/db";
 import {
   batchesTable,
   coaResultsTable,
   productsTable,
   productVariantsTable,
+  adminUsersTable,
   customerAccountsTable,
   priceTiersTable,
   ordersTable,
@@ -23,20 +24,29 @@ import {
   sourcingPathEnum,
 } from "@atlab/db/schema";
 import { z } from "zod/v4";
+import { randomUUID } from "crypto";
+import { hashPassword, verifyPassword, verifyDummyPassword } from "../lib/password";
+import {
+  authenticateAdmin,
+  createAdminSession,
+  revokeAdminSessions,
+  adminActorEmail,
+} from "../lib/adminSession";
+import { loginRateLimit } from "../lib/rateLimit";
 
 const router: IRouter = Router();
 
-function adminAuth(req: Request, res: Response, next: NextFunction): void {
-  const adminSecret = process.env.ADMIN_SECRET;
-  if (!adminSecret) {
-    res.status(503).json({ error: "not_configured", message: "Admin access not configured" });
-    return;
-  }
-  const key = req.headers["x-admin-key"];
-  if (key !== adminSecret) {
+// Every /admin request resolves to a live admin_sessions row -> an active
+// admin_users row (or the ops break-glass secret). This is what makes
+// deactivation and password reset actually revoke access — the previous
+// "token == ADMIN_SECRET" check consulted no user state at all.
+async function adminAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const identity = await authenticateAdmin(req);
+  if (!identity) {
     res.status(401).json({ error: "unauthorized", message: "Invalid admin key" });
     return;
   }
+  req.adminIdentity = identity;
   next();
 }
 
@@ -45,52 +55,272 @@ const LoginSchema = z.object({
   password: z.string().min(1),
 });
 
-router.post("/admin/login", (req: Request, res: Response): void => {
+// Validates the legacy single env credential. Retained as the safety fallback
+// for when admin_users is empty (fresh DB, or the bootstrap insert failed) so a
+// misconfigured table can never lock the owner out of the console.
+async function envCredentialMatches(email: string, password: string): Promise<boolean> {
+  const storedEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const storedHash = process.env.ADMIN_PASSWORD_HASH;
+  if (!storedEmail || !storedHash) return false;
+
+  // Digest first so the comparison is fixed-length and cannot throw on a
+  // length mismatch (which would itself leak the stored email's length).
+  const emailMatch = timingSafeEqual(
+    createHash("sha256").update(storedEmail).digest(),
+    createHash("sha256").update(email).digest()
+  );
+  if (!emailMatch) return false;
+
+  return verifyPassword(password, storedHash);
+}
+
+router.post("/admin/login", loginRateLimit, async (req: Request, res: Response): Promise<void> => {
   const parsed = LoginSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "bad_request", message: "Email and password are required" });
     return;
   }
 
-  const storedEmail = process.env.ADMIN_EMAIL;
-  const storedHash = process.env.ADMIN_PASSWORD_HASH;
-  const adminSecret = process.env.ADMIN_SECRET;
+  const { password } = parsed.data;
+  const email = parsed.data.email.trim().toLowerCase();
 
-  if (!storedEmail || !storedHash || !adminSecret) {
+  // Primary path: the admin_users table. Success mints an opaque session token
+  // bound to this operator — NOT the shared ADMIN_SECRET.
+  try {
+    const user = await db.query.adminUsersTable.findFirst({
+      where: eq(adminUsersTable.email, email),
+    });
+
+    if (user) {
+      // Verify before branching on isActive so both failures cost the same.
+      const passwordOk = await verifyPassword(password, user.passwordHash);
+      if (!passwordOk || !user.isActive) {
+        res.status(401).json({ error: "unauthorized", message: "Invalid credentials" });
+        return;
+      }
+      const session = await createAdminSession(user.id);
+      res.json({ token: session.token, expiresAt: session.expiresAt.toISOString() });
+      return;
+    }
+
+    const [{ total }] = await db.select({ total: count() }).from(adminUsersTable);
+    if (total > 0) {
+      // Unknown operator: burn the same CPU a real verify would, so response
+      // time does not disclose which emails are provisioned.
+      await verifyDummyPassword(password);
+      res.status(401).json({ error: "unauthorized", message: "Invalid credentials" });
+      return;
+    }
+  } catch (err) {
+    console.error("adminLogin lookup error (falling back to env credential):", err);
+  }
+
+  // Fallback: table empty (or unreachable) — accept the env credential. There
+  // is no admin_users row to bind a session to here, so this path (and only
+  // this path) hands back the ops break-glass secret.
+  if (!(await envCredentialMatches(email, password))) {
+    res.status(401).json({ error: "unauthorized", message: "Invalid credentials" });
+    return;
+  }
+
+  const adminSecret = process.env.ADMIN_SECRET;
+  if (!adminSecret) {
     res.status(503).json({ error: "not_configured", message: "Admin credentials not configured" });
     return;
   }
-
-  const { email, password } = parsed.data;
-
-  const emailMatch =
-    storedEmail.length === email.length &&
-    timingSafeEqual(Buffer.from(storedEmail), Buffer.from(email));
-
-  if (!emailMatch) {
-    res.status(401).json({ error: "unauthorized", message: "Invalid credentials" });
-    return;
-  }
-
-  const [salt, expectedHash] = storedHash.split(":");
-  const actualHash = pbkdf2Sync(password, salt, 100000, 32, "sha256").toString("hex");
-
-  let passwordMatch = false;
-  try {
-    passwordMatch = timingSafeEqual(Buffer.from(actualHash), Buffer.from(expectedHash));
-  } catch {
-    passwordMatch = false;
-  }
-
-  if (!passwordMatch) {
-    res.status(401).json({ error: "unauthorized", message: "Invalid credentials" });
-    return;
-  }
-
   res.json({ token: adminSecret });
 });
 
 router.use("/admin", adminAuth);
+
+// ── Admin user management ────────────────────────────────────────────────────
+// Multiple back-office operators, each with their own password. These rows are
+// the source of truth for console access: /admin/login mints a session bound to
+// one of them, and adminAuth re-checks the row on every request.
+// passwordHash is never serialized out.
+
+function serializeAdminUser(u: typeof adminUsersTable.$inferSelect) {
+  return {
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    isActive: u.isActive,
+    createdAt: u.createdAt.toISOString(),
+  };
+}
+
+router.get("/admin/users", async (_req, res) => {
+  try {
+    const users = await db.query.adminUsersTable.findMany({
+      orderBy: [asc(adminUsersTable.createdAt)],
+    });
+    res.json(users.map(serializeAdminUser));
+  } catch (err) {
+    console.error("admin listAdminUsers error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+const CreateAdminUserSchema = z.object({
+  email: z.string().email().max(320),
+  password: z.string().min(8).max(200),
+  name: z.string().min(1).max(200).optional(),
+});
+
+router.post("/admin/users", async (req, res) => {
+  const parsed = CreateAdminUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "bad_request",
+      message: parsed.error.issues[0]?.message ?? "Invalid input",
+    });
+    return;
+  }
+
+  const email = parsed.data.email.trim().toLowerCase();
+
+  try {
+    const existing = await db.query.adminUsersTable.findFirst({
+      where: eq(adminUsersTable.email, email),
+    });
+    if (existing) {
+      res.status(409).json({
+        error: "conflict",
+        message: "An admin user with that email already exists",
+      });
+      return;
+    }
+
+    const [created] = await db
+      .insert(adminUsersTable)
+      .values({
+        id: randomUUID(),
+        email,
+        passwordHash: await hashPassword(parsed.data.password),
+        name: parsed.data.name ?? null,
+      })
+      .returning();
+
+    res.status(201).json(serializeAdminUser(created));
+  } catch (err) {
+    console.error("admin createAdminUser error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+const PatchAdminUserSchema = z.object({
+  name: z.string().min(1).max(200).nullable().optional(),
+  isActive: z.boolean().optional(),
+});
+
+router.patch("/admin/users/:id", async (req, res) => {
+  const parsed = PatchAdminUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "bad_request", message: parsed.error.message });
+    return;
+  }
+
+  try {
+    const user = await db.query.adminUsersTable.findFirst({
+      where: eq(adminUsersTable.id, req.params.id),
+    });
+    if (!user) {
+      res.status(404).json({ error: "not_found", message: "Admin user not found" });
+      return;
+    }
+
+    // Never let the last active operator be deactivated — that would leave the
+    // console reachable only through the env fallback.
+    if (parsed.data.isActive === false && user.isActive) {
+      const [{ total }] = await db
+        .select({ total: count() })
+        .from(adminUsersTable)
+        .where(eq(adminUsersTable.isActive, true));
+      if (total <= 1) {
+        res.status(409).json({
+          error: "conflict",
+          message: "Cannot deactivate the last active admin user",
+        });
+        return;
+      }
+    }
+
+    const updates: Partial<typeof adminUsersTable.$inferInsert> = {};
+    if (parsed.data.name !== undefined) updates.name = parsed.data.name;
+    if (parsed.data.isActive !== undefined) updates.isActive = parsed.data.isActive;
+
+    if (Object.keys(updates).length === 0) {
+      res.json(serializeAdminUser(user));
+      return;
+    }
+
+    const [updated] = await db
+      .update(adminUsersTable)
+      .set(updates)
+      .where(eq(adminUsersTable.id, req.params.id))
+      .returning();
+
+    // Deactivation must take effect now, not at session expiry.
+    if (parsed.data.isActive === false) {
+      await revokeAdminSessions(user.id);
+    }
+
+    res.json(serializeAdminUser(updated));
+  } catch (err) {
+    console.error("admin patchAdminUser error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+const SetAdminPasswordSchema = z.object({
+  password: z.string().min(8).max(200),
+  currentPassword: z.string().min(1).max(200).optional(),
+});
+
+router.post("/admin/users/:id/password", async (req, res) => {
+  const parsed = SetAdminPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({
+      error: "bad_request",
+      message: parsed.error.issues[0]?.message ?? "Invalid input",
+    });
+    return;
+  }
+
+  try {
+    const user = await db.query.adminUsersTable.findFirst({
+      where: eq(adminUsersTable.id, req.params.id),
+    });
+    if (!user) {
+      res.status(404).json({ error: "not_found", message: "Admin user not found" });
+      return;
+    }
+
+    // currentPassword is optional (an admin can reset a peer), but when supplied
+    // it must be correct — that is the self-service change-password path.
+    if (
+      parsed.data.currentPassword !== undefined &&
+      !(await verifyPassword(parsed.data.currentPassword, user.passwordHash))
+    ) {
+      res.status(401).json({ error: "unauthorized", message: "Current password is incorrect" });
+      return;
+    }
+
+    await db
+      .update(adminUsersTable)
+      .set({ passwordHash: await hashPassword(parsed.data.password) })
+      .where(eq(adminUsersTable.id, req.params.id));
+
+    // A password change must invalidate every session opened under the old
+    // one — otherwise "reset their password" locks nobody out.
+    await revokeAdminSessions(user.id);
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("admin setAdminUserPassword error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
 
 router.get("/admin/products", async (_req, res) => {
   try {
@@ -624,7 +854,7 @@ router.patch("/admin/accounts/:id", async (req, res) => {
     if (parsed.data.kybNotes !== undefined) updates.kybNotes = parsed.data.kybNotes;
     if (parsed.data.status === "approved") {
       updates.approvedAt = new Date();
-      updates.approvedBy = process.env.ADMIN_EMAIL ?? "admin";
+      updates.approvedBy = adminActorEmail(req);
     }
 
     const [updated] = await db

@@ -20,6 +20,10 @@ tags:
     description: Public B2C retail catalog operations (single-vial variants)
   - name: settings
     description: Global store settings (public read, admin write)
+  - name: adminUsers
+    description: Back-office admin user management (admin only)
+  - name: auth
+    description: B2C retail customer accounts, sessions, order history and reorder
 paths:
   /healthz:
     get:
@@ -1287,6 +1291,298 @@ paths:
                     type: boolean
         "401":
           description: Invalid webhook signature
+
+  /admin/users:
+    get:
+      operationId: adminListAdminUsers
+      tags: [adminUsers]
+      summary: Admin — list back-office admin users
+      description: Returns all admin users. Never returns passwordHash. Requires x-admin-key header.
+      responses:
+        "200":
+          description: List of admin users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminUser"
+        "401":
+          description: Admin key required
+    post:
+      operationId: adminCreateAdminUser
+      tags: [adminUsers]
+      summary: Admin — create an admin user
+      description: Hashes the supplied password (PBKDF2) and stores it. Requires x-admin-key header.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAdminUserRequest"
+      responses:
+        "201":
+          description: Admin user created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Admin key required
+        "409":
+          description: An admin user with that email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /admin/users/{id}:
+    patch:
+      operationId: adminPatchAdminUser
+      tags: [adminUsers]
+      summary: Admin — rename, deactivate, or reactivate an admin user
+      description: Deactivating the last active admin user is rejected. Requires x-admin-key header.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchAdminUserRequest"
+      responses:
+        "200":
+          description: Updated admin user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Admin key required
+        "404":
+          description: Admin user not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Cannot deactivate the last active admin user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /admin/users/{id}/password:
+    post:
+      operationId: adminSetAdminUserPassword
+      tags: [adminUsers]
+      summary: Admin — set or reset an admin user's password
+      description: Supply currentPassword for a self-service change; omit it for an admin-performed reset. Requires x-admin-key header.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetAdminPasswordRequest"
+      responses:
+        "200":
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Admin key required, or currentPassword incorrect
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Admin user not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /auth/register:
+    post:
+      operationId: registerCustomer
+      tags: [auth]
+      summary: Register a B2C retail account
+      description: Creates a retail shopper account and returns a bearer session token. Retail accounts are optional — guest checkout remains open.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterCustomerRequest"
+      responses:
+        "201":
+          description: Account created and signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerSession"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: An account with that email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /auth/login:
+    post:
+      operationId: loginCustomer
+      tags: [auth]
+      summary: Sign in to a B2C retail account
+      description: Returns a bearer session token. Send it as an Authorization bearer header on subsequent /auth calls and at checkout.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginCustomerRequest"
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerSession"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /auth/logout:
+    post:
+      operationId: logoutCustomer
+      tags: [auth]
+      summary: Sign out (revokes the bearer session)
+      description: Deletes the session named by the Authorization bearer token. Always succeeds.
+      responses:
+        "200":
+          description: Signed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
+  /auth/me:
+    get:
+      operationId: getCurrentCustomer
+      tags: [auth]
+      summary: Current signed-in retail customer
+      description: Requires an Authorization bearer session token.
+      responses:
+        "200":
+          description: Current customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerUser"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /auth/orders:
+    get:
+      operationId: listCustomerOrders
+      tags: [auth]
+      summary: This customer's retail order history
+      description: Returns retail orders stamped with this customer's id at checkout plus any guest order placed to the same shipping email. Requires an Authorization bearer session token.
+      responses:
+        "200":
+          description: Order history, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CustomerOrderSummary"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /auth/reorder/{orderId}:
+    post:
+      operationId: reorderFromOrder
+      tags: [auth]
+      summary: Rebuild a cart payload from a past order
+      description: Prices are re-derived from the current catalog; out-of-stock or removed variants are returned in `unavailable`. Requires an Authorization bearer session token.
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reorder cart payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReorderPayload"
+        "401":
+          description: Not signed in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Order not found for this customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 
 components:
   schemas:
@@ -2728,3 +3024,235 @@ components:
           minimum: 1
         inStock:
           type: boolean
+
+    OkResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+      required:
+        - ok
+
+    AdminUser:
+      type: object
+      description: A back-office operator. passwordHash is never serialized.
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - isActive
+        - createdAt
+
+    CreateAdminUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        password:
+          type: string
+          minLength: 8
+          maxLength: 200
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+      required:
+        - email
+        - password
+
+    PatchAdminUserRequest:
+      type: object
+      description: Rename and/or toggle active status. At least one field must be provided.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          nullable: true
+        isActive:
+          type: boolean
+
+    SetAdminPasswordRequest:
+      type: object
+      properties:
+        password:
+          type: string
+          minLength: 8
+          maxLength: 200
+        currentPassword:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Required only for a self-service change; omit for an admin reset.
+      required:
+        - password
+
+    CustomerUser:
+      type: object
+      description: A B2C retail shopper. Distinct from a B2B wholesale Account.
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - email
+        - createdAt
+
+    CustomerSession:
+      type: object
+      properties:
+        token:
+          type: string
+          description: Opaque bearer token; send as an Authorization bearer header.
+        expiresAt:
+          type: string
+          format: date-time
+        user:
+          $ref: "#/components/schemas/CustomerUser"
+      required:
+        - token
+        - expiresAt
+        - user
+
+    RegisterCustomerRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        password:
+          type: string
+          minLength: 8
+          maxLength: 200
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+      required:
+        - email
+        - password
+
+    LoginCustomerRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        password:
+          type: string
+          minLength: 1
+          maxLength: 200
+      required:
+        - email
+        - password
+
+    CustomerOrderSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          $ref: "#/components/schemas/OrderStatus"
+        channel:
+          type: string
+          enum: [retail, wholesale]
+        paymentMethod:
+          $ref: "#/components/schemas/PaymentMethod"
+        subtotalCents:
+          type: integer
+        discountCents:
+          type: integer
+        totalCents:
+          type: integer
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderLineItem"
+        trackingNumber:
+          type: string
+          nullable: true
+        carrier:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - status
+        - channel
+        - paymentMethod
+        - subtotalCents
+        - discountCents
+        - totalCents
+        - lineItems
+        - createdAt
+
+    ReorderLineItem:
+      type: object
+      properties:
+        variantId:
+          type: integer
+        productName:
+          type: string
+        productSlug:
+          type: string
+        variantName:
+          type: string
+        quantity:
+          type: integer
+        unitPriceCents:
+          type: integer
+          description: Current catalog price — never the stale price from the source order.
+      required:
+        - variantId
+        - productName
+        - productSlug
+        - variantName
+        - quantity
+        - unitPriceCents
+
+    ReorderPayload:
+      type: object
+      properties:
+        sourceOrderId:
+          type: string
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReorderLineItem"
+        unavailable:
+          type: array
+          description: Variant IDs from the source order that are out of stock or no longer in the catalog.
+          items:
+            type: integer
+      required:
+        - sourceOrderId
+        - lineItems
+        - unavailable

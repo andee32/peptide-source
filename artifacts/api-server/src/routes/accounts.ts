@@ -8,13 +8,9 @@ import {
   businessTypeEnum,
 } from "@atlab/db/schema";
 import { z } from "zod/v4";
+import { isAdminRequest } from "../lib/adminSession";
 
 const router: IRouter = Router();
-
-function isAdmin(req: Request): boolean {
-  const adminSecret = process.env.ADMIN_SECRET;
-  return !!adminSecret && req.headers["x-admin-key"] === adminSecret;
-}
 
 function extractAccountToken(req: Request): string | undefined {
   const fromHeader = req.headers["x-account-token"];
@@ -91,7 +87,7 @@ router.get("/accounts/:id", async (req: Request, res: Response) => {
     }
 
     const authorized =
-      isAdmin(req) ||
+      (await isAdminRequest(req)) ||
       (!!account.accessToken && extractAccountToken(req) === account.accessToken);
     if (!authorized) {
       res.status(403).json({

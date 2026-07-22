@@ -27,6 +27,7 @@ import type {
   AdminPatchSubscriptionStatusBody,
   AdminStats,
   AdminSubscriptionsOverview,
+  AdminUser,
   ApiError,
   ApplyAccountRequest,
   BatchDetail,
@@ -36,10 +37,14 @@ import type {
   CatalogProduct,
   ConfirmAchRequest,
   ConfirmAchResponse,
+  CreateAdminUserRequest,
   CreateOrderRequest,
   CreateReviewerSubmissionRequest,
   CreateSubscriptionRequest,
   CryptoInvoice,
+  CustomerOrderSummary,
+  CustomerSession,
+  CustomerUser,
   DispatchSubscriptionReminders200,
   GetAccountParams,
   GetSubscriptionParams,
@@ -49,10 +54,13 @@ import type {
   ListProductsParams,
   ListRetailProductsParams,
   ListSubscriptionsParams,
+  LoginCustomerRequest,
   MoqError,
+  OkResponse,
   OrderDetail,
   OrderSummary,
   PatchAccountRequest,
+  PatchAdminUserRequest,
   PatchOrderRequest,
   PatchProductRequest,
   PatchReviewerSubmissionRequest,
@@ -62,12 +70,15 @@ import type {
   Product,
   ProductDetail,
   ProductVariant,
+  RegisterCustomerRequest,
+  ReorderPayload,
   RetailProduct,
   RetailProductDetail,
   ReviewerSubmission,
   ReviewerSubmissionCreated,
   ReviewerSubmissionPatched,
   ReviewerSubmissionStats,
+  SetAdminPasswordRequest,
   SkipSubscriptionBody,
   SkuNotAvailable,
   StoreSettings,
@@ -3960,4 +3971,837 @@ export const useHandleBtcpayWebhook = <
   TContext
 > => {
   return useMutation(getHandleBtcpayWebhookMutationOptions(options));
+};
+
+/**
+ * Returns all admin users. Never returns passwordHash. Requires x-admin-key header.
+ * @summary Admin — list back-office admin users
+ */
+export const getAdminListAdminUsersUrl = () => {
+  return `/api/admin/users`;
+};
+
+export const adminListAdminUsers = async (
+  options?: RequestInit,
+): Promise<AdminUser[]> => {
+  return customFetch<AdminUser[]>(getAdminListAdminUsersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListAdminUsersQueryKey = () => {
+  return [`/api/admin/users`] as const;
+};
+
+export const getAdminListAdminUsersQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListAdminUsers>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListAdminUsers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminListAdminUsersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListAdminUsers>>
+  > = ({ signal }) => adminListAdminUsers({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListAdminUsers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListAdminUsersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListAdminUsers>>
+>;
+export type AdminListAdminUsersQueryError = ErrorType<void>;
+
+/**
+ * @summary Admin — list back-office admin users
+ */
+
+export function useAdminListAdminUsers<
+  TData = Awaited<ReturnType<typeof adminListAdminUsers>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListAdminUsers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListAdminUsersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Hashes the supplied password (PBKDF2) and stores it. Requires x-admin-key header.
+ * @summary Admin — create an admin user
+ */
+export const getAdminCreateAdminUserUrl = () => {
+  return `/api/admin/users`;
+};
+
+export const adminCreateAdminUser = async (
+  createAdminUserRequest: CreateAdminUserRequest,
+  options?: RequestInit,
+): Promise<AdminUser> => {
+  return customFetch<AdminUser>(getAdminCreateAdminUserUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createAdminUserRequest),
+  });
+};
+
+export const getAdminCreateAdminUserMutationOptions = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateAdminUser>>,
+    TError,
+    { data: BodyType<CreateAdminUserRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateAdminUser>>,
+  TError,
+  { data: BodyType<CreateAdminUserRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateAdminUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateAdminUser>>,
+    { data: BodyType<CreateAdminUserRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateAdminUser(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateAdminUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateAdminUser>>
+>;
+export type AdminCreateAdminUserMutationBody = BodyType<CreateAdminUserRequest>;
+export type AdminCreateAdminUserMutationError = ErrorType<ApiError | void>;
+
+/**
+ * @summary Admin — create an admin user
+ */
+export const useAdminCreateAdminUser = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateAdminUser>>,
+    TError,
+    { data: BodyType<CreateAdminUserRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateAdminUser>>,
+  TError,
+  { data: BodyType<CreateAdminUserRequest> },
+  TContext
+> => {
+  return useMutation(getAdminCreateAdminUserMutationOptions(options));
+};
+
+/**
+ * Deactivating the last active admin user is rejected. Requires x-admin-key header.
+ * @summary Admin — rename, deactivate, or reactivate an admin user
+ */
+export const getAdminPatchAdminUserUrl = (id: string) => {
+  return `/api/admin/users/${id}`;
+};
+
+export const adminPatchAdminUser = async (
+  id: string,
+  patchAdminUserRequest: PatchAdminUserRequest,
+  options?: RequestInit,
+): Promise<AdminUser> => {
+  return customFetch<AdminUser>(getAdminPatchAdminUserUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(patchAdminUserRequest),
+  });
+};
+
+export const getAdminPatchAdminUserMutationOptions = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchAdminUser>>,
+    TError,
+    { id: string; data: BodyType<PatchAdminUserRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminPatchAdminUser>>,
+  TError,
+  { id: string; data: BodyType<PatchAdminUserRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminPatchAdminUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminPatchAdminUser>>,
+    { id: string; data: BodyType<PatchAdminUserRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminPatchAdminUser(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminPatchAdminUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminPatchAdminUser>>
+>;
+export type AdminPatchAdminUserMutationBody = BodyType<PatchAdminUserRequest>;
+export type AdminPatchAdminUserMutationError = ErrorType<ApiError | void>;
+
+/**
+ * @summary Admin — rename, deactivate, or reactivate an admin user
+ */
+export const useAdminPatchAdminUser = <
+  TError = ErrorType<ApiError | void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchAdminUser>>,
+    TError,
+    { id: string; data: BodyType<PatchAdminUserRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminPatchAdminUser>>,
+  TError,
+  { id: string; data: BodyType<PatchAdminUserRequest> },
+  TContext
+> => {
+  return useMutation(getAdminPatchAdminUserMutationOptions(options));
+};
+
+/**
+ * Supply currentPassword for a self-service change; omit it for an admin-performed reset. Requires x-admin-key header.
+ * @summary Admin — set or reset an admin user's password
+ */
+export const getAdminSetAdminUserPasswordUrl = (id: string) => {
+  return `/api/admin/users/${id}/password`;
+};
+
+export const adminSetAdminUserPassword = async (
+  id: string,
+  setAdminPasswordRequest: SetAdminPasswordRequest,
+  options?: RequestInit,
+): Promise<OkResponse> => {
+  return customFetch<OkResponse>(getAdminSetAdminUserPasswordUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(setAdminPasswordRequest),
+  });
+};
+
+export const getAdminSetAdminUserPasswordMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminSetAdminUserPassword>>,
+    TError,
+    { id: string; data: BodyType<SetAdminPasswordRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminSetAdminUserPassword>>,
+  TError,
+  { id: string; data: BodyType<SetAdminPasswordRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminSetAdminUserPassword"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminSetAdminUserPassword>>,
+    { id: string; data: BodyType<SetAdminPasswordRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminSetAdminUserPassword(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminSetAdminUserPasswordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminSetAdminUserPassword>>
+>;
+export type AdminSetAdminUserPasswordMutationBody =
+  BodyType<SetAdminPasswordRequest>;
+export type AdminSetAdminUserPasswordMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Admin — set or reset an admin user's password
+ */
+export const useAdminSetAdminUserPassword = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminSetAdminUserPassword>>,
+    TError,
+    { id: string; data: BodyType<SetAdminPasswordRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminSetAdminUserPassword>>,
+  TError,
+  { id: string; data: BodyType<SetAdminPasswordRequest> },
+  TContext
+> => {
+  return useMutation(getAdminSetAdminUserPasswordMutationOptions(options));
+};
+
+/**
+ * Creates a retail shopper account and returns a bearer session token. Retail accounts are optional — guest checkout remains open.
+ * @summary Register a B2C retail account
+ */
+export const getRegisterCustomerUrl = () => {
+  return `/api/auth/register`;
+};
+
+export const registerCustomer = async (
+  registerCustomerRequest: RegisterCustomerRequest,
+  options?: RequestInit,
+): Promise<CustomerSession> => {
+  return customFetch<CustomerSession>(getRegisterCustomerUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(registerCustomerRequest),
+  });
+};
+
+export const getRegisterCustomerMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerCustomer>>,
+    TError,
+    { data: BodyType<RegisterCustomerRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerCustomer>>,
+  TError,
+  { data: BodyType<RegisterCustomerRequest> },
+  TContext
+> => {
+  const mutationKey = ["registerCustomer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerCustomer>>,
+    { data: BodyType<RegisterCustomerRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return registerCustomer(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterCustomerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerCustomer>>
+>;
+export type RegisterCustomerMutationBody = BodyType<RegisterCustomerRequest>;
+export type RegisterCustomerMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Register a B2C retail account
+ */
+export const useRegisterCustomer = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerCustomer>>,
+    TError,
+    { data: BodyType<RegisterCustomerRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerCustomer>>,
+  TError,
+  { data: BodyType<RegisterCustomerRequest> },
+  TContext
+> => {
+  return useMutation(getRegisterCustomerMutationOptions(options));
+};
+
+/**
+ * Returns a bearer session token. Send it as an Authorization bearer header on subsequent /auth calls and at checkout.
+ * @summary Sign in to a B2C retail account
+ */
+export const getLoginCustomerUrl = () => {
+  return `/api/auth/login`;
+};
+
+export const loginCustomer = async (
+  loginCustomerRequest: LoginCustomerRequest,
+  options?: RequestInit,
+): Promise<CustomerSession> => {
+  return customFetch<CustomerSession>(getLoginCustomerUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(loginCustomerRequest),
+  });
+};
+
+export const getLoginCustomerMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof loginCustomer>>,
+    TError,
+    { data: BodyType<LoginCustomerRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof loginCustomer>>,
+  TError,
+  { data: BodyType<LoginCustomerRequest> },
+  TContext
+> => {
+  const mutationKey = ["loginCustomer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof loginCustomer>>,
+    { data: BodyType<LoginCustomerRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return loginCustomer(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LoginCustomerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof loginCustomer>>
+>;
+export type LoginCustomerMutationBody = BodyType<LoginCustomerRequest>;
+export type LoginCustomerMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Sign in to a B2C retail account
+ */
+export const useLoginCustomer = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof loginCustomer>>,
+    TError,
+    { data: BodyType<LoginCustomerRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof loginCustomer>>,
+  TError,
+  { data: BodyType<LoginCustomerRequest> },
+  TContext
+> => {
+  return useMutation(getLoginCustomerMutationOptions(options));
+};
+
+/**
+ * Deletes the session named by the Authorization bearer token. Always succeeds.
+ * @summary Sign out (revokes the bearer session)
+ */
+export const getLogoutCustomerUrl = () => {
+  return `/api/auth/logout`;
+};
+
+export const logoutCustomer = async (
+  options?: RequestInit,
+): Promise<OkResponse> => {
+  return customFetch<OkResponse>(getLogoutCustomerUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getLogoutCustomerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof logoutCustomer>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof logoutCustomer>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["logoutCustomer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof logoutCustomer>>,
+    void
+  > = () => {
+    return logoutCustomer(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LogoutCustomerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof logoutCustomer>>
+>;
+
+export type LogoutCustomerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Sign out (revokes the bearer session)
+ */
+export const useLogoutCustomer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof logoutCustomer>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof logoutCustomer>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getLogoutCustomerMutationOptions(options));
+};
+
+/**
+ * Requires an Authorization bearer session token.
+ * @summary Current signed-in retail customer
+ */
+export const getGetCurrentCustomerUrl = () => {
+  return `/api/auth/me`;
+};
+
+export const getCurrentCustomer = async (
+  options?: RequestInit,
+): Promise<CustomerUser> => {
+  return customFetch<CustomerUser>(getGetCurrentCustomerUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetCurrentCustomerQueryKey = () => {
+  return [`/api/auth/me`] as const;
+};
+
+export const getGetCurrentCustomerQueryOptions = <
+  TData = Awaited<ReturnType<typeof getCurrentCustomer>>,
+  TError = ErrorType<ApiError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCurrentCustomer>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetCurrentCustomerQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getCurrentCustomer>>
+  > = ({ signal }) => getCurrentCustomer({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getCurrentCustomer>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetCurrentCustomerQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getCurrentCustomer>>
+>;
+export type GetCurrentCustomerQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Current signed-in retail customer
+ */
+
+export function useGetCurrentCustomer<
+  TData = Awaited<ReturnType<typeof getCurrentCustomer>>,
+  TError = ErrorType<ApiError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getCurrentCustomer>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetCurrentCustomerQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns retail orders stamped with this customer's id at checkout plus any guest order placed to the same shipping email. Requires an Authorization bearer session token.
+ * @summary This customer's retail order history
+ */
+export const getListCustomerOrdersUrl = () => {
+  return `/api/auth/orders`;
+};
+
+export const listCustomerOrders = async (
+  options?: RequestInit,
+): Promise<CustomerOrderSummary[]> => {
+  return customFetch<CustomerOrderSummary[]>(getListCustomerOrdersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCustomerOrdersQueryKey = () => {
+  return [`/api/auth/orders`] as const;
+};
+
+export const getListCustomerOrdersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCustomerOrders>>,
+  TError = ErrorType<ApiError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCustomerOrders>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCustomerOrdersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCustomerOrders>>
+  > = ({ signal }) => listCustomerOrders({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCustomerOrders>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCustomerOrdersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCustomerOrders>>
+>;
+export type ListCustomerOrdersQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary This customer's retail order history
+ */
+
+export function useListCustomerOrders<
+  TData = Awaited<ReturnType<typeof listCustomerOrders>>,
+  TError = ErrorType<ApiError>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCustomerOrders>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCustomerOrdersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Prices are re-derived from the current catalog; out-of-stock or removed variants are returned in `unavailable`. Requires an Authorization bearer session token.
+ * @summary Rebuild a cart payload from a past order
+ */
+export const getReorderFromOrderUrl = (orderId: string) => {
+  return `/api/auth/reorder/${orderId}`;
+};
+
+export const reorderFromOrder = async (
+  orderId: string,
+  options?: RequestInit,
+): Promise<ReorderPayload> => {
+  return customFetch<ReorderPayload>(getReorderFromOrderUrl(orderId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getReorderFromOrderMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorderFromOrder>>,
+    TError,
+    { orderId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reorderFromOrder>>,
+  TError,
+  { orderId: string },
+  TContext
+> => {
+  const mutationKey = ["reorderFromOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reorderFromOrder>>,
+    { orderId: string }
+  > = (props) => {
+    const { orderId } = props ?? {};
+
+    return reorderFromOrder(orderId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReorderFromOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reorderFromOrder>>
+>;
+
+export type ReorderFromOrderMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Rebuild a cart payload from a past order
+ */
+export const useReorderFromOrder = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorderFromOrder>>,
+    TError,
+    { orderId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reorderFromOrder>>,
+  TError,
+  { orderId: string },
+  TContext
+> => {
+  return useMutation(getReorderFromOrderMutationOptions(options));
 };

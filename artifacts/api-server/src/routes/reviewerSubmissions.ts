@@ -8,14 +8,9 @@ import {
   productsTable,
 } from "@atlab/db/schema";
 import { z } from "zod/v4";
+import { isAdminRequest } from "../lib/adminSession";
 
 const router: IRouter = Router();
-
-const ADMIN_SECRET = process.env.ADMIN_SECRET;
-
-function isAdmin(req: Request): boolean {
-  return !!ADMIN_SECRET && req.headers["x-admin-key"] === ADMIN_SECRET;
-}
 
 const JANOSHIK_TASK_ID_RE = /^[A-Z]{1,4}[0-9]{4,12}$/i;
 
@@ -121,7 +116,7 @@ router.get("/reviewer-submissions/stats", async (_req: Request, res: Response) =
 });
 
 router.get("/reviewer-submissions", async (req: Request, res: Response) => {
-  const adminMode = isAdmin(req);
+  const adminMode = await isAdminRequest(req);
   try {
     const rows = await db.query.reviewerSubmissionsTable.findMany({
       where: adminMode
@@ -166,7 +161,7 @@ const PatchSubmissionSchema = z.object({
 router.patch(
   "/reviewer-submissions/:id",
   async (req: Request, res: Response) => {
-    if (!isAdmin(req)) {
+    if (!(await isAdminRequest(req))) {
       res.status(401).json({ error: "unauthorized", message: "Admin key required" });
       return;
     }
