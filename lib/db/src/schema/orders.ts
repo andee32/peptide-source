@@ -11,11 +11,20 @@ import { z } from "zod/v4";
 import { customerAccountsTable } from "./customerAccounts";
 import { customerUsersTable } from "./customerUsers";
 
+// Bank-settled rails only, alongside crypto. Never a card processor —
+// Stripe/PayPal/Square/Shopify Payments prohibit this vertical and freeze funds.
+//
+// zelle is WHOLESALE-ONLY and enforced as such server-side. It identifies the
+// recipient by phone/email rather than an account number, so exposing it on the
+// public storefront would publish a direct line to the operating bank account,
+// and it has no dispute mechanism in either direction. Restricting it to
+// approved B2B accounts keeps it to counterparties we already know.
 export const paymentMethodEnum = pgEnum("payment_method", [
   "crypto_btc",
   "crypto_usdc",
   "ach",
   "wire",
+  "zelle",
 ]);
 
 export const orderChannelEnum = pgEnum("order_channel", ["retail", "wholesale"]);

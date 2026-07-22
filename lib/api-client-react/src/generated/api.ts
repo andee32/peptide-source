@@ -1161,8 +1161,8 @@ export function useGetOrderPaymentQr<
 }
 
 /**
- * Returns bank wire / ACH instructions and a unique reference code, and creates (or returns an existing) pending payment_records row with method=ach. Only valid for orders whose paymentMethod is ach or wire.
- * @summary Get ACH / wire payment instructions for an order
+ * Returns payment instructions and a unique reference code, and creates (or returns an existing) pending payment_records row. Valid for paymentMethod ach, wire or zelle. zelle additionally requires the order to be on the wholesale channel AND its account to be approved at the time of the request; otherwise 403. Each rail is withheld with 503 until its own details are provisioned.
+ * @summary Get bank-transfer payment instructions for an order
  */
 export const getCreateAchInstructionsUrl = (id: string) => {
   return `/api/orders/${id}/ach-instructions`;
@@ -1223,7 +1223,7 @@ export type CreateAchInstructionsMutationResult = NonNullable<
 export type CreateAchInstructionsMutationError = ErrorType<ApiError>;
 
 /**
- * @summary Get ACH / wire payment instructions for an order
+ * @summary Get bank-transfer payment instructions for an order
  */
 export const useCreateAchInstructions = <
   TError = ErrorType<ApiError>,

@@ -19,6 +19,8 @@ import {
   generateAchReferenceCode,
   buildBankInstructions,
   isAchProvisioned,
+  isZelleProvisioned,
+  buildZelleInstructions,
   ACH_EXPIRY_DAYS,
 } from "../services/ach";
 import { PAYABLE_ORDER_STATUSES } from "../lib/orderStatus";
@@ -122,7 +124,7 @@ const createOrderSchema = z.object({
   lineItems: z.array(lineItemInputSchema).min(1).max(50),
   ruoAffirmed: z.boolean(),
   signerName: z.string().min(1).max(200),
-  paymentMethod: z.enum(["crypto_btc", "crypto_usdc", "ach", "wire"]),
+  paymentMethod: z.enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"]),
   shippingName: z.string().min(1).max(200),
   shippingEmail: z.string().email(),
   shippingAddress1: z.string().min(1).max(500),
@@ -208,6 +210,20 @@ router.post("/orders", async (req, res) => {
   // ── Wholesale path: authenticate account, enforce kit-only + MOQ, resolve
   // tier pricing. Retail path (no accountId) is unchanged.
   const isWholesale = !!data.accountId;
+
+  // Zelle is wholesale-only, enforced here rather than by hiding the option in
+  // the UI. It identifies the recipient by phone/email rather than an account
+  // number, so exposing it publicly would publish a direct line to the operating
+  // bank account — and it has no dispute mechanism in either direction. Limiting
+  // it to approved B2B accounts keeps it to counterparties already known.
+  if (data.paymentMethod === "zelle" && !isWholesale) {
+    res.status(422).json({
+      error: "unprocessable_entity",
+      code: "ZELLE_WHOLESALE_ONLY",
+      message: "Zelle is available to approved wholesale accounts only.",
+    });
+    return;
+  }
   const priceOverrides = new Map<number, number>();
 
   if (isWholesale) {
@@ -507,18 +523,55 @@ router.post("/orders/:id/ach-instructions", async (req, res) => {
     res.status(403).json(FORBIDDEN);
     return;
   }
-  if (order.paymentMethod !== "ach" && order.paymentMethod !== "wire") {
+  const BANK_METHODS = ["ach", "wire", "zelle"] as const;
+  if (!(BANK_METHODS as readonly string[]).includes(order.paymentMethod)) {
     res.status(400).json({
       error: "invalid_payment_method",
-      message: "This order does not use the ACH/wire payment rail",
+      message: "This order does not use a bank-transfer payment rail",
+    });
+    return;
+  }
+  const isZelle = order.paymentMethod === "zelle";
+
+  // Zelle is wholesale-only. The check at order creation is the primary gate;
+  // this one stops a retail order that somehow carries the method from ever
+  // being handed a Zelle destination.
+  if (isZelle && order.channel !== "wholesale") {
+    res.status(422).json({
+      error: "unprocessable_entity",
+      code: "ZELLE_WHOLESALE_ONLY",
+      message: "Zelle is available to approved wholesale accounts only.",
     });
     return;
   }
 
-  // Fail closed: never hand a buyer placeholder bank details. Until the real
-  // beneficiary banking info is provisioned via env, the ACH rail is unavailable.
-  if (!isAchProvisioned()) {
-    res.status(503).json({ error: "ach_unavailable" });
+  // Approval must hold NOW, not merely at order time. The access token is minted
+  // at application and never rotated, so without this a buyer whose KYB later
+  // failed keeps re-fetching the live operating-bank handle from the idempotent
+  // path below — which defeats the entire reason the rail is limited to
+  // already-approved counterparties.
+  if (isZelle) {
+    const account = order.accountId
+      ? await db.query.customerAccountsTable.findFirst({
+          where: eq(customerAccountsTable.id, order.accountId),
+        })
+      : null;
+    if (account?.status !== "approved") {
+      res.status(403).json({
+        error: "forbidden",
+        code: "ZELLE_WHOLESALE_ONLY",
+        message: "Zelle is available to approved wholesale accounts only.",
+      });
+      return;
+    }
+  }
+
+  // Fail closed: never hand a buyer a payment destination we have not verified.
+  // Until the real details are provisioned via env, the rail is unavailable.
+  // A Zelle transfer is irreversible with no dispute path, so a wrong handle
+  // means the buyer's funds are simply gone.
+  if (isZelle ? !isZelleProvisioned() : !isAchProvisioned()) {
+    res.status(503).json({ error: isZelle ? "zelle_unavailable" : "ach_unavailable" });
     return;
   }
   if (rejectIfNotPayable(order.status, res)) return;
@@ -528,7 +581,12 @@ router.post("/orders/:id/ach-instructions", async (req, res) => {
     where: eq(paymentRecordsTable.orderId, order.id),
     orderBy: [desc(paymentRecordsTable.createdAt)],
   });
-  if (existing && existing.status === "pending" && existing.referenceCode) {
+  if (
+    existing &&
+    existing.status === "pending" &&
+    existing.referenceCode &&
+    existing.method === (isZelle ? "zelle" : "ach")
+  ) {
     res.status(200).json({
       paymentRecordId: existing.id,
       orderId: order.id,
@@ -538,7 +596,9 @@ router.post("/orders/:id/ach-instructions", async (req, res) => {
       currency: existing.currency,
       status: existing.status,
       expiresAt: existing.expiresAt.toISOString(),
-      instructions: buildBankInstructions(existing.referenceCode),
+      instructions: isZelle
+        ? buildZelleInstructions(existing.referenceCode)
+        : buildBankInstructions(existing.referenceCode),
     });
     return;
   }
@@ -572,7 +632,7 @@ router.post("/orders/:id/ach-instructions", async (req, res) => {
       currency: "USD",
       amount,
       amountCents: order.totalCents,
-      method: "ach",
+      method: isZelle ? "zelle" : "ach",
       referenceCode,
       expiresAt,
       status: "pending",
@@ -598,7 +658,9 @@ router.post("/orders/:id/ach-instructions", async (req, res) => {
     currency: "USD",
     status: "pending",
     expiresAt: expiresAt.toISOString(),
-    instructions: buildBankInstructions(referenceCode),
+    instructions: isZelle
+      ? buildZelleInstructions(referenceCode)
+      : buildBankInstructions(referenceCode),
   });
 });
 

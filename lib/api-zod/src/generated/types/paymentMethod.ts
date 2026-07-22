@@ -7,7 +7,7 @@
  */
 
 /**
- * Payment rail. Crypto-first (BTCPay) + ACH/wire only. Card is not supported.
+ * Payment rail. Crypto-first (BTCPay) + ACH/wire/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.
  */
 export type PaymentMethod = (typeof PaymentMethod)[keyof typeof PaymentMethod];
 
@@ -16,4 +16,5 @@ export const PaymentMethod = {
   crypto_usdc: "crypto_usdc",
   ach: "ach",
   wire: "wire",
+  zelle: "zelle",
 } as const;
