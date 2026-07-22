@@ -1,6 +1,6 @@
 import { Router, type Request } from "express";
 import { z } from "zod/v4";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import QRCode from "qrcode";
 import { db } from "@atlab/db";
@@ -21,8 +21,23 @@ import {
   isAchProvisioned,
   ACH_EXPIRY_DAYS,
 } from "../services/ach";
+import { PAYABLE_ORDER_STATUSES } from "../lib/orderStatus";
 
 const router = Router();
+
+type OrderStatus = (typeof ordersTable.$inferSelect)["status"];
+
+function rejectIfNotPayable(
+  status: OrderStatus,
+  res: import("express").Response
+): boolean {
+  if (PAYABLE_ORDER_STATUSES.includes(status)) return false;
+  res.status(409).json({
+    error: "conflict",
+    message: `Order is ${status} and cannot accept a new payment`,
+  });
+  return true;
+}
 
 const CRYPTO_DISCOUNT_RATE = 0.1;
 
@@ -346,6 +361,7 @@ router.get("/orders/:id", async (req, res) => {
   }
   const payment = await db.query.paymentRecordsTable.findFirst({
     where: eq(paymentRecordsTable.orderId, order.id),
+    orderBy: [desc(paymentRecordsTable.createdAt)],
   });
   res.json({ ...order, payment: payment ?? null });
 });
@@ -369,9 +385,11 @@ router.post("/orders/:id/crypto-invoice", async (req, res) => {
     });
     return;
   }
+  if (rejectIfNotPayable(order.status, res)) return;
 
   const existingPending = await db.query.paymentRecordsTable.findFirst({
     where: eq(paymentRecordsTable.orderId, order.id),
+    orderBy: [desc(paymentRecordsTable.createdAt)],
   });
   if (existingPending && existingPending.status === "pending") {
     const qrPaymentUri =
@@ -413,23 +431,56 @@ router.post("/orders/:id/crypto-invoice", async (req, res) => {
   }
 
   const recordId = randomUUID();
-  await db.insert(paymentRecordsTable).values({
-    id: recordId,
-    orderId: order.id,
-    btcpayInvoiceId: invoice.invoiceId,
-    currency: invoice.currency,
-    amount: invoice.amount,
-    amountCents: invoice.amountCents,
-    paymentAddress: invoice.paymentAddress,
-    paymentUrl: invoice.paymentUrl,
-    expiresAt: invoice.expiresAt,
-    status: "pending",
+
+  // The BTCPay round trip above takes seconds, so the status read at the top of
+  // this handler is stale by now — an admin could have refunded the order in the
+  // meantime. Re-assert payability on the UPDATE itself, and keep the record
+  // insert in the same transaction so a crash cannot leave a live invoice
+  // attached to an order that never advanced.
+  const minted = await db.transaction(async (tx) => {
+    const [movedOrder] = await tx
+      .update(ordersTable)
+      .set({ status: "awaiting_payment", updatedAt: new Date() })
+      .where(
+        and(
+          eq(ordersTable.id, order.id),
+          inArray(ordersTable.status, PAYABLE_ORDER_STATUSES)
+        )
+      )
+      .returning();
+
+    if (!movedOrder) return false;
+
+    await tx.insert(paymentRecordsTable).values({
+      id: recordId,
+      orderId: order.id,
+      btcpayInvoiceId: invoice.invoiceId,
+      currency: invoice.currency,
+      amount: invoice.amount,
+      amountCents: invoice.amountCents,
+      paymentAddress: invoice.paymentAddress,
+      paymentUrl: invoice.paymentUrl,
+      expiresAt: invoice.expiresAt,
+      status: "pending",
+    });
+
+    return true;
   });
 
-  await db
-    .update(ordersTable)
-    .set({ status: "awaiting_payment" })
-    .where(eq(ordersTable.id, order.id));
+  if (!minted) {
+    // The order moved out of a payable status while BTCPay was minting. The
+    // invoice exists upstream but is deliberately not recorded against the
+    // order, so nothing here can be paid into a settled or refunded order.
+    console.warn(
+      `[orders] discarded BTCPay invoice ${invoice.invoiceId}: order ${order.id} ` +
+        `left a payable status during minting`
+    );
+    res.status(409).json({
+      error: "conflict",
+      message: "Order status changed while creating the invoice; please retry",
+    });
+    return;
+  }
 
   res.status(201).json({
     paymentRecordId: recordId,
@@ -470,10 +521,12 @@ router.post("/orders/:id/ach-instructions", async (req, res) => {
     res.status(503).json({ error: "ach_unavailable" });
     return;
   }
+  if (rejectIfNotPayable(order.status, res)) return;
 
   // Idempotent: return the existing pending ACH record if one already exists.
   const existing = await db.query.paymentRecordsTable.findFirst({
     where: eq(paymentRecordsTable.orderId, order.id),
+    orderBy: [desc(paymentRecordsTable.createdAt)],
   });
   if (existing && existing.status === "pending" && existing.referenceCode) {
     res.status(200).json({
@@ -496,8 +549,23 @@ router.post("/orders/:id/ach-instructions", async (req, res) => {
   const expiresAt = new Date(Date.now() + ACH_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
 
   // Create the pending payment record and advance the order status atomically —
-  // neither write should land without the other.
-  await db.transaction(async (tx) => {
+  // neither write should land without the other. The status predicate sits on
+  // the UPDATE, not just the check above, so a concurrent refund cannot be
+  // overwritten between the two.
+  const minted = await db.transaction(async (tx) => {
+    const [movedOrder] = await tx
+      .update(ordersTable)
+      .set({ status: "awaiting_payment", updatedAt: new Date() })
+      .where(
+        and(
+          eq(ordersTable.id, order.id),
+          inArray(ordersTable.status, PAYABLE_ORDER_STATUSES)
+        )
+      )
+      .returning();
+
+    if (!movedOrder) return false;
+
     await tx.insert(paymentRecordsTable).values({
       id: recordId,
       orderId: order.id,
@@ -510,11 +578,16 @@ router.post("/orders/:id/ach-instructions", async (req, res) => {
       status: "pending",
     });
 
-    await tx
-      .update(ordersTable)
-      .set({ status: "awaiting_payment" })
-      .where(eq(ordersTable.id, order.id));
+    return true;
   });
+
+  if (!minted) {
+    res.status(409).json({
+      error: "conflict",
+      message: "Order status changed while creating the instructions; please retry",
+    });
+    return;
+  }
 
   res.status(201).json({
     paymentRecordId: recordId,
@@ -530,11 +603,32 @@ router.post("/orders/:id/ach-instructions", async (req, res) => {
 });
 
 router.get("/orders/:id/payment-qr", async (req, res) => {
-  const payment = await db.query.paymentRecordsTable.findFirst({
-    where: eq(paymentRecordsTable.orderId, req.params.id),
+  // Every sibling handler gates on canReadOrder; this one did not, so an order
+  // id alone yielded the pay-to address and amount even for an order belonging
+  // to a signed-in customer or a wholesale account.
+  const order = await db.query.ordersTable.findFirst({
+    where: eq(ordersTable.id, req.params.id),
   });
-  if (!payment?.paymentAddress) {
-    res.status(404).json({ error: "not_found", message: "Payment record not found" });
+  if (!order) {
+    res.status(404).json({ error: "not_found", message: "Order not found" });
+    return;
+  }
+  if (!(await canReadOrder(req, order))) {
+    res.status(403).json(FORBIDDEN);
+    return;
+  }
+
+  const payment = await db.query.paymentRecordsTable.findFirst({
+    where: and(
+      eq(paymentRecordsTable.orderId, req.params.id),
+      eq(paymentRecordsTable.status, "pending")
+    ),
+    orderBy: [desc(paymentRecordsTable.createdAt)],
+  });
+  // Only a live, unexpired invoice gets a scannable code — rendering one for a
+  // settled or expired invoice invites a payment that can no longer be credited.
+  if (!payment?.paymentAddress || payment.expiresAt.getTime() <= Date.now()) {
+    res.status(404).json({ error: "not_found", message: "No live payment record for this order" });
     return;
   }
   const qrUri =

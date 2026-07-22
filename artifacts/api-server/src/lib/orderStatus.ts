@@ -1,22 +1,51 @@
+import { orderStatusEnum } from "@atlab/db/schema";
+
 // Shared order status predicates.
 //
-// Settlement happens on two rails — the BTCPay webhook (routes/webhooks.ts) and
-// the admin ACH confirmation (routes/admin.ts). Both must agree on which
-// statuses an order may be moved out of, or one becomes a bypass for the other:
-// a guard on the webhook is worth nothing if an admin endpoint can confirm a
-// refunded order. Keep this list as the single definition.
+// Every route that writes orders.status must put its predicate on the UPDATE
+// itself, not only on a preceding SELECT — otherwise the check and the write can
+// disagree across an await, and the whole guard is decorative. Settlement runs on
+// two rails (the BTCPay webhook and the admin ACH confirmation) and payment
+// instruments are minted on a third, so these lists live here rather than being
+// restated per file: a guard duplicated in three places is a guard that drifts.
+//
+// All three are typed off orderStatusEnum, so adding a status to the schema
+// without classifying it here is a compile error rather than a silent hole.
+
+type OrderStatus = (typeof orderStatusEnum.enumValues)[number];
 
 /**
- * Statuses a settlement path may move an order OUT of. An order that is already
- * confirmed, or that an admin has refunded, is never rewritten by a settlement.
+ * Final: no route may transition an order out of these.
  */
-export const SETTLEABLE_ORDER_STATUSES: readonly (
-  | "pending"
-  | "awaiting_payment"
-)[] = ["pending", "awaiting_payment"];
+export const TERMINAL_ORDER_STATUSES: readonly OrderStatus[] = ["refunded"];
 
 /**
- * Statuses that are final: no further transition is permitted from them by any
- * route. Mirrors the check already enforced on PATCH /admin/orders/:id.
+ * Statuses a settlement may move an order OUT of — everything except terminal.
+ *
+ * Deliberately permissive. Settlement is already gated on much stronger
+ * conditions: the specific payment record must still be pending, BTCPay must
+ * independently report the invoice Settled, and the invoice's order id, currency
+ * and amount must all match. Narrowing this further does not prevent a bad
+ * settlement, it only strands a good one — a late payment against an invoice we
+ * already expired would confirm the payment record and leave the order dead,
+ * with real funds received and nothing but a log line to show for it.
  */
-export const TERMINAL_ORDER_STATUSES: readonly string[] = ["refunded"];
+export const SETTLEABLE_ORDER_STATUSES: readonly OrderStatus[] =
+  orderStatusEnum.enumValues.filter(
+    (s) => !TERMINAL_ORDER_STATUSES.includes(s)
+  );
+
+/**
+ * Statuses from which a buyer may (re)mint a payment instrument.
+ *
+ * An expired or failed order should be payable again — that is a normal retry.
+ * A confirmed or refunded one must not be: minting there also resets the order
+ * to awaiting_payment, dropping it out of confirmed revenue and handing a
+ * refunded order a live pay-to address.
+ */
+export const PAYABLE_ORDER_STATUSES: readonly OrderStatus[] = [
+  "pending",
+  "awaiting_payment",
+  "expired",
+  "failed",
+];

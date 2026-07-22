@@ -134,7 +134,19 @@ test("concurrent ACH confirmations settle to exactly one success", async () => {
     adminPost(`/api/admin/orders/${orderId}/confirm-ach`),
   ]);
 
-  const codes = results.map((r) => r.status).sort();
-  assert.deepEqual(codes, [200, 409]);
+  // The loser is 409 if it raced past the pending-payment lookup, or 404 if the
+  // handlers serialised and it found no pending record. Both are correct; only
+  // "exactly one settled" is the invariant, so assert that rather than a
+  // specific pair of codes — a security test that flakes gets deleted.
+  const codes = results.map((r) => r.status);
+  assert.equal(
+    codes.filter((c) => c === 200).length,
+    1,
+    `expected exactly one success, got ${codes.join(", ")}`
+  );
+  assert.ok(
+    codes.every((c) => [200, 404, 409].includes(c)),
+    `unexpected status in ${codes.join(", ")}`
+  );
   assert.equal(await orderStatus(orderId), "confirmed");
 });

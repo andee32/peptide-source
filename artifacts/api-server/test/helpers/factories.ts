@@ -70,7 +70,13 @@ export function orderPayload(
 // record — the state a BTCPay webhook would arrive against.
 export async function seedOrderWithPayment(
   opts: {
-    orderStatus?: "pending" | "awaiting_payment" | "confirmed" | "refunded";
+    orderStatus?:
+      | "pending"
+      | "awaiting_payment"
+      | "confirmed"
+      | "failed"
+      | "expired"
+      | "refunded";
     paymentStatus?: "pending" | "confirmed" | "expired" | "failed";
     totalCents?: number;
     btcpayInvoiceId?: string;

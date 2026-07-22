@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and, ne, asc, desc, count, inArray, sql } from "drizzle-orm";
+import { eq, and, ne, asc, desc, count, inArray, notInArray, sql } from "drizzle-orm";
 import { createHash, timingSafeEqual } from "crypto";
 import { db } from "@atlab/db";
 import {
@@ -1169,9 +1169,27 @@ router.patch("/admin/orders/:id", async (req, res) => {
     if (parsed.data.trackingNumber !== undefined) updates.trackingNumber = parsed.data.trackingNumber;
     if (parsed.data.carrier !== undefined) updates.carrier = parsed.data.carrier;
 
-    const [updated] = await db.transaction(async (tx) =>
-      tx.update(ordersTable).set(updates).where(eq(ordersTable.id, order.id)).returning()
+    // The terminal check above reads the SELECTed row, which is already stale.
+    // When this request changes status, re-assert non-terminality on the UPDATE
+    // so a refund committed in between cannot be silently overwritten.
+    const guard = and(
+      eq(ordersTable.id, order.id),
+      parsed.data.status !== undefined
+        ? notInArray(ordersTable.status, [...TERMINAL_ORDER_STATUSES])
+        : undefined
     );
+
+    const [updated] = await db.transaction(async (tx) =>
+      tx.update(ordersTable).set(updates).where(guard).returning()
+    );
+
+    if (!updated) {
+      res.status(409).json({
+        error: "conflict",
+        message: "Order reached a terminal status before this change was applied",
+      });
+      return;
+    }
 
     res.json(updated);
   } catch (err) {
