@@ -237,7 +237,7 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Two-component blend of BPC-157 (synthetic pentadecapeptide) and TB-500 (Ac-LKKTETQ, the acetylated thymosin beta-4 17-23 fragment), supplied as a 10-vial kit for in-vitro cell migration and cytoskeletal research; per-component mass stated on the lot COA. For laboratory research use only.",
+      "Two-component research blend of BPC-157 (synthetic pentadecapeptide) and TB-500 (thymosin beta-4 17-23 fragment), supplied as a 10-vial kit for in-vitro cell migration and cytoskeletal research. Component identities, per-component masses and salt forms are stated on the lot COA. For laboratory research use only.",
     researchUses: [
       "In-vitro fibroblast outgrowth and transwell migration assays with FAK/paxillin phosphorylation readout",
       "In-vitro G-actin binding and cytoskeletal sequestration assays for the LKKTETQ actin-binding motif (TB-500 component)",
@@ -441,7 +441,7 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Research-use blend of four peptide and copper-peptide compounds — KPV (alpha-MSH 11-13), GHK-Cu (copper tripeptide complex), BPC-157, and TB-500 (thymosin beta-4 17-23 fragment) — supplied as a 10-vial kit for in-vitro co-signaling assays; exact composition and per-component amounts per supplier COA. For laboratory research use only.",
+      "Four-component research blend of KPV (alpha-MSH 11-13), GHK-Cu (copper(II) complex of glycyl-L-histidyl-L-lysine; INCI copper tripeptide-1), BPC-157 and TB-500 (thymosin beta-4 17-23 fragment), supplied as a 10-vial kit. Component identities, per-component masses and salt forms are stated on the lot COA. For laboratory research use only.",
     researchUses: [
       "In-vitro combination-peptide co-signaling assays in cultured cells",
       "Comparative in-vitro studies of NF-kB / IL-1beta pathway modulation (KPV component)",
@@ -455,7 +455,7 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Three-component research blend of GHK-Cu (copper tripeptide-1), BPC-157 and TB-500 (Ac-LKKTETQ, thymosin beta-4 17–23 fragment); 10-vial kit, per-component masses and salt forms stated on the lot COA. For laboratory research use only.",
+      "Three-component research blend of GHK-Cu (copper(II) complex of glycyl-L-histidyl-L-lysine; INCI copper tripeptide-1), BPC-157 and TB-500 (thymosin beta-4 17-23 fragment), supplied as a 10-vial kit. Component identities, per-component masses and salt forms are stated on the lot COA. For laboratory research use only.",
     researchUses: [
       "GHK-Cu component: collagen and glycosaminoglycan synthesis assays in cultured dermal fibroblasts",
       "BPC-157 component: tendon-fibroblast explant outgrowth, transwell migration, and FAK/paxillin phosphorylation assays",

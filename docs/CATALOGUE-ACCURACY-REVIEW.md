@@ -97,6 +97,26 @@ Recorded here so the items below are not re-raised as open findings.
   observation stands as a fact for counsel — "GLOW" implies a cosmetic outcome and "Wolverine"
   alludes to regenerative healing — but this is a business decision, not an unresolved finding.
 - **All three blends are categorised `recovery`.**
+- **GLOW and KLOW categories researched and confirmed as `recovery`** (2026-07-22). Market
+  composition is unanimous across sampled vendors: GLOW = GHK-Cu + BPC-157 + TB-500;
+  KLOW = GLOW + KPV. The 70mg/80mg vial sizes corroborate it — the 10mg delta is the KPV, and
+  the existing GLOW70/KLOW80 variant names already match the market standard. KPV does not
+  shift KLOW out of `recovery`: it is 10 of 80mg, BPC-157 already contributes the gut and
+  anti-inflammatory biology, and every standalone component in this catalogue is itself filed
+  under `recovery`. `other` would be worse — here it is the endocrine/melanocortin bucket.
+  Caveat recorded: `recovery` functions as a broad tissue-repair bucket rather than a tight
+  claim. If a dermal/ECM category is ever added, GLOW moves there before KLOW does.
+- **No ratio is published for any blend, deliberately.** The market convention is
+  GHK-Cu 50 / BPC-157 10 / TB-500 10 (+ KPV 10), but a third-party HPLC-UV/MS COA published by
+  one vendor for an 80mg KLOW reports roughly 30.6 / 18.5 / 10.0 / 22.9 — KPV more than double
+  the label convention and GHK-Cu about 40% below it. Whether that is a different blend or an
+  assay diverging from a label, it shows the convention is marketing, not a specification.
+  Only the lot COA settles what is in these vials.
+- **Blend component identities are now hedged to the COA.** All three blends are
+  `asia_warehouse` — not our own material — so stating a firm chemical identity such as
+  "Ac-LKKTETQ" for them was an unverified claim about a third party's product. The standalone
+  TB-500 and GHK-Cu listings are `usa_domestic` and keep their firm identities.
+
 
 ### Still outstanding on the blends
 
