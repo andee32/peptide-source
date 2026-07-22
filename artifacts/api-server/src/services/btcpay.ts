@@ -164,9 +164,15 @@ export class BTCPayService {
       throw new PaymentRailUnavailableError();
     }
 
+    // Node's fetch has no default timeout. Without this a hung BTCPay connection
+    // holds the webhook request open indefinitely; the abort turns that into the
+    // throw path the caller already handles by failing closed.
     const response = await fetch(
       `${BTCPAY_URL}/api/v1/stores/${BTCPAY_STORE}/invoices/${encodeURIComponent(invoiceId)}`,
-      { headers: { Authorization: `token ${BTCPAY_KEY}` } }
+      {
+        headers: { Authorization: `token ${BTCPAY_KEY}` },
+        signal: AbortSignal.timeout(10_000),
+      }
     );
 
     if (!response.ok) {
