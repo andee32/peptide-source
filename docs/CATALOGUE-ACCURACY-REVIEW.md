@@ -83,6 +83,29 @@ Nothing in public literature can settle these.
 - Thymalin import compliance: the authentic material is bovine calf thymus extract, subject to USDA APHIS animal-product import controls and BSE/TSE country-of-origin restrictions. Route to the customs broker — this was not verified in the review.
 - Whether a B2C single-vial retail path exists for Tirzepatide and Retatrutide (seed.ts computes a retail per-vial price). If so, decide deliberately — FDA's enforcement theory in this vertical turns on consumer-facing sale of human-usable strengths, not on the disclaimer text.
 
+
+## Owner decisions (2026-07-22)
+
+Recorded here so the items below are not re-raised as open findings.
+
+- **Wolverine composition confirmed by the owner as BPC-157 + TB-500.** The listing was
+  republished on that basis, recategorised `cognitive` -> `recovery`, and its research uses
+  set per component. Note the uses are per-component: no published study tests the
+  combination, so no combination activity is claimed.
+- **Blend names (GLOW, KLOW, Wolverine) are retained deliberately.** They are industry-standard
+  names that buyers search for, and the commercial cost of renaming is real. The compliance
+  observation stands as a fact for counsel — "GLOW" implies a cosmetic outcome and "Wolverine"
+  alludes to regenerative healing — but this is a business decision, not an unresolved finding.
+- **All three blends are categorised `recovery`.**
+
+### Still outstanding on the blends
+
+Per-component masses are not stated for any of the three. For a blend the per-component mass
+IS the specification, so "70mg" of a multi-component mix is not one. Every blend currently
+defers to "per lot COA", which is honest but means a buyer cannot see what they are getting
+before purchase. GLOW (3 components) and KLOW (4 components) also have owner-asserted rather
+than independently verified compositions.
+
 ## Per-product findings
 
 ### MT-1

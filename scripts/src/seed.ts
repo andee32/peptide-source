@@ -234,11 +234,15 @@ const CATALOG: ProductSeed[] = [
   {
     name: "Wolverine",
     slug: "wolverine",
-    category: "cognitive",
+    category: "recovery",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Two-component synthetic peptide blend supplied as a 10-vial kit; declared components and per-vial mass of each are stated on the accompanying lot COA. For laboratory research use only.",
-    researchUses: [],
+      "Two-component blend of BPC-157 (synthetic pentadecapeptide) and TB-500 (Ac-LKKTETQ, the acetylated thymosin beta-4 17-23 fragment), supplied as a 10-vial kit for in-vitro cell migration and cytoskeletal research; per-component mass stated on the lot COA. For laboratory research use only.",
+    researchUses: [
+      "In-vitro fibroblast outgrowth and transwell migration assays with FAK/paxillin phosphorylation readout",
+      "In-vitro G-actin binding and cytoskeletal sequestration assays for the LKKTETQ actin-binding motif (TB-500 component)",
+      "In-vitro endothelial tube-formation and VEGFR2 signalling assays",
+    ],
     variants: [{ name: "10mg", priceCents: 10500, sku: "WV10" }],
   },
 
