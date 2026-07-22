@@ -208,12 +208,18 @@ importers:
       '@types/nodemailer':
         specifier: ^7.0.11
         version: 7.0.11
+      '@types/pg':
+        specifier: ^8.18.0
+        version: 8.18.0
       '@types/qrcode':
         specifier: ^1.5.6
         version: 1.5.6
       esbuild:
         specifier: 0.27.3
         version: 0.27.3
+      pg:
+        specifier: ^8.20.0
+        version: 8.20.0
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
