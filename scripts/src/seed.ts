@@ -42,11 +42,12 @@ const CATALOG: ProductSeed[] = [
     category: "metabolic",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Dual GIP/GLP-1 receptor agonist supplied as a 10-vial wholesale kit for in-vitro incretin receptor research. For laboratory research use only.",
+      "Tirzepatide (LY3298176) is a 39-amino-acid synthetic peptide with a GIP-derived backbone, Aib substitutions at positions 2 and 13, and a C20 fatty diacid at Lys20, characterized in vitro as an imbalanced dual GIP/GLP-1 receptor agonist that is cAMP-biased at GLP-1R. Supplied as a 10-vial wholesale kit for in-vitro incretin receptor pharmacology. For laboratory research use only.",
     featured: true,
     researchUses: [
-      "Dual incretin (GIP/GLP-1) receptor binding assays",
-      "In-vitro metabolic signaling studies",
+      "Competitive radioligand binding at recombinant human GIP and GLP-1 receptors ([125I]-GIP / [125I]-GLP-1, HEK293)",
+      "cAMP accumulation and [35S]GTPgammaS binding assays comparing GIPR versus GLP-1R potency",
+      "NanoBRET beta-arrestin and GRK2 recruitment and SNAP-tag receptor internalization assays characterizing GLP-1R signaling bias",
     ],
     variants: [
       { name: "10mg", priceCents: 7500, sku: "TR10" },
@@ -61,14 +62,15 @@ const CATALOG: ProductSeed[] = [
     category: "metabolic",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Triple agonist (GLP-1/GIP/glucagon) 10-vial kit for in-vitro receptor characterization. For laboratory research use only.",
+      "Retatrutide (LY3437943), a synthetic acylated peptide agonist of the GLP-1, GIP, and glucagon receptors, supplied as a 10-vial kit for in-vitro receptor-signaling and comparative pharmacology assays. For laboratory research use only.",
     featured: true,
     // All products are research-use-only; not gating per-SKU. complianceStatus
     // stays available as an admin control but defaults to cleared for everything.
     complianceStatus: "cleared",
     researchUses: [
-      "Triple receptor agonism mechanistic assays",
-      "Comparative in-vitro incretin studies",
+      "In-vitro triple-receptor agonism assays (GLP-1R/GIPR/GCGR cAMP and beta-arrestin signaling)",
+      "Comparative in-vitro potency/selectivity profiling versus other GLP-1/GIP/glucagon-receptor agonists",
+      "In-vitro structure-activity and receptor-binding characterization of acylated multi-agonist peptides",
     ],
     variants: [
       { name: "10mg", priceCents: 11500, sku: "RT10" },
@@ -82,10 +84,11 @@ const CATALOG: ProductSeed[] = [
     category: "metabolic",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Long-acting amylin analog 10-vial kit for in-vitro amylin receptor research. For laboratory research use only.",
+      "Acylated 37-residue amylin analog (AM833) 10-vial kit for in-vitro amylin (AMY1/2/3) and calcitonin receptor pharmacology. For laboratory research use only.",
     researchUses: [
-      "Amylin receptor binding assays",
-      "In-vitro peptide stability characterization",
+      "Amylin (AMY1/AMY2/AMY3) and calcitonin receptor binding and cAMP accumulation assays",
+      "RAMP-dependent receptor pharmacology and agonist-selectivity profiling in CTR/RAMP-transfected cell lines",
+      "In-vitro physical-stability and amyloid-fibrillation characterization of amylin-family peptides",
     ],
     variants: [{ name: "10mg", priceCents: 19000, sku: "CG10" }],
   },
@@ -97,10 +100,11 @@ const CATALOG: ProductSeed[] = [
     category: "other",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "GHRH analog 10-vial kit for in-vitro growth hormone axis research. For laboratory research use only.",
+      "DPP-4-resistant synthetic human GHRH analog ([trans-3-hexenoyl]hGHRH(1-44) amide, CAS 218949-48-5), supplied as a 10-vial kit for in-vitro GHRH-receptor and peptide-stability research. For laboratory research use only.",
     researchUses: [
-      "GHRH receptor binding assays",
-      "In-vitro somatotroph signaling studies",
+      "In-vitro plasma stability and metabolite profiling by LC-HRMS/MS, characterizing DPP-4 resistance conferred by the N-terminal trans-3-hexenoyl group",
+      "Analytical reference standard for LC-HRMS/MS method development and immunoaffinity enrichment of GHRH analogues (PMC4830873)",
+      "GHRH receptor (GHRHR) competitive binding and Gs/cAMP reporter assays in pituitary-derived cell lines — established for GHRH-class agonists (PMC12137518); tesamorelin-specific in-vitro affinity data not located in the peer-reviewed literature",
     ],
     variants: [
       { name: "5mg", priceCents: 11500, sku: "TS5" },
@@ -113,10 +117,11 @@ const CATALOG: ProductSeed[] = [
     category: "other",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Long-arginine IGF-1 analog 10-vial kit for in-vitro growth factor research. For laboratory research use only.",
+      "Long Arg³ IGF-1 (Long R3 IGF-1), an 83-residue recombinant IGF-1 analog engineered for low IGF-binding-protein affinity, supplied as a 10-vial kit for in-vitro cell culture and IGF-1R signalling research. For laboratory research use only.",
     researchUses: [
-      "IGF-1 receptor binding assays",
-      "In-vitro cell proliferation studies",
+      "Serum-free and reduced-serum mammalian cell culture supplementation (HEK293, CHO) as a more potent in-vitro alternative to insulin or native IGF-1",
+      "In-vitro cell proliferation and anti-apoptotic signalling assays",
+      "In-vitro IGF-1R pathway studies (IRS-1/PI3K-Akt and MAPK phosphorylation) under low-IGF-binding-protein conditions",
     ],
     variants: [{ name: "1mg", priceCents: 19500, sku: "IGF1" }],
   },
@@ -126,10 +131,11 @@ const CATALOG: ProductSeed[] = [
     category: "other",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Selective growth hormone secretagogue 10-vial kit for in-vitro receptor research. For laboratory research use only.",
+      "Ipamorelin (Aib-His-D-2-Nal-D-Phe-Lys-NH2), a synthetic pentapeptide agonist of the growth hormone secretagogue receptor GHS-R1a, supplied as a 10-vial kit for in-vitro receptor binding and signalling assays. For laboratory research use only.",
     researchUses: [
-      "Ghrelin/GHS-R receptor binding assays",
-      "In-vitro secretagogue selectivity studies",
+      "GHS-R1a (ghrelin receptor) radioligand competition binding assays in receptor-transfected cell lines",
+      "GHS-R1a functional signalling readouts — inositol phosphate accumulation and intracellular Ca2+ mobilisation",
+      "Growth hormone secretion assays in primary anterior pituitary cell culture",
     ],
     variants: [{ name: "10mg", priceCents: 8500, sku: "IP10" }],
   },
@@ -141,11 +147,12 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Body Protection Compound pentadecapeptide 10-vial kit for in-vitro tissue and angiogenesis research. For laboratory research use only.",
+      "BPC-157, a synthetic pentadecapeptide (GEPPPGKPADDAGLV) corresponding to a partial sequence of the gastric protein BPC, supplied as a 10-vial kit for in-vitro endothelial and fibroblast culture work. For laboratory research use only.",
     featured: true,
     researchUses: [
-      "In-vitro fibroblast and angiogenesis assays",
-      "Cytoprotection mechanism studies",
+      "In-vitro endothelial (HUVEC) tube-formation and migration assays",
+      "Cultured fibroblast and tendon-explant outgrowth assays",
+      "FAK-paxillin and VEGFR2-Akt-eNOS signalling readouts in cell culture",
     ],
     variants: [
       { name: "5mg", priceCents: 6000, sku: "BC5" },
@@ -158,10 +165,11 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Thymosin beta-4 fragment 10-vial kit for in-vitro cell migration research. For laboratory research use only.",
+      "Ac-LKKTETQ-OH, a synthetic acetylated heptapeptide corresponding to residues 17-23 of thymosin beta-4, supplied as a 10-vial kit for in-vitro cell migration and cytoskeletal research. For laboratory research use only.",
     researchUses: [
-      "In-vitro actin regulation assays",
-      "Cell migration and wound-model studies",
+      "In-vitro endothelial cell (HUVEC) migration and adhesion assays",
+      "Ex-vivo vessel-sprouting / angiogenesis explant assays (chick aortic arch)",
+      "Structure-activity comparison against full-length thymosin beta-4 and truncated LKKTET analogues, including G-actin binding studies — actin sequestration by the isolated heptapeptide remains an untested hypothesis",
     ],
     variants: [{ name: "10mg", priceCents: 15000, sku: "TB10" }],
   },
@@ -171,10 +179,11 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Erythropoietin-derived peptide 10-vial kit for in-vitro tissue-protective receptor research. For laboratory research use only.",
+      "Cibinetide (ARA-290) 10-vial kit — a synthetic 11-amino-acid, non-erythropoietic mimetic of the erythropoietin helix-B surface, for in-vitro innate repair receptor (EPOR/CD131) signaling research. For laboratory research use only.",
     researchUses: [
-      "Innate repair receptor binding assays",
-      "In-vitro anti-inflammatory signaling studies",
+      "In-vitro EPOR/CD131 (innate repair receptor) selectivity and receptor-dependence assays",
+      "In-vitro macrophage and dendritic cell cytokine/chemokine expression assays (CCL2, CCL3, CXCL1; MHC-II, CD86)",
+      "Cellular stress and apoptosis assays in cultured mesenchymal-derived or neuronal cells",
     ],
     variants: [{ name: "10mg", priceCents: 7100, sku: "AR10" }],
   },
@@ -184,10 +193,11 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Alpha-MSH C-terminal tripeptide 10-vial kit for in-vitro anti-inflammatory research. For laboratory research use only.",
+      "Lys-Pro-Val (KPV), the C-terminal tripeptide of alpha-MSH, 10-vial kit for in-vitro anti-inflammatory and NF-kB signaling research. For laboratory research use only.",
     researchUses: [
-      "In-vitro NF-kB pathway assays",
-      "Epithelial inflammation model studies",
+      "In-vitro NF-kB reporter / signaling inhibition assays in cytokine-stimulated intestinal epithelial cells (e.g. Caco2-BBE, HT29-Cl.19A) - Dalmasso 2008, Gastroenterology",
+      "PepT1-mediated peptide-transporter uptake/competition studies ([3H]KPV kinetics)",
+      "In-vitro pro-inflammatory cytokine (e.g. IL-8/TNF-driven) secretion assays in epithelial and immune (Jurkat) cell models",
     ],
     variants: [{ name: "10mg", priceCents: 7300, sku: "KPV10" }],
   },
@@ -199,10 +209,11 @@ const CATALOG: ProductSeed[] = [
     category: "cognitive",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Tuftsin-derived heptapeptide 10-vial kit for in-vitro neuromodulation research. For laboratory research use only.",
+      "Synthetic heptapeptide (Thr-Lys-Pro-Arg-Pro-Gly-Pro), the tuftsin tetrapeptide extended with a C-terminal Pro-Gly-Pro; 10-vial kit for in-vitro peptidase and neuropeptide-stability research. For laboratory research use only.",
     researchUses: [
-      "In-vitro GABAergic signaling assays",
-      "Neuropeptide stability characterization",
+      "Cell-free enkephalin-degrading peptidase inhibition assays (human serum enzyme activity)",
+      "Comparative protease-resistance and peptide stability characterization (vs. tuftsin)",
+      "Exploratory gene-expression profiling in neuronal cell lines (e.g. IMR-32)",
     ],
     variants: [{ name: "10mg", priceCents: 7700, sku: "SL10" }],
   },
@@ -212,10 +223,11 @@ const CATALOG: ProductSeed[] = [
     category: "cognitive",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Semax-related neuropeptide 10-vial kit for in-vitro neurotrophic research. For laboratory research use only.",
+      "Synthetic acetylated analog of the ACTH(4-10)-derived peptide Semax, supplied as a 10-vial kit for in-vitro neuroscience research; exact sequence and mass per lot COA. For laboratory research use only.",
     researchUses: [
-      "In-vitro BDNF expression assays",
-      "Neuronal culture signaling studies",
+      "Comparative in-vitro stability and purity characterization against Semax reference material (LC-MS / HPLC; the analog's exact mass is disputed in public sources and should be established empirically)",
+      "Comparative BDNF-expression assays in cultured glia",
+      "Radioligand competition against the Semax binding site in rat basal-forebrain membrane preparations to establish whether the modification retains binding",
     ],
     variants: [{ name: "10mg", priceCents: 20000, sku: "AD10" }],
   },
@@ -225,11 +237,8 @@ const CATALOG: ProductSeed[] = [
     category: "cognitive",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Neuropeptide research blend 10-vial kit for in-vitro neuromodulation studies. For laboratory research use only.",
-    researchUses: [
-      "In-vitro neuropeptide co-signaling assays",
-      "Comparative stability characterization",
-    ],
+      "Two-component synthetic peptide blend supplied as a 10-vial kit; declared components and per-vial mass of each are stated on the accompanying lot COA. For laboratory research use only.",
+    researchUses: [],
     variants: [{ name: "10mg", priceCents: 10500, sku: "WV10" }],
   },
 
@@ -240,10 +249,11 @@ const CATALOG: ProductSeed[] = [
     category: "longevity",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Thymic peptide bioregulator 10-vial kit for in-vitro immunomodulation research. For laboratory research use only.",
+      "Bovine thymus–derived polypeptide complex (heterogeneous ~1–10 kDa mixture; no single defined sequence, and not thymulin or thymogen), supplied as a 10-vial kit for in-vitro immunology research. For laboratory research use only.",
     researchUses: [
-      "In-vitro thymocyte differentiation assays",
-      "Peptide bioregulator characterization",
+      "In-vitro differentiation-marker expression in cultured human hematopoietic stem cells (CD44 / CD117 / CD28)",
+      "In-vitro gene-expression and protein-synthesis studies of the constituent KE (Lys-Glu) and EW (Glu-Trp) dipeptides in cultured cells",
+      "Analytical characterization of the peptide mixture (RP-HPLC fingerprinting, molecular-weight distribution, peptide content)",
     ],
     variants: [{ name: "10mg", priceCents: 8100, sku: "TM10" }],
   },
@@ -253,10 +263,11 @@ const CATALOG: ProductSeed[] = [
     category: "longevity",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Ala-Glu-Asp-Gly tetrapeptide 10-vial kit for in-vitro telomere and senescence research. For laboratory research use only.",
+      "Epithalon (Epitalon), the synthetic tetrapeptide Ala-Glu-Asp-Gly (CAS 307297-39-8, MW 390.35), supplied as a 10-vial kit for in-vitro telomerase activity and telomere-length assays in cultured cells. For laboratory research use only.",
     researchUses: [
-      "In-vitro telomerase activation assays",
-      "Cellular senescence model studies",
+      "In-vitro telomerase activity and hTERT mRNA expression assays in cultured human cells",
+      "Telomere-length quantification (qPCR) in cultured normal and immortalised cell lines",
+      "Replicative-lifespan (Hayflick-limit) culture models in telomerase-negative human fibroblasts",
     ],
     variants: [{ name: "10mg", priceCents: 6500, sku: "EP10" }],
   },
@@ -266,10 +277,11 @@ const CATALOG: ProductSeed[] = [
     category: "longevity",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Mitochondrial-derived peptide 10-vial kit for in-vitro metabolic regulation research. For laboratory research use only.",
+      "MOTS-c, a 16-amino-acid mitochondrial-derived peptide (encoded in the 12S rRNA/MT-RNR1 region), supplied as a 10-vial kit for in-vitro study of AMPK signaling and metabolic-pathway regulation. For laboratory research use only.",
     researchUses: [
-      "In-vitro AMPK signaling assays",
-      "Mitochondrial function studies",
+      "In-vitro AMPK activation / signaling assays in cultured cells",
+      "In-vitro glucose-uptake (GLUT4 translocation) studies in cultured skeletal-muscle cell lines",
+      "Cell-based studies of the folate/one-carbon cycle and AICAR-mediated AMPK regulation",
     ],
     variants: [
       { name: "10mg", priceCents: 7500, sku: "MC10" },
@@ -282,10 +294,11 @@ const CATALOG: ProductSeed[] = [
     category: "longevity",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Mitochondria-targeting tetrapeptide (elamipretide) 10-vial kit for in-vitro cardiolipin research. For laboratory research use only.",
+      "Synthetic mitochondria-accumulating tetrapeptide (D-Arg-Dmt-Lys-Phe-NH2) supplied as a 10-vial kit for in-vitro study of anionic phospholipid binding and isolated-mitochondria bioenergetics. For laboratory research use only.",
     researchUses: [
-      "In-vitro cardiolipin binding assays",
-      "Mitochondrial bioenergetics studies",
+      "In-vitro binding assays against cardiolipin-containing liposomes and anionic model membranes (surface potential, lipid packing)",
+      "Bioenergetic assays in isolated mitochondria and permeabilized fibers (respiration, ATP synthesis rate, ADP sensitivity)",
+      "Chemical crosslinking / affinity-capture mapping of inner-mitochondrial-membrane protein interactors",
     ],
     variants: [{ name: "10mg", priceCents: 9500, sku: "SS10" }],
   },
@@ -297,11 +310,12 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Copper tripeptide-1 10-vial kit for in-vitro tissue remodeling and matrix research. For laboratory research use only.",
+      "Copper(II) complex of the tripeptide glycyl-L-histidyl-L-lysine (GHK-Cu; INCI copper tripeptide-1), CAS 89030-95-5, supplied as a 10-vial kit for in-vitro extracellular matrix and fibroblast culture research. For laboratory research use only.",
     featured: true,
     researchUses: [
-      "In-vitro collagen synthesis assays",
-      "Extracellular matrix remodeling studies",
+      "In-vitro collagen synthesis assays in cultured dermal fibroblasts",
+      "MMP and TIMP expression studies in fibroblast culture",
+      "Peptide–copper(II) coordination and complex-stability chemistry",
     ],
     variants: [{ name: "50mg", priceCents: 5116, sku: "CU50" }],
   },
@@ -311,10 +325,11 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Copper tripeptide AHK 10-vial kit for in-vitro angiogenesis and follicle research. For laboratory research use only.",
+      "AHK-Cu (L-alanyl-L-histidyl-L-lysine copper(II) complex) 10-vial kit for in-vitro dermal papilla cell and ex-vivo hair follicle organ-culture research. For laboratory research use only.",
     researchUses: [
-      "In-vitro angiogenesis assays",
-      "Dermal fibroblast culture studies",
+      "Dermal papilla cell proliferation and viability assays (MTT)",
+      "Ex-vivo human hair follicle organ-culture elongation studies",
+      "In-vitro apoptosis-marker studies (Annexin V/PI, Bcl-2/Bax, cleaved caspase-3/PARP)",
     ],
     variants: [{ name: "100mg", priceCents: 7700, sku: "AHK100" }],
   },
@@ -326,10 +341,11 @@ const CATALOG: ProductSeed[] = [
     category: "other",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Melanotan-1 (afamelanotide analog) 10-vial kit for in-vitro melanocortin receptor research. For laboratory research use only.",
+      "Melanotan-1 (afamelanotide; [Nle4,D-Phe7]-alpha-MSH), a synthetic alpha-MSH analog and potent melanocortin receptor agonist, 10-vial kit for in-vitro MC1R binding and melanogenesis research. For laboratory research use only.",
     researchUses: [
-      "MC1R receptor binding assays",
-      "In-vitro melanogenesis studies",
+      "MC1R receptor binding / competition assays (NDP-MSH is a standard high-affinity reference agonist)",
+      "In-vitro melanogenesis and melanocyte pigmentation studies (tyrosinase/melanin induction)",
+      "Melanocortin receptor signaling (cAMP) assays across MC1R/MC3R/MC4R/MC5R using NDP-MSH as reference ligand",
     ],
     variants: [{ name: "10mg", priceCents: 6000, sku: "MT1-10" }],
   },
@@ -339,10 +355,11 @@ const CATALOG: ProductSeed[] = [
     category: "other",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Melanotan-2 cyclic heptapeptide 10-vial kit for in-vitro melanocortin research. For laboratory research use only.",
+      "Melanotan-2 (MT-II), a synthetic lactam-bridged cyclic heptapeptide analog of alpha-MSH and non-selective melanocortin (MC1R/MC3R/MC4R/MC5R) receptor agonist, supplied as a 10-vial kit for in-vitro receptor and melanogenesis research. For laboratory research use only.",
     researchUses: [
-      "Non-selective melanocortin receptor assays",
-      "In-vitro pigmentation model studies",
+      "In-vitro melanocortin receptor (MC1R/MC3R/MC4R/MC5R) binding and cAMP signaling assays",
+      "In-vitro melanogenesis / melanin-content studies in cultured melanocyte or B16 melanoma cell lines",
+      "Reference agonist for non-selective melanocortin receptor pharmacology and SAR comparison",
     ],
     variants: [{ name: "10mg", priceCents: 6000, sku: "MT2-10" }],
   },
@@ -352,10 +369,11 @@ const CATALOG: ProductSeed[] = [
     category: "other",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Bremelanotide melanocortin agonist 10-vial kit for in-vitro MC4R research. For laboratory research use only.",
+      "Bremelanotide (PT-141), a synthetic cyclic heptapeptide non-selective melanocortin receptor agonist, supplied as a 10-vial kit for in-vitro melanocortin (MC1R/MC3R/MC4R) receptor binding and signaling research. For laboratory research use only.",
     researchUses: [
-      "MC4R receptor binding assays",
-      "In-vitro melanocortin signaling studies",
+      "MC4R and MC3R receptor binding and functional (cAMP/PKA) activation assays in vitro",
+      "In-vitro melanocortin receptor signaling and selectivity/structure-activity profiling",
+      "Reference-standard/analytical characterization of the cyclic heptapeptide (HPLC/MS identity and purity)",
     ],
     variants: [{ name: "10mg", priceCents: 7995, sku: "PT10" }],
   },
@@ -365,10 +383,11 @@ const CATALOG: ProductSeed[] = [
     category: "other",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Kisspeptin decapeptide 10-vial kit for in-vitro GPR54 signaling research. For laboratory research use only.",
+      "Kisspeptin-10 (KP-10) decapeptide, 10-vial kit, for in-vitro study of KISS1R/GPR54 receptor binding and signaling. For laboratory research use only.",
     researchUses: [
-      "KISS1R/GPR54 receptor binding assays",
-      "In-vitro neuroendocrine signaling studies",
+      "KISS1R/GPR54 radioligand binding and receptor-affinity assays",
+      "In-vitro GPR54 signaling readouts (Gq/11-mediated Ca2+ flux, IP accumulation, ERK1/2 phosphorylation) in receptor-expressing cell lines",
+      "In-vitro neuroendocrine signaling studies in GnRH-secreting neuronal cell models (e.g., GT1-7)",
     ],
     variants: [{ name: "10mg", priceCents: 9900, sku: "KP10" }],
   },
@@ -380,11 +399,13 @@ const CATALOG: ProductSeed[] = [
     category: "metabolic",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Nicotinamide adenine dinucleotide 10-vial kit for in-vitro cellular energetics research. For laboratory research use only.",
+      "Nicotinamide adenine dinucleotide (NAD+, oxidized form), a dinucleotide coenzyme, supplied for in-vitro studies of cellular redox metabolism and as a co-substrate in sirtuin and PARP enzyme assays. For laboratory research use only.",
     featured: true,
     researchUses: [
-      "In-vitro sirtuin activity assays",
-      "Cellular redox and energetics studies",
+      "In-vitro sirtuin (SIRT1-7) deacylase activity assays as the required co-substrate",
+      "PARP enzymatic activity assays",
+      "Cellular redox / NAD+:NADH ratio and bioenergetics studies",
+      "Cofactor for in-vitro dehydrogenase enzyme assays",
     ],
     variants: [
       { name: "100mg", priceCents: 7995, sku: "NAD100" },
@@ -397,10 +418,11 @@ const CATALOG: ProductSeed[] = [
     category: "metabolic",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "NNMT inhibitor small molecule 10-vial kit for in-vitro metabolic enzyme research. For laboratory research use only.",
+      "5-Amino-1-methylquinolinium (5-Amino-1MQ), a methylquinolinium-class small-molecule inhibitor of nicotinamide N-methyltransferase (NNMT) acting at the enzyme's nicotinamide substrate site, reported biochemical IC50 approximately 1.2 uM. Supplied as a 10-vial kit with per-lot COA stating salt form and salt-corrected mass. For laboratory research use only.",
     researchUses: [
-      "In-vitro NNMT enzyme inhibition assays",
-      "Adipocyte metabolism model studies",
+      "In-vitro NNMT biochemical inhibition assays and IC50 determination against recombinant enzyme",
+      "Quantitation of intracellular 1-methylnicotinamide, NAD+ and S-adenosylmethionine in cultured 3T3-L1 adipocytes",
+      "In-vitro lipogenesis assays in differentiated 3T3-L1 adipocytes",
     ],
     variants: [
       { name: "5mg", priceCents: 6714, sku: "5A5" },
@@ -415,10 +437,11 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Multi-peptide research blend (KPV/GHK-Cu/BPC/TB) 10-vial kit for in-vitro co-signaling studies. For laboratory research use only.",
+      "Research-use blend of four peptide and copper-peptide compounds — KPV (alpha-MSH 11-13), GHK-Cu (copper tripeptide complex), BPC-157, and TB-500 (thymosin beta-4 17-23 fragment) — supplied as a 10-vial kit for in-vitro co-signaling assays; exact composition and per-component amounts per supplier COA. For laboratory research use only.",
     researchUses: [
-      "In-vitro combination peptide assays",
-      "Comparative tissue-model studies",
+      "In-vitro combination-peptide co-signaling assays in cultured cells",
+      "Comparative in-vitro studies of NF-kB / IL-1beta pathway modulation (KPV component)",
+      "In-vitro fibroblast / extracellular-matrix and tissue-repair model studies (GHK-Cu component)",
     ],
     variants: [{ name: "80mg", priceCents: 22500, sku: "KLOW80" }],
   },
@@ -428,10 +451,12 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Multi-peptide research blend (GHK-Cu/BPC/TB) 10-vial kit for in-vitro dermal-model studies. For laboratory research use only.",
+      "Three-component research blend of GHK-Cu (copper tripeptide-1), BPC-157 and TB-500 (Ac-LKKTETQ, thymosin beta-4 17–23 fragment); 10-vial kit, per-component masses and salt forms stated on the lot COA. For laboratory research use only.",
     researchUses: [
-      "In-vitro combination peptide assays",
-      "Dermal fibroblast culture studies",
+      "GHK-Cu component: collagen and glycosaminoglycan synthesis assays in cultured dermal fibroblasts",
+      "BPC-157 component: tendon-fibroblast explant outgrowth, transwell migration, and FAK/paxillin phosphorylation assays",
+      "TB-500 component: G-actin monomer binding and endothelial cell migration assays using the LKKTET actin-binding motif — note most published in-vitro data is on full-length thymosin beta-4, not the 17–23 fragment",
+      "Analytical use: reference material for LC-MS/MS identity and purity confirmation of a multi-component peptide mixture",
     ],
     variants: [{ name: "70mg", priceCents: 19500, sku: "GLOW70" }],
   },
