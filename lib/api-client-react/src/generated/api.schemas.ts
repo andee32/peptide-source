@@ -345,6 +345,22 @@ export interface SkuNotAvailable {
   code: SkuNotAvailableCode;
 }
 
+export type KitWholesaleOnlyCode =
+  (typeof KitWholesaleOnlyCode)[keyof typeof KitWholesaleOnlyCode];
+
+export const KitWholesaleOnlyCode = {
+  KIT_WHOLESALE_ONLY: "KIT_WHOLESALE_ONLY",
+} as const;
+
+/**
+ * A retail order/quote contains kit variants (422). Kits are wholesale-accounts-only.
+ */
+export interface KitWholesaleOnly {
+  error: string;
+  message: string;
+  code: KitWholesaleOnlyCode;
+}
+
 export type DiscountCodeErrorCode =
   (typeof DiscountCodeErrorCode)[keyof typeof DiscountCodeErrorCode];
 
@@ -1003,6 +1019,8 @@ export interface CatalogVariant {
   id: number;
   sku: string;
   priceCents: number;
+  /** Kit variants only — retail price; null = wholesale-only (hidden from the retail store). */
+  retailPriceCents: number | null;
   inStock: boolean;
   unitType: CatalogVariantUnitType;
 }
@@ -1027,8 +1045,16 @@ export interface CatalogProduct {
   variants: CatalogVariant[];
 }
 
+export type RetailVariantUnitType =
+  (typeof RetailVariantUnitType)[keyof typeof RetailVariantUnitType];
+
+export const RetailVariantUnitType = {
+  vial: "vial",
+  kit: "kit",
+} as const;
+
 /**
- * A single-vial (unitType=vial) variant sold on the B2C retail storefront.
+ * A variant sold on the B2C retail storefront — single vials, plus kits that have an admin-set retail price. priceCents is always the retail price the buyer pays.
  */
 export interface RetailVariant {
   id: number;
@@ -1037,6 +1063,8 @@ export interface RetailVariant {
   priceCents: number;
   sku: string;
   inStock: boolean;
+  unitType: RetailVariantUnitType;
+  vialsPerUnit: number;
 }
 
 /**
@@ -1079,11 +1107,13 @@ export interface PatchProductRequest {
 }
 
 /**
- * Price / stock controls. At least one field must be provided.
+ * Price / stock controls. At least one field must be provided. retailPriceCents applies to kit variants — the price retail buyers pay; null hides the kit from the retail store (wholesale-only).
  */
 export interface PatchVariantRequest {
   /** @minimum 1 */
   priceCents?: number;
+  /** @minimum 1 */
+  retailPriceCents?: number | null;
   inStock?: boolean;
 }
 

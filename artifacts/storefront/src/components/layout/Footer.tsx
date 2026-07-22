@@ -5,7 +5,7 @@ const linkColumns = [
   {
     heading: "Shop",
     links: [
-      { href: "/shop", label: "Catalog" },
+      { href: "/retail", label: "Retail Store" },
       { href: "/verify", label: "COA Verification" },
     ],
   },
@@ -14,6 +14,7 @@ const linkColumns = [
     links: [
       { href: "/wholesale", label: "Apply" },
       { href: "/wholesale/account", label: "Account" },
+      { href: "/shop", label: "Kit Catalog" },
     ],
   },
   {

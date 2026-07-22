@@ -11,6 +11,8 @@ export interface CatalogVariant {
   id: number;
   sku: string;
   priceCents: number;
+  /** Kit variants only — retail price; null = wholesale-only (hidden from the retail store). */
+  retailPriceCents: number | null;
   inStock: boolean;
   unitType: CatalogVariantUnitType;
 }

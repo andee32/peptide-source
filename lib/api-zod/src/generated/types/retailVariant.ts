@@ -5,9 +5,10 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { RetailVariantUnitType } from "./retailVariantUnitType";
 
 /**
- * A single-vial (unitType=vial) variant sold on the B2C retail storefront.
+ * A variant sold on the B2C retail storefront — single vials, plus kits that have an admin-set retail price. priceCents is always the retail price the buyer pays.
  */
 export interface RetailVariant {
   id: number;
@@ -16,4 +17,6 @@ export interface RetailVariant {
   priceCents: number;
   sku: string;
   inStock: boolean;
+  unitType: RetailVariantUnitType;
+  vialsPerUnit: number;
 }

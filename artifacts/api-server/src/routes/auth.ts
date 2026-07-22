@@ -262,11 +262,14 @@ router.post("/auth/reorder/:orderId", async (req: Request, res: Response) => {
             id: productVariantsTable.id,
             name: productVariantsTable.name,
             priceCents: productVariantsTable.priceCents,
+            retailPriceCents: productVariantsTable.retailPriceCents,
+            unitType: productVariantsTable.unitType,
             inStock: productVariantsTable.inStock,
             productId: productVariantsTable.productId,
             productName: productsTable.name,
             productSlug: productsTable.slug,
             complianceStatus: productsTable.complianceStatus,
+            published: productsTable.published,
           })
           .from(productVariantsTable)
           .innerJoin(
@@ -284,7 +287,20 @@ router.post("/auth/reorder/:orderId", async (req: Request, res: Response) => {
       const v = variantMap.get(li.variantId);
       // Mirror the POST /orders gate: a compliance-blocked SKU is unsellable,
       // so it must not reappear in a rebuilt cart either.
-      if (!v || !v.inStock || v.complianceStatus === "blocked") {
+      if (
+        !v ||
+        !v.inStock ||
+        v.complianceStatus === "blocked" ||
+        !v.published
+      ) {
+        unavailable.push(li.variantId);
+        continue;
+      }
+      // This is a B2C (retail) cart. A kit without a retail price is
+      // wholesale-only — POST /orders would reject it, and echoing its
+      // wholesale list price here would both mislead the buyer and expose the
+      // price book. Kits with a retail price rebuild at THAT price.
+      if (v.unitType === "kit" && v.retailPriceCents == null) {
         unavailable.push(li.variantId);
         continue;
       }
@@ -294,7 +310,8 @@ router.post("/auth/reorder/:orderId", async (req: Request, res: Response) => {
         productSlug: v.productSlug,
         variantName: v.name,
         quantity: li.quantity,
-        unitPriceCents: v.priceCents,
+        unitPriceCents:
+          v.unitType === "kit" ? v.retailPriceCents! : v.priceCents,
       });
     }
 

@@ -7,10 +7,12 @@
  */
 
 /**
- * Price / stock controls. At least one field must be provided.
+ * Price / stock controls. At least one field must be provided. retailPriceCents applies to kit variants — the price retail buyers pay; null hides the kit from the retail store (wholesale-only).
  */
 export interface PatchVariantRequest {
   /** @minimum 1 */
   priceCents?: number;
+  /** @minimum 1 */
+  retailPriceCents?: number | null;
   inStock?: boolean;
 }

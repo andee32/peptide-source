@@ -366,6 +366,11 @@ export function CheckoutPage() {
             setQuote(null);
             setAppliedCode(null);
             setCodeError(err.message ?? "That code could not be applied.");
+          } else if (res.status === 422 && err.code) {
+            // An order rule blocks this cart outright (e.g. kit variants in a
+            // retail cart) — say so now rather than at submit.
+            setQuote(null);
+            setSubmitError(err.message ?? "This cart cannot be ordered as-is.");
           }
           // Anything else (rate limit, stock change, server error) is
           // transient: keep the code and the last good quote; the next cart or
@@ -374,6 +379,7 @@ export function CheckoutPage() {
         }
         setQuote((await res.json()) as typeof quote);
         setCodeError(null);
+        setSubmitError(null);
       } catch {
         // Network failure — keep existing state; totals fall back to the
         // client-side preview until the next successful quote.
@@ -679,7 +685,7 @@ export function CheckoutPage() {
           Add some research-grade peptides before checking out.
         </p>
         <Button asChild>
-          <Link href="/shop">
+          <Link href="/retail">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Browse Products
           </Link>
@@ -910,7 +916,7 @@ export function CheckoutPage() {
       <div className="max-w-5xl mx-auto">
         <div className="mb-8">
           <Link
-            href="/shop"
+            href={isWholesale ? "/shop" : "/retail"}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />

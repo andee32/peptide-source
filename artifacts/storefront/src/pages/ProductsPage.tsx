@@ -2,10 +2,26 @@ import { useListProducts } from "@atlab/api-client-react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { WholesaleGate } from "@/components/wholesale/WholesaleGate";
+import { useWholesaleSession } from "@/hooks/useWholesaleSession";
 import { useState, useMemo } from "react";
 
+// Wholesale kit catalog — approved-accounts-only. The server enforces the gate
+// (GET /products is 401 without a valid x-account-token); this component gates
+// the UI and forwards the session token.
 export function ProductsPage() {
-  const { data: products, isLoading } = useListProducts();
+  const { session } = useWholesaleSession();
+  if (!session) return <WholesaleGate />;
+  return <WholesaleCatalog token={session.token} />;
+}
+
+function WholesaleCatalog({ token }: { token: string }) {
+  const { data: products, isLoading } = useListProducts(undefined, {
+    // Key includes the token so sign-out/account-switch can't serve a stale
+    // cached catalog.
+    query: { queryKey: ["/api/products", token] },
+    request: { headers: { "x-account-token": token } },
+  });
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
   const categories = useMemo(() => {
@@ -23,11 +39,12 @@ export function ProductsPage() {
   return (
     <div className="container mx-auto px-4 py-12 md:py-24 min-h-[calc(100vh-4rem)] flex flex-col">
       <div className="mb-12 text-center max-w-3xl mx-auto">
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Research Compounds</h1>
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Wholesale Kit Catalog</h1>
         <p className="text-lg text-muted-foreground">
-          Wholesale 10-vial kits for research use only. Every batch ships with an active
-          third-party COA, sourced across the USA and Asia. For in-vitro and laboratory
-          research only — not for human or veterinary use.
+          10-vial kits, 5-kit minimum — list prices shown; your account&apos;s tier
+          pricing is applied at checkout. Every batch ships with an active
+          third-party COA, sourced across the USA and Asia. For in-vitro and
+          laboratory research only — not for human or veterinary use.
         </p>
       </div>
 
@@ -35,8 +52,8 @@ export function ProductsPage() {
         <Tabs defaultValue="All" value={selectedCategory} onValueChange={setSelectedCategory} className="w-full overflow-x-auto pb-2 flex justify-center">
           <TabsList className="bg-muted border border-border">
             {categories.map((cat) => (
-              <TabsTrigger 
-                key={cat} 
+              <TabsTrigger
+                key={cat}
                 value={cat}
                 className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >

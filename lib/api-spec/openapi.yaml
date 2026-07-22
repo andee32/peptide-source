@@ -43,8 +43,8 @@ paths:
     get:
       operationId: listProducts
       tags: [products]
-      summary: List all products
-      description: Returns all published products
+      summary: List wholesale kit catalog
+      description: Wholesale kit catalog with kit pricing. Requires the x-account-token of an APPROVED wholesale account; 401 otherwise. The public retail catalog is GET /retail/products.
       parameters:
         - name: category
           in: query
@@ -65,13 +65,19 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Product"
+        "401":
+          description: Approved wholesale account token required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 
   /products/{id}:
     get:
       operationId: getProduct
       tags: [products]
-      summary: Get product by ID
-      description: Returns a single product with its variants
+      summary: Get wholesale kit product by ID
+      description: Returns a single kit product with its variants and pricing. Requires the x-account-token of an APPROVED wholesale account; 401 otherwise.
       parameters:
         - name: id
           in: path
@@ -85,6 +91,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProductDetail"
+        "401":
+          description: Approved wholesale account token required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "404":
           description: Product not found
           content:
@@ -256,6 +268,7 @@ paths:
                 oneOf:
                   - $ref: "#/components/schemas/MoqError"
                   - $ref: "#/components/schemas/SkuNotAvailable"
+                  - $ref: "#/components/schemas/KitWholesaleOnly"
                   - $ref: "#/components/schemas/DiscountCodeError"
 
   /orders/quote:
@@ -297,6 +310,7 @@ paths:
                 oneOf:
                   - $ref: "#/components/schemas/MoqError"
                   - $ref: "#/components/schemas/SkuNotAvailable"
+                  - $ref: "#/components/schemas/KitWholesaleOnly"
                   - $ref: "#/components/schemas/DiscountCodeError"
 
   /orders/{id}:
@@ -2235,6 +2249,22 @@ components:
         - message
         - code
 
+    KitWholesaleOnly:
+      type: object
+      description: A retail order/quote contains kit variants (422). Kits are wholesale-accounts-only.
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+          enum: [KIT_WHOLESALE_ONLY]
+      required:
+        - error
+        - message
+        - code
+
     DiscountCodeError:
       type: object
       description: Discount-code rejection (422). Codes hard-fail — an invalid code never silently degrades to no-discount.
@@ -3281,6 +3311,10 @@ components:
           type: string
         priceCents:
           type: integer
+        retailPriceCents:
+          type: integer
+          nullable: true
+          description: Kit variants only — retail price; null = wholesale-only (hidden from the retail store).
         inStock:
           type: boolean
         unitType:
@@ -3290,6 +3324,7 @@ components:
         - id
         - sku
         - priceCents
+        - retailPriceCents
         - inStock
         - unitType
 
@@ -3328,7 +3363,7 @@ components:
 
     RetailVariant:
       type: object
-      description: A single-vial (unitType=vial) variant sold on the B2C retail storefront.
+      description: A variant sold on the B2C retail storefront — single vials, plus kits that have an admin-set retail price. priceCents is always the retail price the buyer pays.
       properties:
         id:
           type: integer
@@ -3342,6 +3377,11 @@ components:
           type: string
         inStock:
           type: boolean
+        unitType:
+          type: string
+          enum: [vial, kit]
+        vialsPerUnit:
+          type: integer
       required:
         - id
         - name
@@ -3349,6 +3389,8 @@ components:
         - priceCents
         - sku
         - inStock
+        - unitType
+        - vialsPerUnit
 
     RetailProduct:
       type: object
@@ -3418,11 +3460,15 @@ components:
 
     PatchVariantRequest:
       type: object
-      description: Price / stock controls. At least one field must be provided.
+      description: Price / stock controls. At least one field must be provided. retailPriceCents applies to kit variants — the price retail buyers pay; null hides the kit from the retail store (wholesale-only).
       properties:
         priceCents:
           type: integer
           minimum: 1
+        retailPriceCents:
+          type: integer
+          minimum: 1
+          nullable: true
         inStock:
           type: boolean
 

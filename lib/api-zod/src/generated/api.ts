@@ -16,8 +16,8 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * Returns all published products
- * @summary List all products
+ * Wholesale kit catalog with kit pricing. Requires the x-account-token of an APPROVED wholesale account; 401 otherwise. The public retail catalog is GET /retail/products.
+ * @summary List wholesale kit catalog
  */
 export const ListProductsQueryParams = zod.object({
   category: zod.coerce.string().optional(),
@@ -51,8 +51,8 @@ export const ListProductsResponseItem = zod.object({
 export const ListProductsResponse = zod.array(ListProductsResponseItem);
 
 /**
- * Returns a single product with its variants
- * @summary Get product by ID
+ * Returns a single kit product with its variants and pricing. Requires the x-account-token of an APPROVED wholesale account; 401 otherwise.
+ * @summary Get wholesale kit product by ID
  */
 export const GetProductParams = zod.object({
   id: zod.coerce.number(),
@@ -180,9 +180,11 @@ export const ListRetailProductsResponseItem = zod
           priceCents: zod.number(),
           sku: zod.string(),
           inStock: zod.boolean(),
+          unitType: zod.enum(["vial", "kit"]),
+          vialsPerUnit: zod.number(),
         })
         .describe(
-          "A single-vial (unitType=vial) variant sold on the B2C retail storefront.",
+          "A variant sold on the B2C retail storefront — single vials, plus kits that have an admin-set retail price. priceCents is always the retail price the buyer pays.",
         ),
     ),
   })
@@ -225,9 +227,11 @@ export const GetRetailProductResponse = zod
           priceCents: zod.number(),
           sku: zod.string(),
           inStock: zod.boolean(),
+          unitType: zod.enum(["vial", "kit"]),
+          vialsPerUnit: zod.number(),
         })
         .describe(
-          "A single-vial (unitType=vial) variant sold on the B2C retail storefront.",
+          "A variant sold on the B2C retail storefront — single vials, plus kits that have an admin-set retail price. priceCents is always the retail price the buyer pays.",
         ),
     ),
   })
@@ -1819,6 +1823,12 @@ export const AdminGetCatalogResponseItem = zod.object({
       id: zod.number(),
       sku: zod.string(),
       priceCents: zod.number(),
+      retailPriceCents: zod
+        .number()
+        .nullable()
+        .describe(
+          "Kit variants only — retail price; null = wholesale-only (hidden from the retail store).",
+        ),
       inStock: zod.boolean(),
       unitType: zod.enum(["vial", "kit"]),
     }),
@@ -1950,9 +1960,12 @@ export const AdminPatchVariantParams = zod.object({
 export const AdminPatchVariantBody = zod
   .object({
     priceCents: zod.number().min(1).optional(),
+    retailPriceCents: zod.number().min(1).nullish(),
     inStock: zod.boolean().optional(),
   })
-  .describe("Price \/ stock controls. At least one field must be provided.");
+  .describe(
+    "Price \/ stock controls. At least one field must be provided. retailPriceCents applies to kit variants — the price retail buyers pay; null hides the kit from the retail store (wholesale-only).",
+  );
 
 export const AdminPatchVariantResponse = zod.object({
   id: zod.number(),

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, or, asc, isNotNull } from "drizzle-orm";
 import { db } from "@atlab/db";
 import { productsTable, productVariantsTable, categoryEnum } from "@atlab/db/schema";
 import {
@@ -11,19 +11,28 @@ import {
 
 const router: IRouter = Router();
 
-// Map a product + its single-vial variants into a retail catalog shape.
+// Map a product + its retail-sellable variants into a retail catalog shape.
+// Vials sell at priceCents; kits sell retail only when retailPriceCents is set
+// (null keeps a kit wholesale-only). The retail response's priceCents is
+// always the price the buyer pays.
 function toRetail(
   product: typeof productsTable.$inferSelect,
-  vialVariants: (typeof productVariantsTable.$inferSelect)[]
+  retailVariants: (typeof productVariantsTable.$inferSelect)[]
 ) {
-  const variants = vialVariants.map((v) => ({
-    id: v.id,
-    name: v.name,
-    concentration: v.concentration,
-    priceCents: v.priceCents,
-    sku: v.sku,
-    inStock: v.inStock,
-  }));
+  const variants = retailVariants
+    .map((v) => ({
+      id: v.id,
+      name: v.name,
+      concentration: v.concentration,
+      priceCents: v.unitType === "kit" ? v.retailPriceCents! : v.priceCents,
+      sku: v.sku,
+      inStock: v.inStock,
+      unitType: v.unitType,
+      vialsPerUnit: v.vialsPerUnit,
+    }))
+    // Sort by the price the buyer actually sees — the DB sort is on the
+    // wholesale list price, which orders kits wrongly against vials.
+    .sort((a, b) => a.priceCents - b.priceCents);
   const startingPriceCents =
     variants.length > 0 ? Math.min(...variants.map((v) => v.priceCents)) : 0;
   return {
@@ -74,14 +83,17 @@ router.get("/retail/products", async (req, res) => {
 
     const result = await Promise.all(
       products.map(async (product) => {
-        const vialVariants = await db.query.productVariantsTable.findMany({
+        const retailVariants = await db.query.productVariantsTable.findMany({
           where: and(
             eq(productVariantsTable.productId, product.id),
-            eq(productVariantsTable.unitType, "vial")
+            or(
+              eq(productVariantsTable.unitType, "vial"),
+              isNotNull(productVariantsTable.retailPriceCents)
+            )
           ),
           orderBy: [asc(productVariantsTable.priceCents)],
         });
-        return toRetail(product, vialVariants);
+        return toRetail(product, retailVariants);
       })
     );
 
@@ -112,16 +124,19 @@ router.get("/retail/products/:slug", async (req, res) => {
       return;
     }
 
-    const vialVariants = await db.query.productVariantsTable.findMany({
+    const retailVariants = await db.query.productVariantsTable.findMany({
       where: and(
         eq(productVariantsTable.productId, product.id),
-        eq(productVariantsTable.unitType, "vial")
+        or(
+          eq(productVariantsTable.unitType, "vial"),
+          isNotNull(productVariantsTable.retailPriceCents)
+        )
       ),
       orderBy: [asc(productVariantsTable.priceCents)],
     });
 
     const responseData = {
-      ...toRetail(product, vialVariants),
+      ...toRetail(product, retailVariants),
       longDescription: product.longDescription,
       researchUses: product.researchUses,
     };

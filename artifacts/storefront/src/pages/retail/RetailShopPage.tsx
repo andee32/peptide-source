@@ -47,7 +47,10 @@ function RetailProductCard({ product }: { product: RetailProduct }) {
   return (
     <Card className="group overflow-hidden flex flex-col h-full transition-all duration-300 hover:border-primary/40">
       {showVialImages && (
-        <div className="relative aspect-square overflow-hidden bg-muted/50 flex items-center justify-center p-8">
+        <Link
+          href={`/retail/${product.slug}`}
+          className="relative aspect-square overflow-hidden bg-muted/50 flex items-center justify-center p-8"
+        >
           {product.imageUrl ? (
             <img
               src={product.imageUrl}
@@ -68,10 +71,12 @@ function RetailProductCard({ product }: { product: RetailProduct }) {
               {product.category}
             </Badge>
             <Badge variant="verified" className="w-fit text-xs font-mono">
-              Single vial
+              {variants.some((v) => v.unitType === "kit")
+                ? "Vials & kits"
+                : "Single vial"}
             </Badge>
           </div>
-        </div>
+        </Link>
       )}
 
       <CardContent className="p-6 flex-1 flex flex-col">
@@ -81,23 +86,37 @@ function RetailProductCard({ product }: { product: RetailProduct }) {
               {product.category}
             </Badge>
             <Badge variant="verified" className="w-fit text-xs font-mono">
-              Single vial
+              {variants.some((v) => v.unitType === "kit")
+                ? "Vials & kits"
+                : "Single vial"}
             </Badge>
           </div>
         )}
         <div className="mb-2 flex items-baseline justify-between gap-4">
-          <span className="font-sans text-xl font-bold tracking-tight line-clamp-1">
+          <Link
+            href={`/retail/${product.slug}`}
+            className="font-sans text-xl font-bold tracking-tight line-clamp-1 hover:text-teal-ink transition-colors"
+          >
             {product.name}
-          </span>
+          </Link>
           <span className="font-mono text-sm text-teal-ink whitespace-nowrap font-semibold">
             {money(selected?.priceCents ?? product.startingPriceCents)}{" "}
-            <span className="text-muted-foreground">/ vial</span>
+            <span className="text-muted-foreground">
+              / {selected?.unitType === "kit" ? "kit" : "vial"}
+            </span>
           </span>
         </div>
 
-        <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
           {product.shortDescription}
         </p>
+
+        <Link
+          href={`/retail/${product.slug}`}
+          className="text-xs font-mono uppercase tracking-wider text-teal-ink hover:underline underline-offset-4 w-fit mb-4 inline-flex items-center gap-1"
+        >
+          View details <ArrowRight className="h-3 w-3" />
+        </Link>
 
         {variants.length > 1 && (
           <div className="mt-auto pt-2">
@@ -111,7 +130,9 @@ function RetailProductCard({ product }: { product: RetailProduct }) {
               <SelectContent>
                 {variants.map((v) => (
                   <SelectItem key={v.id} value={String(v.id)} className="font-mono text-xs">
-                    {v.name} — {money(v.priceCents)}
+                    {v.name}
+                    {v.unitType === "kit" ? ` (${v.vialsPerUnit}-vial kit)` : ""} —{" "}
+                    {money(v.priceCents)}
                     {!v.inStock ? " (out of stock)" : ""}
                   </SelectItem>
                 ))}
@@ -160,15 +181,15 @@ export function RetailShopPage() {
     <div className="container mx-auto px-4 py-12 md:py-24 min-h-[calc(100vh-4rem)] flex flex-col">
       <div className="mb-8 text-center max-w-3xl mx-auto">
         <Badge variant="verified" className="mb-4 font-mono uppercase tracking-wider text-xs">
-          Retail — single vials
+          Retail store
         </Badge>
         <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
-          Research Vials
+          Research Vials &amp; Kits
         </h1>
         <p className="text-lg text-muted-foreground">
-          Buy individual research vials at retail pricing — no account, no minimum
-          order. Every batch ships with an active third-party COA. For in-vitro and
-          laboratory research only.
+          Buy individual research vials — and selected 10-vial kits — at retail
+          pricing. No account, no minimum order. Every batch ships with an active
+          third-party COA. For in-vitro and laboratory research only.
         </p>
         <p className="mt-4 text-sm text-muted-foreground">
           Buying in volume?{" "}

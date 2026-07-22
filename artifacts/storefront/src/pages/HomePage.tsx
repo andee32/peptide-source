@@ -2,12 +2,15 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProductCard } from "@/components/product/ProductCard";
-import { useListProducts } from "@atlab/api-client-react";
+import { useListRetailProducts } from "@atlab/api-client-react";
 import { ShieldCheck, Beaker, PackageCheck, Truck, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export function HomePage() {
-  const { data: products, isLoading } = useListProducts({ featured: true });
+  // Featured strip reads the public retail catalog — the wholesale kit catalog
+  // (and its pricing) is approved-accounts-only.
+  const { data: retailProducts, isLoading } = useListRetailProducts();
+  const products = retailProducts?.filter((p) => p.featured);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -34,10 +37,10 @@ export function HomePage() {
 
           <div className="flex flex-col sm:flex-row gap-4 mb-16 w-full sm:w-auto">
             <Button asChild size="lg" className="font-mono uppercase tracking-widest text-sm h-14 px-8">
-              <Link href="/shop">Browse Catalog</Link>
+              <Link href="/wholesale">Apply for Wholesale</Link>
             </Button>
             <Button asChild size="lg" variant="gold" className="font-mono uppercase tracking-widest text-sm h-14 px-8">
-              <Link href="/wholesale">Apply for Wholesale</Link>
+              <Link href="/retail">Shop Retail Vials</Link>
             </Button>
           </div>
 
@@ -64,11 +67,11 @@ export function HomePage() {
           <div className="flex justify-between items-end mb-12">
             <div>
               <h2 className="text-3xl font-bold tracking-tight mb-2">Featured Compounds</h2>
-              <p className="text-muted-foreground">In stock, COA-backed, and ready to ship by the kit.</p>
+              <p className="text-muted-foreground">In stock, COA-backed single vials — no account needed.</p>
             </div>
             <Button asChild variant="ghost" className="hidden sm:flex group font-mono uppercase tracking-wider text-xs">
-              <Link href="/shop">
-                View Catalog <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              <Link href="/retail">
+                View All Vials <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </Button>
           </div>
@@ -85,13 +88,18 @@ export function HomePage() {
                 </div>
               ))
             ) : products?.slice(0, 3).map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard
+                key={product.id}
+                product={product}
+                href={`/retail/${product.slug}`}
+                unitLabel="vial"
+              />
             ))}
           </div>
 
           <div className="mt-8 text-center sm:hidden">
             <Button asChild variant="navy" className="w-full font-mono uppercase tracking-wider text-xs">
-              <Link href="/shop">View Full Catalog</Link>
+              <Link href="/retail">Shop All Vials</Link>
             </Button>
           </div>
         </div>

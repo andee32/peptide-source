@@ -64,6 +64,9 @@ function VariantRow({
   onChanged: () => void;
 }) {
   const [price, setPrice] = useState(dollars(variant.priceCents));
+  const [retailPrice, setRetailPrice] = useState(
+    variant.retailPriceCents == null ? "" : dollars(variant.retailPriceCents)
+  );
   const [error, setError] = useState("");
 
   const patch = useAdminPatchVariant({
@@ -87,6 +90,24 @@ function VariantRow({
   const savePrice = () => {
     if (!priceDirty) return;
     patch.mutate({ id: variant.id, data: { priceCents } });
+  };
+
+  // Kit retail price: blank = wholesale-only (null). Saved separately so a
+  // mistyped retail price can't ride along with a list-price save.
+  const retailPriceCents =
+    retailPrice.trim() === "" ? null : Math.round(parseFloat(retailPrice) * 100);
+  const retailValid =
+    retailPriceCents === null ||
+    (Number.isFinite(retailPriceCents) && retailPriceCents >= 1);
+  const retailDirty =
+    retailValid && retailPriceCents !== (variant.retailPriceCents ?? null);
+  // Pricing-discipline hint: retail should sit above the wholesale list price.
+  const retailBelowList =
+    retailPriceCents !== null && retailPriceCents <= variant.priceCents;
+
+  const saveRetailPrice = () => {
+    if (!retailDirty) return;
+    patch.mutate({ id: variant.id, data: { retailPriceCents } });
   };
 
   const toggleStock = (inStock: boolean) => {
@@ -129,6 +150,51 @@ function VariantRow({
         </div>
         {error && (
           <p className="text-destructive text-[10px] font-mono mt-1">{error}</p>
+        )}
+      </TableCell>
+      <TableCell>
+        {variant.unitType === "kit" ? (
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-muted-foreground text-xs">$</span>
+              <Input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={retailPrice}
+                onChange={(e) => setRetailPrice(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && saveRetailPrice()}
+                placeholder="—"
+                aria-label="Retail price"
+                className="h-8 w-28 font-mono text-xs"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 font-mono text-xs"
+                disabled={!retailDirty || patch.isPending}
+                onClick={saveRetailPrice}
+                aria-label="Save retail price"
+              >
+                <Check className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <p
+              className={`text-[10px] font-mono mt-1 ${
+                retailBelowList ? "text-warn" : "text-muted-foreground"
+              }`}
+            >
+              {retailBelowList
+                ? "At/below wholesale list price"
+                : variant.retailPriceCents == null
+                  ? "Blank = wholesale-only"
+                  : "Retail-listed"}
+            </p>
+          </div>
+        ) : (
+          <span className="text-muted-foreground text-[10px] font-mono">
+            = list price
+          </span>
         )}
       </TableCell>
       <TableCell>
@@ -282,6 +348,9 @@ function ProductRow({
                   </TableHead>
                   <TableHead className="font-mono text-[10px] uppercase tracking-wider">
                     Price
+                  </TableHead>
+                  <TableHead className="font-mono text-[10px] uppercase tracking-wider">
+                    Retail price
                   </TableHead>
                   <TableHead className="font-mono text-[10px] uppercase tracking-wider">
                     Stock

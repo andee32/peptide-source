@@ -156,7 +156,9 @@ export function RetailProductPage() {
               variant="outline"
               className="font-mono text-xs uppercase tracking-widest text-muted-foreground"
             >
-              Single Vial · Retail
+              {product.variants.some((v) => v.unitType === "kit")
+                ? "Vials & Kits · Retail"
+                : "Single Vial · Retail"}
             </Badge>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">
@@ -171,7 +173,9 @@ export function RetailProductPage() {
           {/* Variant selection */}
           <div className="mb-8">
             <h3 className="font-mono text-sm uppercase tracking-widest text-muted-foreground mb-4">
-              Select Vial
+              {product.variants.some((v) => v.unitType === "kit")
+                ? "Select Size"
+                : "Select Vial"}
             </h3>
             <RadioGroup
               value={selectedVariantId?.toString() ?? ""}
@@ -203,7 +207,10 @@ export function RetailProductPage() {
                     </span>
                   </div>
                   <div className="text-sm text-muted-foreground font-mono">
-                    {variant.concentration} · 1 vial
+                    {variant.concentration} ·{" "}
+                    {variant.unitType === "kit"
+                      ? `${variant.vialsPerUnit}-vial kit`
+                      : "1 vial"}
                   </div>
                   {!variant.inStock && (
                     <Badge variant="destructive" className="mt-3 w-fit text-[10px]">

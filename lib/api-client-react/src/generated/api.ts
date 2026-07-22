@@ -54,6 +54,7 @@ import type {
   GetSubscriptionParams,
   HandleBtcpayWebhook200,
   HealthStatus,
+  KitWholesaleOnly,
   ListBatchesParams,
   ListProductsParams,
   ListRetailProductsParams,
@@ -182,8 +183,8 @@ export function useHealthCheck<
 }
 
 /**
- * Returns all published products
- * @summary List all products
+ * Wholesale kit catalog with kit pricing. Requires the x-account-token of an APPROVED wholesale account; 401 otherwise. The public retail catalog is GET /retail/products.
+ * @summary List wholesale kit catalog
  */
 export const getListProductsUrl = (params?: ListProductsParams) => {
   const normalizedParams = new URLSearchParams();
@@ -217,7 +218,7 @@ export const getListProductsQueryKey = (params?: ListProductsParams) => {
 
 export const getListProductsQueryOptions = <
   TData = Awaited<ReturnType<typeof listProducts>>,
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ApiError>,
 >(
   params?: ListProductsParams,
   options?: {
@@ -247,15 +248,15 @@ export const getListProductsQueryOptions = <
 export type ListProductsQueryResult = NonNullable<
   Awaited<ReturnType<typeof listProducts>>
 >;
-export type ListProductsQueryError = ErrorType<unknown>;
+export type ListProductsQueryError = ErrorType<ApiError>;
 
 /**
- * @summary List all products
+ * @summary List wholesale kit catalog
  */
 
 export function useListProducts<
   TData = Awaited<ReturnType<typeof listProducts>>,
-  TError = ErrorType<unknown>,
+  TError = ErrorType<ApiError>,
 >(
   params?: ListProductsParams,
   options?: {
@@ -277,8 +278,8 @@ export function useListProducts<
 }
 
 /**
- * Returns a single product with its variants
- * @summary Get product by ID
+ * Returns a single kit product with its variants and pricing. Requires the x-account-token of an APPROVED wholesale account; 401 otherwise.
+ * @summary Get wholesale kit product by ID
  */
 export const getGetProductUrl = (id: number) => {
   return `/api/products/${id}`;
@@ -338,7 +339,7 @@ export type GetProductQueryResult = NonNullable<
 export type GetProductQueryError = ErrorType<ApiError>;
 
 /**
- * @summary Get product by ID
+ * @summary Get wholesale kit product by ID
  */
 
 export function useGetProduct<
@@ -840,7 +841,9 @@ export const createOrder = async (
 };
 
 export const getCreateOrderMutationOptions = <
-  TError = ErrorType<ApiError | MoqError | SkuNotAvailable | DiscountCodeError>,
+  TError = ErrorType<
+    ApiError | MoqError | SkuNotAvailable | KitWholesaleOnly | DiscountCodeError
+  >,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -882,14 +885,16 @@ export type CreateOrderMutationResult = NonNullable<
 >;
 export type CreateOrderMutationBody = BodyType<CreateOrderRequest>;
 export type CreateOrderMutationError = ErrorType<
-  ApiError | MoqError | SkuNotAvailable | DiscountCodeError
+  ApiError | MoqError | SkuNotAvailable | KitWholesaleOnly | DiscountCodeError
 >;
 
 /**
  * @summary Create a new order
  */
 export const useCreateOrder = <
-  TError = ErrorType<ApiError | MoqError | SkuNotAvailable | DiscountCodeError>,
+  TError = ErrorType<
+    ApiError | MoqError | SkuNotAvailable | KitWholesaleOnly | DiscountCodeError
+  >,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -929,7 +934,9 @@ export const quoteOrder = async (
 };
 
 export const getQuoteOrderMutationOptions = <
-  TError = ErrorType<ApiError | MoqError | SkuNotAvailable | DiscountCodeError>,
+  TError = ErrorType<
+    ApiError | MoqError | SkuNotAvailable | KitWholesaleOnly | DiscountCodeError
+  >,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<
@@ -971,14 +978,16 @@ export type QuoteOrderMutationResult = NonNullable<
 >;
 export type QuoteOrderMutationBody = BodyType<QuoteOrderRequest>;
 export type QuoteOrderMutationError = ErrorType<
-  ApiError | MoqError | SkuNotAvailable | DiscountCodeError
+  ApiError | MoqError | SkuNotAvailable | KitWholesaleOnly | DiscountCodeError
 >;
 
 /**
  * @summary Quote an order without creating it
  */
 export const useQuoteOrder = <
-  TError = ErrorType<ApiError | MoqError | SkuNotAvailable | DiscountCodeError>,
+  TError = ErrorType<
+    ApiError | MoqError | SkuNotAvailable | KitWholesaleOnly | DiscountCodeError
+  >,
   TContext = unknown,
 >(options?: {
   mutation?: UseMutationOptions<

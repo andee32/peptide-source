@@ -42,6 +42,7 @@ interface OrderDetail {
   cryptoDiscountCents: number;
   totalCents: number;
   paymentMethod: "crypto_btc" | "crypto_usdc" | "ach" | "wire";
+  channel: "retail" | "wholesale";
   status: "pending" | "awaiting_payment" | "confirmed" | "failed" | "expired" | "refunded";
   lineItems: OrderLineItem[];
   shippingName: string;
@@ -82,7 +83,7 @@ export function OrderConfirmationPage() {
 
   useEffect(() => {
     if (!id) {
-      navigate("/shop");
+      navigate("/retail");
       return;
     }
     async function load() {
@@ -124,13 +125,14 @@ export function OrderConfirmationPage() {
         </h1>
         <p className="text-muted-foreground mb-6">{error ?? "Something went wrong."}</p>
         <Button asChild variant="outline">
-          <Link href="/shop">Return to Shop</Link>
+          <Link href="/retail">Return to Shop</Link>
         </Button>
       </div>
     );
   }
 
   const { status, payment } = order;
+  const shopHref = order.channel === "wholesale" ? "/shop" : "/retail";
   const isConfirmed = status === "confirmed";
   const isAwaiting = status === "awaiting_payment" || status === "pending";
   const isExpired = status === "expired";
@@ -140,7 +142,7 @@ export function OrderConfirmationPage() {
     <div className="px-4 py-12">
       <div className="max-w-2xl mx-auto">
         <Link
-          href="/shop"
+          href={shopHref}
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
         >
           <ArrowLeft className="w-4 h-4" />

@@ -21,21 +21,35 @@ import {
 import { Beaker, CheckCircle2, FlaskConical, ExternalLink, Activity, RefreshCw, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
+import { useWholesaleSession } from "@/hooks/useWholesaleSession";
+import { WholesaleGate } from "@/components/wholesale/WholesaleGate";
 
+// Wholesale kit detail — approved-accounts-only, same gate as the catalog.
 export function ProductDetailPage() {
+  const { session } = useWholesaleSession();
+  if (!session) return <WholesaleGate />;
+  return <WholesaleProductDetail token={session.token} />;
+}
+
+function WholesaleProductDetail({ token }: { token: string }) {
   const { slug } = useParams<{ slug: string }>();
   const { trackEvent } = useAnalytics();
   const { addToCart } = useCart();
   const { showVialImages } = useStoreSettings();
+  const wholesaleHeaders = { "x-account-token": token };
 
   // First fetch list to find the ID by slug
-  const { data: products } = useListProducts();
+  const { data: products } = useListProducts(undefined, {
+    query: { queryKey: ["/api/products", token] },
+    request: { headers: wholesaleHeaders },
+  });
   const productSummary = products?.find(p => p.slug === slug);
   const productId = productSummary?.id;
 
   // Then fetch the full detail
   const { data: product, isLoading } = useGetProduct(productId ?? 0, {
-    query: { enabled: !!productId, queryKey: ['/api/products', productId] }
+    query: { enabled: !!productId, queryKey: ['/api/products', productId, token] },
+    request: { headers: wholesaleHeaders },
   });
 
   const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);

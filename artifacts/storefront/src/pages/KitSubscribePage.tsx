@@ -190,7 +190,7 @@ export function KitSubscribePage() {
                   Manage Subscriptions
                 </Button>
               </Link>
-              <Link href="/shop">
+              <Link href="/retail">
                 <Button variant="outline" className="font-mono uppercase tracking-wide">
                   Continue Shopping
                 </Button>

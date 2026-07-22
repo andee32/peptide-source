@@ -9,15 +9,9 @@ import {
 } from "@atlab/db/schema";
 import { z } from "zod/v4";
 import { isAdminRequest } from "../lib/adminSession";
+import { extractAccountToken } from "../lib/wholesaleSession";
 
 const router: IRouter = Router();
-
-function extractAccountToken(req: Request): string | undefined {
-  const fromHeader = req.headers["x-account-token"];
-  const headerVal = Array.isArray(fromHeader) ? fromHeader[0] : fromHeader;
-  const fromQuery = req.query.token as string | undefined;
-  return headerVal || fromQuery || undefined;
-}
 
 const ApplyAccountSchema = z.object({
   businessName: z.string().min(1).max(200),

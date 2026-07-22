@@ -13,12 +13,15 @@ export function Navbar() {
   const { customer } = useCustomerAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Retail is the public storefront; the wholesale kit catalog only appears
+  // once an approved wholesale session is active (the server 401s it anyway).
   const navLinks = [
-    { href: "/shop", label: "Catalog" },
-    { href: "/retail", label: "Shop (Retail)" },
+    { href: "/retail", label: "Shop" },
+    ...(session ? [{ href: "/shop", label: "Wholesale Catalog" }] : []),
     { href: "/verify", label: "COA Verification" },
-    { href: "/wholesale", label: "Wholesale / Apply" },
-    { href: "/wholesale/account", label: "Wholesale Account" },
+    ...(session
+      ? [{ href: "/wholesale/account", label: "Wholesale Account" }]
+      : [{ href: "/wholesale", label: "Wholesale / Apply" }]),
     { href: "/contact", label: "Contact" },
   ];
 

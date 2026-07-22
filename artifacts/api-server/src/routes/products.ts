@@ -14,11 +14,25 @@ import {
   GetProductParams,
   GetProductResponse,
 } from "@atlab/api-zod";
+import { resolveWholesaleAccount } from "../lib/wholesaleSession";
 
 const router: IRouter = Router();
 
+// The kit catalog is the wholesale price book — industry norm (and Phase 1
+// design) is that tier/kit pricing is approved-accounts-only. The retail
+// storefront reads /retail/products instead, which stays public.
+const WHOLESALE_REQUIRED = {
+  error: "wholesale_required",
+  message:
+    "The wholesale kit catalog is available to approved wholesale accounts. Apply for an account or sign in to view kit pricing.",
+} as const;
+
 router.get("/products", async (req, res) => {
   try {
+    if (!(await resolveWholesaleAccount(req))) {
+      res.status(401).json(WHOLESALE_REQUIRED);
+      return;
+    }
     const queryResult = ListProductsQueryParams.safeParse(req.query);
     if (!queryResult.success) {
       res.status(400).json({ error: "bad_request", message: queryResult.error.message });
@@ -111,6 +125,10 @@ router.get("/products", async (req, res) => {
 
 router.get("/products/:id", async (req, res) => {
   try {
+    if (!(await resolveWholesaleAccount(req))) {
+      res.status(401).json(WHOLESALE_REQUIRED);
+      return;
+    }
     const paramsResult = GetProductParams.safeParse(req.params);
     if (!paramsResult.success) {
       res.status(404).json({ error: "not_found", message: "Product not found" });

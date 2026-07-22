@@ -17,6 +17,7 @@ import {
 } from "@atlab/db/schema";
 import { btcpayService, PaymentRailUnavailableError, type CryptoCurrency } from "../services/btcpay";
 import { resolveCustomerUser } from "../lib/customerSession";
+import { extractAccountToken } from "../lib/wholesaleSession";
 import { quoteRateLimit, createOrderRateLimit } from "../lib/rateLimit";
 import {
   resolveDiscounts,
@@ -74,13 +75,6 @@ async function canReadOrder(
   }
 
   return true;
-}
-
-function extractAccountToken(req: Request): string | undefined {
-  const fromHeader = req.headers["x-account-token"];
-  const headerVal = Array.isArray(fromHeader) ? fromHeader[0] : fromHeader;
-  const fromQuery = req.query.token as string | undefined;
-  return headerVal || fromQuery || undefined;
 }
 
 const FORBIDDEN = {
@@ -194,11 +188,13 @@ async function priceOrderRequest(input: {
       id: productVariantsTable.id,
       name: productVariantsTable.name,
       priceCents: productVariantsTable.priceCents,
+      retailPriceCents: productVariantsTable.retailPriceCents,
       inStock: productVariantsTable.inStock,
       unitType: productVariantsTable.unitType,
       productId: productVariantsTable.productId,
       productName: productsTable.name,
       complianceStatus: productsTable.complianceStatus,
+      published: productsTable.published,
     })
     .from(productVariantsTable)
     .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
@@ -230,11 +226,13 @@ async function priceOrderRequest(input: {
     };
   }
 
-  // Per-SKU compliance gate: a line item whose product is compliance-blocked is
-  // unsellable. (restricted is still orderable — reserved for later.)
-  const blocked = input.lineItems.filter(
-    (li) => variantMap.get(li.variantId)?.complianceStatus === "blocked"
-  );
+  // Per-SKU merchandising + compliance gate. Unlisted must also mean unsellable:
+  // both catalogs filter `published`, so without this an unpublished product
+  // (pulled for a bad COA or supply issue) stays orderable by variant id.
+  const blocked = input.lineItems.filter((li) => {
+    const v = variantMap.get(li.variantId);
+    return v?.complianceStatus === "blocked" || v?.published === false;
+  });
   if (blocked.length > 0) {
     return {
       ok: false,
@@ -253,6 +251,30 @@ async function priceOrderRequest(input: {
   // tier pricing. Retail path (no accountId) is unchanged.
   const isWholesale = !!input.accountId;
   const priceOverrides = new Map<number, number>();
+
+  // Retail kit pricing: kits sell retail only at their admin-set
+  // retailPriceCents (above wholesale list by pricing discipline). A kit with
+  // no retail price is wholesale-only — hard-rejected so a guest can never buy
+  // at the wholesale list price.
+  if (!isWholesale) {
+    const unpricedKits = input.lineItems.filter((li) => {
+      const v = variantMap.get(li.variantId)!;
+      return v.unitType === "kit" && v.retailPriceCents == null;
+    });
+    if (unpricedKits.length > 0) {
+      return {
+        ok: false,
+        status: 422,
+        body: {
+          error: "unprocessable_entity",
+          code: "KIT_WHOLESALE_ONLY",
+          message: `Kit variant(s) ${unpricedKits
+            .map((li) => li.variantId)
+            .join(", ")} are available to wholesale accounts only. Apply for a wholesale account to order them.`,
+        },
+      };
+    }
+  }
 
   if (isWholesale) {
     const account = await db.query.customerAccountsTable.findFirst({
@@ -324,12 +346,19 @@ async function priceOrderRequest(input: {
 
   const resolvedLineItems = input.lineItems.map((li) => {
     const v = variantMap.get(li.variantId)!;
+    // Wholesale: tier override ?? list price. Retail: kits at their retail
+    // price (validated non-null above), vials at list price.
+    const unitPriceCents = isWholesale
+      ? priceOverrides.get(li.variantId) ?? v.priceCents
+      : v.unitType === "kit"
+        ? v.retailPriceCents!
+        : v.priceCents;
     return {
       variantId: li.variantId,
       productName: v.productName,
       variantName: v.name,
       quantity: li.quantity,
-      unitPriceCents: priceOverrides.get(li.variantId) ?? v.priceCents,
+      unitPriceCents,
     };
   });
 
@@ -747,6 +776,21 @@ router.post("/orders/:id/ach-instructions", async (req, res) => {
 });
 
 router.get("/orders/:id/payment-qr", async (req, res) => {
+  // Same authorization as every other per-order endpoint: the QR encodes the
+  // pay-to address and the exact amount, which for a wholesale order discloses
+  // the tier-priced total.
+  const order = await db.query.ordersTable.findFirst({
+    where: eq(ordersTable.id, req.params.id),
+  });
+  if (!order) {
+    res.status(404).json({ error: "not_found", message: "Order not found" });
+    return;
+  }
+  if (!(await canReadOrder(req, order))) {
+    res.status(403).json(FORBIDDEN);
+    return;
+  }
+
   const payment = await db.query.paymentRecordsTable.findFirst({
     where: eq(paymentRecordsTable.orderId, req.params.id),
   });

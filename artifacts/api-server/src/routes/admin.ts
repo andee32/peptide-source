@@ -669,11 +669,29 @@ router.delete("/admin/products/:id", async (req, res) => {
   }
 });
 
+// The whole dual-price model rests on retail sitting above wholesale: a kit
+// listed at or below its wholesale list price sells on the public storefront
+// below what accounts pay. Enforced server-side (the admin UI hint is advisory);
+// a fat-fingered decimal is far likelier than any attacker here.
+function kitPricingViolation(
+  unitType: "vial" | "kit",
+  priceCents: number,
+  retailPriceCents: number | null | undefined,
+): string | null {
+  if (unitType !== "kit") return null;
+  if (retailPriceCents == null) return null;
+  if (retailPriceCents > priceCents) return null;
+  return `A kit's retail price ($${(retailPriceCents / 100).toFixed(2)}) must be above its wholesale list price ($${(priceCents / 100).toFixed(2)}).`;
+}
+
 const CreateVariantSchema = z.object({
   name: z.string().min(1).max(200),
   concentration: z.string().min(1).max(100),
   sizeml: z.number().positive(),
   priceCents: z.number().int().positive(),
+  // Kit variants only: the retail price. Null/absent keeps the kit
+  // wholesale-only (hidden from the retail store).
+  retailPriceCents: z.number().int().positive().nullish(),
   sku: z.string().min(1).max(100),
   inStock: z.boolean().default(true),
 });
@@ -699,6 +717,22 @@ router.post("/admin/products/:id/variants", async (req, res) => {
       res.status(404).json({ error: "not_found", message: "Product not found" });
       return;
     }
+    // Defensive: this route creates vials (unitType defaults in the DB), so a
+    // retail price here is only meaningful if kits ever become creatable —
+    // reject an inverted pair now rather than let one be persisted.
+    if (
+      parsed.data.retailPriceCents != null &&
+      parsed.data.retailPriceCents <= parsed.data.priceCents
+    ) {
+      res.status(422).json({
+        error: "unprocessable_entity",
+        code: "KIT_PRICING_INVERTED",
+        message:
+          "A retail price must be above the wholesale list price.",
+      });
+      return;
+    }
+
     const skuConflict = await db.query.productVariantsTable.findFirst({
       where: eq(productVariantsTable.sku, parsed.data.sku),
     });
@@ -745,6 +779,22 @@ router.put("/admin/variants/:id", async (req, res) => {
         return;
       }
     }
+    const putViolation = kitPricingViolation(
+      existing.unitType,
+      parsed.data.priceCents ?? existing.priceCents,
+      parsed.data.retailPriceCents !== undefined
+        ? parsed.data.retailPriceCents
+        : existing.retailPriceCents,
+    );
+    if (putViolation) {
+      res.status(422).json({
+        error: "unprocessable_entity",
+        code: "KIT_PRICING_INVERTED",
+        message: putViolation,
+      });
+      return;
+    }
+
     const [updated] = await db.update(productVariantsTable).set(parsed.data).where(eq(productVariantsTable.id, id)).returning();
     res.json(updated);
   } catch (err) {
@@ -1195,6 +1245,7 @@ router.get("/admin/catalog", async (_req, res) => {
           id: v.id,
           sku: v.sku,
           priceCents: v.priceCents,
+          retailPriceCents: v.retailPriceCents,
           inStock: v.inStock,
           unitType: v.unitType,
         })),
@@ -1254,11 +1305,16 @@ router.patch("/admin/products/:id", async (req, res) => {
 const PatchVariantPricingSchema = z
   .object({
     priceCents: z.number().int().positive().optional(),
+    retailPriceCents: z.number().int().positive().nullable().optional(),
     inStock: z.boolean().optional(),
   })
-  .refine((v) => v.priceCents !== undefined || v.inStock !== undefined, {
-    message: "At least one of priceCents or inStock is required",
-  });
+  .refine(
+    (v) =>
+      v.priceCents !== undefined ||
+      v.retailPriceCents !== undefined ||
+      v.inStock !== undefined,
+    { message: "At least one field is required" },
+  );
 
 router.patch("/admin/variants/:id", async (req, res) => {
   const id = Number(req.params.id);
@@ -1279,8 +1335,26 @@ router.patch("/admin/variants/:id", async (req, res) => {
       res.status(404).json({ error: "not_found", message: "Variant not found" });
       return;
     }
+    const patchViolation = kitPricingViolation(
+      existing.unitType,
+      parsed.data.priceCents ?? existing.priceCents,
+      parsed.data.retailPriceCents !== undefined
+        ? parsed.data.retailPriceCents
+        : existing.retailPriceCents,
+    );
+    if (patchViolation) {
+      res.status(422).json({
+        error: "unprocessable_entity",
+        code: "KIT_PRICING_INVERTED",
+        message: patchViolation,
+      });
+      return;
+    }
+
     const updates: Partial<typeof productVariantsTable.$inferInsert> = {};
     if (parsed.data.priceCents !== undefined) updates.priceCents = parsed.data.priceCents;
+    if (parsed.data.retailPriceCents !== undefined)
+      updates.retailPriceCents = parsed.data.retailPriceCents;
     if (parsed.data.inStock !== undefined) updates.inStock = parsed.data.inStock;
 
     const [updated] = await db.update(productVariantsTable).set(updates).where(eq(productVariantsTable.id, id)).returning();

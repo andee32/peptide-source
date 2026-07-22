@@ -4,7 +4,9 @@ import {
   integer,
   timestamp,
   pgEnum,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { priceTiersTable } from "./pricing";
@@ -35,12 +37,21 @@ export const customerAccountsTable = pgTable("customer_accounts", {
   status: accountStatusEnum("status").notNull().default("pending"),
   businessType: businessTypeEnum("business_type"),
   priceTierId: integer("price_tier_id").references(() => priceTiersTable.id),
+  // Looked up by resolveWholesaleAccount() on every kit-catalog request; a
+  // duplicate would resolve to an arbitrary row. Uniqueness is enforced by a
+  // partial index below — empty string means "no token issued" (never accepted
+  // by the falsy guard) and may legitimately repeat across accounts that never
+  // got one. Access is revoked via account status, not by clearing this column.
   accessToken: text("access_token").notNull().default(""),
   kybNotes: text("kyb_notes"),
   approvedAt: timestamp("approved_at"),
   approvedBy: text("approved_by"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [
+  uniqueIndex("customer_accounts_access_token_unique")
+    .on(t.accessToken)
+    .where(sql`${t.accessToken} <> ''`),
+]);
 
 export const insertCustomerAccountSchema = createInsertSchema(
   customerAccountsTable

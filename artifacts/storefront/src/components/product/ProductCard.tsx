@@ -2,16 +2,34 @@ import { Link } from "wouter";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { Product } from "@atlab/api-client-react";
 import { ArrowRight, Beaker } from "lucide-react";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 
-interface ProductCardProps {
-  product: Product;
+// Structural subset shared by the wholesale Product and retail RetailProduct
+// shapes, so the same card renders both catalogs.
+export interface ProductCardData {
+  id: number;
+  name: string;
+  slug: string;
+  category: string;
+  shortDescription: string;
+  startingPriceCents: number;
+  imageUrl?: string | null;
+  latestBatchPurity?: number | null;
+  latestBatchIsDemo?: boolean | null;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+interface ProductCardProps {
+  product: ProductCardData;
+  /** Link target; defaults to the wholesale kit detail page. */
+  href?: string;
+  /** Price denominator label — "kit" (wholesale) or "vial" (retail). */
+  unitLabel?: string;
+}
+
+export function ProductCard({ product, href, unitLabel = "kit" }: ProductCardProps) {
   const { showVialImages } = useStoreSettings();
+  const detailHref = href ?? `/shop/${product.slug}`;
 
   // COA / category badges follow the product everywhere: overlaid on the image
   // when shown, or reflowed into the card body when images are hidden.
@@ -41,7 +59,7 @@ export function ProductCard({ product }: ProductCardProps) {
   return (
     <Card className="group overflow-hidden flex flex-col h-full hover-elevate transition-all duration-300 hover:border-primary/40">
       {showVialImages && (
-        <Link href={`/shop/${product.slug}`} className="relative aspect-square overflow-hidden bg-muted/50 flex items-center justify-center p-8">
+        <Link href={detailHref} className="relative aspect-square overflow-hidden bg-muted/50 flex items-center justify-center p-8">
           {product.imageUrl ? (
             <img
               src={product.imageUrl}
@@ -69,13 +87,13 @@ export function ProductCard({ product }: ProductCardProps) {
         )}
         <div className="mb-2 flex items-baseline justify-between gap-4">
           <Link
-            href={`/shop/${product.slug}`}
+            href={detailHref}
             className="font-sans text-xl font-bold tracking-tight hover:text-primary transition-colors line-clamp-1"
           >
             {product.name}
           </Link>
           <span className="font-mono text-sm text-muted-foreground whitespace-nowrap">
-            ${(product.startingPriceCents / 100).toFixed(2)} / kit
+            ${(product.startingPriceCents / 100).toFixed(2)} / {unitLabel}
           </span>
         </div>
 
@@ -86,7 +104,7 @@ export function ProductCard({ product }: ProductCardProps) {
 
       <CardFooter className="p-6 pt-0 mt-auto">
         <Button asChild className="w-full group/btn relative overflow-hidden" variant="secondary">
-          <Link href={`/shop/${product.slug}`}>
+          <Link href={detailHref}>
             <span className="relative z-10 flex items-center gap-2 font-mono uppercase tracking-wider text-xs">
               View Details <ArrowRight className="h-3 w-3 group-hover/btn:translate-x-1 transition-transform" />
             </span>

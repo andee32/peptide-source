@@ -69,6 +69,10 @@ export const productVariantsTable = pgTable("product_variants", {
   concentration: text("concentration").notNull(),
   sizeml: real("size_ml").notNull(),
   priceCents: integer("price_cents").notNull(),
+  // Retail price for KIT variants (priceCents is the wholesale list price for
+  // kits). Null = kit is wholesale-only and hidden from the retail store.
+  // Vial variants ignore this — priceCents IS their retail price.
+  retailPriceCents: integer("retail_price_cents"),
   sku: text("sku").notNull().unique(),
   unitType: unitTypeEnum("unit_type").notNull().default("vial"),
   vialsPerUnit: integer("vials_per_unit").notNull().default(1),
