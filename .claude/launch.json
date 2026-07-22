@@ -14,14 +14,18 @@
     },
     {
       "name": "storefront",
-      "runtimeExecutable": "pnpm",
+      "runtimeExecutable": "env",
       "runtimeArgs": [
+        "API_PROXY_TARGET=http://localhost:8081",
+        "pnpm",
+        "--config.verify-deps-before-run=false",
         "--filter",
         "@atlab/storefront",
         "run",
         "dev"
       ],
-      "port": 5173
+      "port": 5173,
+      "autoPort": true
     },
     {
       "name": "mockup-sandbox",
