@@ -108,10 +108,10 @@ export function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-center md:text-left">
-            <div className="flex flex-col items-center md:items-start">
-              <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 border border-primary/20 text-primary">
-                <ShieldCheck className="h-8 w-8" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center md:text-left">
+            <div className="flex flex-col items-center md:items-start bg-card border border-border rounded-lg p-8 shadow-sm">
+              <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6 border border-primary/25 text-teal-ink">
+                <ShieldCheck className="h-7 w-7" />
               </div>
               <h3 className="text-xl font-bold mb-3">COA-Verified Inventory</h3>
               <p className="text-muted-foreground leading-relaxed">
@@ -120,9 +120,9 @@ export function HomePage() {
               </p>
             </div>
 
-            <div className="flex flex-col items-center md:items-start">
-              <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 border border-primary/20 text-primary">
-                <PackageCheck className="h-8 w-8" />
+            <div className="flex flex-col items-center md:items-start bg-card border border-border rounded-lg p-8 shadow-sm">
+              <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6 border border-primary/25 text-teal-ink">
+                <PackageCheck className="h-7 w-7" />
               </div>
               <h3 className="text-xl font-bold mb-3">Wholesale Kit Pricing</h3>
               <p className="text-muted-foreground leading-relaxed">
@@ -131,9 +131,9 @@ export function HomePage() {
               </p>
             </div>
 
-            <div className="flex flex-col items-center md:items-start">
-              <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 border border-primary/20 text-primary">
-                <Beaker className="h-8 w-8" />
+            <div className="flex flex-col items-center md:items-start bg-card border border-border rounded-lg p-8 shadow-sm">
+              <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6 border border-primary/25 text-teal-ink">
+                <Beaker className="h-7 w-7" />
               </div>
               <h3 className="text-xl font-bold mb-3">Dual Sourcing, RUO-First</h3>
               <p className="text-muted-foreground leading-relaxed">

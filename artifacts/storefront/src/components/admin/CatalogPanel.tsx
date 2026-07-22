@@ -122,6 +122,7 @@ function VariantRow({
             className="h-8 font-mono text-xs"
             disabled={!priceDirty || patch.isPending}
             onClick={savePrice}
+            aria-label="Save price"
           >
             <Check className="h-3.5 w-3.5" />
           </Button>
@@ -139,7 +140,7 @@ function VariantRow({
           />
           <span
             className={`text-[10px] font-mono uppercase tracking-wider ${
-              variant.inStock ? "text-[var(--atl-teal-600)]" : "text-muted-foreground"
+              variant.inStock ? "text-teal-ink" : "text-muted-foreground"
             }`}
           >
             {variant.inStock ? "In stock" : "Out"}

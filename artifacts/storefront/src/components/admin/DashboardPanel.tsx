@@ -79,7 +79,7 @@ function AttentionTile({
             {value}
           </span>
           {needsAttention && (
-            <Badge className="bg-brand-gold text-white hover:bg-brand-gold font-mono text-[10px] uppercase">
+            <Badge className="bg-brand-gold text-structure-900 hover:bg-brand-gold font-mono text-[10px] uppercase">
               Needs review
             </Badge>
           )}

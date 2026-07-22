@@ -152,7 +152,7 @@ export function ProductDetailPage() {
         <span className="text-foreground">{product.name}</span>
       </div>
 
-      <div className={`grid grid-cols-1 gap-12 lg:gap-16 mb-24 ${showVialImages ? "lg:grid-cols-2" : ""}`}>
+      <div className={`grid grid-cols-1 gap-12 lg:gap-16 mb-24 ${showVialImages ? "lg:grid-cols-2" : "max-w-2xl"}`}>
         {/* Left Col: Image (hidden when store images are turned off) */}
         {showVialImages && (
           <div className="relative aspect-square rounded-2xl overflow-hidden bg-secondary/30 flex items-center justify-center p-12 border border-border">
@@ -174,7 +174,7 @@ export function ProductDetailPage() {
             )}
 
             <div className="absolute top-6 left-6 flex flex-col gap-3 z-20">
-              <Badge className="w-fit bg-primary/20 text-primary border-primary/30 font-mono text-sm px-4 py-1">
+              <Badge className="w-fit bg-primary/15 text-teal-ink border-primary/30 font-mono text-sm px-4 py-1">
                 {product.category}
               </Badge>
               {product.latestBatchPurity != null &&
@@ -195,7 +195,7 @@ export function ProductDetailPage() {
         <div className="flex flex-col">
           {!showVialImages && (
             <div className="flex flex-wrap gap-3 mb-4">
-              <Badge className="w-fit bg-primary/20 text-primary border-primary/30 font-mono text-sm px-4 py-1">
+              <Badge className="w-fit bg-primary/15 text-teal-ink border-primary/30 font-mono text-sm px-4 py-1">
                 {product.category}
               </Badge>
               {product.latestBatchPurity != null &&
@@ -243,7 +243,7 @@ export function ProductDetailPage() {
                   />
                   <div className="flex justify-between items-start mb-2">
                     <span className="font-bold text-lg">{variant.name}</span>
-                    <span className="font-mono text-primary font-bold">
+                    <span className="font-mono text-teal-ink font-bold">
                       ${(variant.priceCents / 100).toFixed(2)}
                     </span>
                   </div>
@@ -336,7 +336,7 @@ export function ProductDetailPage() {
                       </span>
                     );
                   })()}
-                  <Badge className="bg-primary/15 text-primary border-primary/30 text-xs font-mono">
+                  <Badge className="bg-primary/15 text-teal-ink border-primary/30 text-xs font-mono">
                     / {subscribeInterval} days
                   </Badge>
                 </>
@@ -414,7 +414,7 @@ export function ProductDetailPage() {
             </TabsContent>
             
             <TabsContent value="about" className="mt-0 outline-none">
-              <div className="max-w-3xl prose prose-invert prose-p:text-muted-foreground prose-headings:text-foreground">
+              <div className="max-w-3xl prose prose-p:text-muted-foreground prose-headings:text-foreground">
                 <p className="text-lg leading-relaxed whitespace-pre-wrap">
                   {product.longDescription}
                 </p>

@@ -119,7 +119,7 @@ export function RetailProductPage() {
             )}
 
             <div className="absolute top-6 left-6 flex flex-col gap-3 z-20">
-              <Badge className="w-fit bg-primary/20 text-primary border-primary/30 font-mono text-sm px-4 py-1">
+              <Badge className="w-fit bg-primary/15 text-teal-ink border-primary/30 font-mono text-sm px-4 py-1">
                 {product.category}
               </Badge>
               {isCleared && (
@@ -138,7 +138,7 @@ export function RetailProductPage() {
         <div className="flex flex-col">
           {!showVialImages && (
             <div className="flex flex-wrap gap-3 mb-4">
-              <Badge className="w-fit bg-primary/20 text-primary border-primary/30 font-mono text-sm px-4 py-1">
+              <Badge className="w-fit bg-primary/15 text-teal-ink border-primary/30 font-mono text-sm px-4 py-1">
                 {product.category}
               </Badge>
               {isCleared && (
@@ -198,7 +198,7 @@ export function RetailProductPage() {
                   />
                   <div className="flex justify-between items-start mb-2">
                     <span className="font-bold text-lg">{variant.name}</span>
-                    <span className="font-mono text-primary font-bold">
+                    <span className="font-mono text-teal-ink font-bold">
                       ${(variant.priceCents / 100).toFixed(2)}
                     </span>
                   </div>

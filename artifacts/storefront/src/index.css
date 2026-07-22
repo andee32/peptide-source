@@ -16,6 +16,9 @@
   --color-card-foreground: var(--card-foreground);
   --color-card-border: var(--card-border);
 
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-border: var(--primary-border);
@@ -40,6 +43,15 @@
   --color-brand-teal: var(--atl-teal);
   --color-brand-gold: var(--atl-gold);
   --color-verified: var(--atl-gold);
+  --color-teal-ink: var(--atl-teal-600);
+
+  /* Semantic status colors (from design-system/tokens.css) */
+  --color-good: var(--atl-good);
+  --color-good-tint: var(--atl-good-tint);
+  --color-warn: var(--atl-warn);
+  --color-warn-tint: var(--atl-warn-tint);
+  --color-crit: var(--atl-crit);
+  --color-crit-tint: var(--atl-crit-tint);
 
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -81,8 +93,11 @@
   --atl-border:      #d1d9e0;
 
   --atl-good:        #167a52;
+  --atl-good-tint:   #d6ece1;
   --atl-warn:        #b5750a;
+  --atl-warn-tint:   #f4e8cf;
   --atl-crit:        #c0392b;
+  --atl-crit-tint:   #f6dcd8;
 
   --atl-font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
   --atl-font-body:    "Lato", ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -100,7 +115,7 @@
   --popover-foreground: var(--atl-ink);
 
   --primary: var(--atl-teal);              /* PRIMARY ACTION = teal */
-  --primary-foreground: #ffffff;
+  --primary-foreground: #053e44;           /* --primary-ink: white on teal fails contrast */
 
   --secondary: var(--atl-navy);            /* structural = navy */
   --secondary-foreground: #ffffff;
@@ -129,7 +144,7 @@
   --sidebar-foreground: var(--atl-ink);
   --sidebar-border: var(--atl-border);
   --sidebar-primary: var(--atl-teal);
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-primary-foreground: #053e44;
   --sidebar-accent: var(--atl-blue-tint);
   --sidebar-accent-foreground: var(--atl-navy);
   --sidebar-ring: var(--atl-teal);

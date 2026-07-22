@@ -33,7 +33,7 @@ export function ProductsPage() {
 
       <div className="flex justify-center mb-12">
         <Tabs defaultValue="All" value={selectedCategory} onValueChange={setSelectedCategory} className="w-full overflow-x-auto pb-2 flex justify-center">
-          <TabsList className="bg-secondary/50 border border-border">
+          <TabsList className="bg-muted border border-border">
             {categories.map((cat) => (
               <TabsTrigger 
                 key={cat} 

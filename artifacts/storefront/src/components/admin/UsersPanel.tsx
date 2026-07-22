@@ -157,6 +157,7 @@ function UserRow({
             variant="outline"
             className="h-8 font-mono text-xs gap-1.5"
             onClick={() => onResetPassword(user)}
+            aria-label="Reset password"
           >
             <KeyRound className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Password</span>
@@ -167,6 +168,7 @@ function UserRow({
             className="h-8 font-mono text-xs gap-1.5"
             disabled={patch.isPending}
             onClick={toggleActive}
+            aria-label={user.isActive ? "Deactivate user" : "Reactivate user"}
           >
             {user.isActive ? (
               <>
@@ -372,7 +374,7 @@ function ResetPasswordDialog({
 
         {done ? (
           <div className="space-y-4">
-            <p className="text-sm font-mono text-[var(--atl-teal-600)]">
+            <p className="text-sm font-mono text-good">
               Password updated.
             </p>
             <div className="flex justify-end">

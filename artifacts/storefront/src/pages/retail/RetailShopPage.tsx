@@ -89,7 +89,7 @@ function RetailProductCard({ product }: { product: RetailProduct }) {
           <span className="font-sans text-xl font-bold tracking-tight line-clamp-1">
             {product.name}
           </span>
-          <span className="font-mono text-sm text-primary whitespace-nowrap font-semibold">
+          <span className="font-mono text-sm text-teal-ink whitespace-nowrap font-semibold">
             {money(selected?.priceCents ?? product.startingPriceCents)}{" "}
             <span className="text-muted-foreground">/ vial</span>
           </span>
@@ -201,7 +201,7 @@ export function RetailShopPage() {
           onValueChange={setSelectedCategory}
           className="w-full overflow-x-auto pb-2 flex justify-center"
         >
-          <TabsList className="bg-secondary/50 border border-border">
+          <TabsList className="bg-muted border border-border">
             {categories.map((cat) => (
               <TabsTrigger
                 key={cat}
