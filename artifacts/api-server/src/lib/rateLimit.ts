@@ -46,3 +46,26 @@ export const registerRateLimit = rateLimit({
   keyGenerator: ipAndEmailKey,
   message: TOO_MANY,
 });
+
+/**
+ * Operator mutations that re-verify the CALLER's password (password change,
+ * operator create, deactivate).
+ *
+ * These sit behind adminAuth, so the caller already holds a session — but the
+ * re-auth check runs a 100k-iteration PBKDF2 on every request. Unthrottled that
+ * is an online brute-force oracle for the actor's cleartext password (which
+ * converts a 12h session into indefinite access) and a way to occupy the libuv
+ * threadpool, which is the hazard the async hashing was introduced to avoid.
+ *
+ * Keyed on the acting operator, not the submitted email — these bodies carry no
+ * email field, so ipAndEmailKey would degrade to the IP alone.
+ */
+export const reauthRateLimit = rateLimit({
+  windowMs: WINDOW_MS,
+  limit: 10,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  keyGenerator: (req: Request) =>
+    req.adminIdentity?.user?.id ?? ipKeyGenerator(req.ip ?? "unknown"),
+  message: TOO_MANY,
+});

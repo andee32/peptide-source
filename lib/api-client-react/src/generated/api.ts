@@ -4225,7 +4225,7 @@ export const useAdminPatchAdminUser = <
 };
 
 /**
- * Supply currentPassword for a self-service change; omit it for an admin-performed reset. Requires x-admin-key header.
+ * Requires the CALLER's own password in currentPassword, for both self-service changes and peer resets — a live session alone is not sufficient, since a stolen one would otherwise grant permanent takeover. Only the ops break-glass key may omit it. Requires x-admin-key header.
  * @summary Admin — set or reset an admin user's password
  */
 export const getAdminSetAdminUserPasswordUrl = (id: string) => {

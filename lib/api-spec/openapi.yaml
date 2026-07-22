@@ -1393,7 +1393,7 @@ paths:
       operationId: adminSetAdminUserPassword
       tags: [adminUsers]
       summary: Admin — set or reset an admin user's password
-      description: Supply currentPassword for a self-service change; omit it for an admin-performed reset. Requires x-admin-key header.
+      description: Requires the CALLER's own password in currentPassword, for both self-service changes and peer resets — a live session alone is not sufficient, since a stolen one would otherwise grant permanent takeover. Only the ops break-glass key may omit it. Requires x-admin-key header.
       parameters:
         - name: id
           in: path
@@ -3098,7 +3098,7 @@ components:
           type: string
           minLength: 1
           maxLength: 200
-          description: Required only for a self-service change; omit for an admin reset.
+          description: The CALLER's own current password. Required for every caller authenticated as an operator, whether changing their own password or resetting a peer's. Only the ops break-glass key may omit it.
       required:
         - password
 

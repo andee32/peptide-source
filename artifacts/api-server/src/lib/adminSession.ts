@@ -40,8 +40,15 @@ export async function createAdminSession(
  * use the console changes — deactivation and password reset. Without this,
  * both controls are cosmetic.
  */
-export async function revokeAdminSessions(adminUserId: string): Promise<void> {
-  await db
+export async function revokeAdminSessions(
+  adminUserId: string,
+  // Optional transaction handle so a caller can revoke in the SAME transaction
+  // as the change that motivated it. A password write that commits while its
+  // revoke rolls back leaves sessions opened under the old password live
+  // against the new one.
+  tx: Pick<typeof db, "update"> = db
+): Promise<void> {
+  await tx
     .update(adminSessionsTable)
     .set({ revokedAt: new Date() })
     .where(

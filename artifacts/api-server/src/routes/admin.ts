@@ -33,7 +33,7 @@ import {
   revokeAdminSessions,
   adminActorEmail,
 } from "../lib/adminSession";
-import { loginRateLimit } from "../lib/rateLimit";
+import { loginRateLimit, reauthRateLimit } from "../lib/rateLimit";
 import { ensureBootstrapAdmin } from "../lib/bootstrapAdmin";
 import {
   SETTLEABLE_ORDER_STATUSES,
@@ -54,6 +54,59 @@ async function adminAuth(req: Request, res: Response, next: NextFunction): Promi
   }
   req.adminIdentity = identity;
   next();
+}
+
+/**
+ * Re-authentication gate for operator mutations that grant or revoke durable
+ * console access.
+ *
+ * A live session must not be sufficient on its own: a stolen 12h token would
+ * otherwise be enough to reset a peer's password, provision a new operator, or
+ * deactivate everyone else — each of which outlives the stolen token. The caller
+ * must prove possession of their OWN password.
+ *
+ * Returns true when the request may proceed. Writes the response and returns
+ * false otherwise.
+ */
+async function requireReauth(req: Request, res: Response): Promise<boolean> {
+  const identity = req.adminIdentity;
+
+  // Branch on the explicit flag rather than inferring break-glass from a missing
+  // user — a control must not fail open if middleware ordering ever changes.
+  if (!identity) {
+    res.status(401).json({ error: "unauthorized", message: "Invalid admin key" });
+    return false;
+  }
+
+  if (identity.breakGlass) {
+    // Break-glass has no admin_users row to re-authenticate against, and it is
+    // the documented recovery path when the table is unusable. Permitted, but
+    // never silent.
+    console.warn(
+      `[admin] privileged operator mutation via BREAK-GLASS key on ${req.method} ${req.originalUrl} — no operator re-authentication`
+    );
+    return true;
+  }
+
+  const currentPassword = (req.body as { currentPassword?: unknown })
+    ?.currentPassword;
+  if (typeof currentPassword !== "string" || currentPassword.length === 0) {
+    res.status(400).json({
+      error: "bad_request",
+      message: "currentPassword is required for this operation",
+    });
+    return false;
+  }
+
+  if (!(await verifyPassword(currentPassword, identity.user!.passwordHash))) {
+    res.status(401).json({
+      error: "unauthorized",
+      message: "Current password is incorrect",
+    });
+    return false;
+  }
+
+  return true;
 }
 
 const LoginSchema = z.object({
@@ -221,7 +274,7 @@ const CreateAdminUserSchema = z.object({
   name: z.string().min(1).max(200).optional(),
 });
 
-router.post("/admin/users", async (req, res) => {
+router.post("/admin/users", reauthRateLimit, async (req, res) => {
   const parsed = CreateAdminUserSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
@@ -232,6 +285,10 @@ router.post("/admin/users", async (req, res) => {
   }
 
   const email = parsed.data.email.trim().toLowerCase();
+
+  // Provisioning an operator outlives the session that did it, so a stolen
+  // token must not be enough on its own.
+  if (!(await requireReauth(req, res))) return;
 
   try {
     const existing = await db.query.adminUsersTable.findFirst({
@@ -267,7 +324,7 @@ const PatchAdminUserSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-router.patch("/admin/users/:id", async (req, res) => {
+router.patch("/admin/users/:id", reauthRateLimit, async (req, res) => {
   const parsed = PatchAdminUserSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "bad_request", message: parsed.error.message });
@@ -276,11 +333,18 @@ router.patch("/admin/users/:id", async (req, res) => {
 
   try {
     const user = await db.query.adminUsersTable.findFirst({
-      where: eq(adminUsersTable.id, req.params.id),
+      where: eq(adminUsersTable.id, String(req.params.id)),
     });
     if (!user) {
       res.status(404).json({ error: "not_found", message: "Admin user not found" });
       return;
+    }
+
+    // Deactivating an operator strips their access and, combined with creating
+    // one, is a complete takeover — so it needs the same re-authentication as a
+    // password change. Renames are harmless and stay ungated.
+    if (parsed.data.isActive === false && user.isActive) {
+      if (!(await requireReauth(req, res))) return;
     }
 
     // Never let the last active operator be deactivated — that would leave the
@@ -311,7 +375,7 @@ router.patch("/admin/users/:id", async (req, res) => {
     const [updated] = await db
       .update(adminUsersTable)
       .set(updates)
-      .where(eq(adminUsersTable.id, req.params.id))
+      .where(eq(adminUsersTable.id, String(req.params.id)))
       .returning();
 
     // Deactivation must take effect now, not at session expiry.
@@ -331,7 +395,7 @@ const SetAdminPasswordSchema = z.object({
   currentPassword: z.string().min(1).max(200).optional(),
 });
 
-router.post("/admin/users/:id/password", async (req, res) => {
+router.post("/admin/users/:id/password", reauthRateLimit, async (req, res) => {
   const parsed = SetAdminPasswordSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
@@ -343,31 +407,39 @@ router.post("/admin/users/:id/password", async (req, res) => {
 
   try {
     const user = await db.query.adminUsersTable.findFirst({
-      where: eq(adminUsersTable.id, req.params.id),
+      where: eq(adminUsersTable.id, String(req.params.id)),
     });
     if (!user) {
       res.status(404).json({ error: "not_found", message: "Admin user not found" });
       return;
     }
 
-    // currentPassword is optional (an admin can reset a peer), but when supplied
-    // it must be correct — that is the self-service change-password path.
-    if (
-      parsed.data.currentPassword !== undefined &&
-      !(await verifyPassword(parsed.data.currentPassword, user.passwordHash))
-    ) {
-      res.status(401).json({ error: "unauthorized", message: "Current password is incorrect" });
-      return;
-    }
+    // currentPassword used to be optional, and when supplied was checked against
+    // the TARGET's hash — which a peer resetter would not know, so the attack
+    // was simply to omit it. A stolen session could then reset the owner's
+    // password and, via revokeAdminSessions below, lock them out permanently.
+    if (!(await requireReauth(req, res))) return;
 
-    await db
-      .update(adminUsersTable)
-      .set({ passwordHash: await hashPassword(parsed.data.password) })
-      .where(eq(adminUsersTable.id, req.params.id));
+    const actor = req.adminIdentity?.user ?? null;
 
-    // A password change must invalidate every session opened under the old
-    // one — otherwise "reset their password" locks nobody out.
-    await revokeAdminSessions(user.id);
+    // The hash write and the session revocation must land together: if the
+    // revoke failed after the write, sessions opened under the OLD password
+    // would stay live against the new one.
+    await db.transaction(async (tx) => {
+      await tx
+        .update(adminUsersTable)
+        .set({ passwordHash: await hashPassword(parsed.data.password) })
+        .where(eq(adminUsersTable.id, String(req.params.id)));
+
+      await revokeAdminSessions(user.id, tx);
+    });
+
+    // No audit table exists yet, so the actor trail is the log. Self-service and
+    // peer resets are distinguished because they carry very different weight.
+    console.log(
+      `[admin] password changed for ${user.email} by ${adminActorEmail(req)}` +
+        (actor && actor.id === user.id ? " (self)" : " (peer reset)")
+    );
 
     res.json({ ok: true });
   } catch (err) {
