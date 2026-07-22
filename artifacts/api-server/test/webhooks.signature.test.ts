@@ -93,6 +93,31 @@ test("rejects a same-length signature with different bytes", async () => {
   assert.equal(await paymentStatus(paymentId), "pending");
 });
 
+// app.ts captures raw bytes only for Content-Type: application/json. Any other
+// content type leaves req.rawBody unset, and the handler must refuse rather than
+// verify a signature over a re-serialised body. Before this was fixed the same
+// request threw (Buffer.from(JSON.stringify(undefined))) and returned 500.
+test("rejects a request whose raw body was never captured", async () => {
+  const { paymentId, invoiceId } = await seedOrderWithPayment();
+  const body = JSON.stringify({ type: "InvoiceSettled", invoiceId });
+
+  const res = await fetch(`${server.url}/api/webhooks/btcpay`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain",
+      "btcpay-sig": signBtcpayBody(body, SECRET),
+    },
+    body,
+  });
+
+  assert.equal(res.status, 400);
+  assert.equal(
+    ((await res.json()) as { error: string }).error,
+    "missing_raw_body"
+  );
+  assert.equal(await paymentStatus(paymentId), "pending");
+});
+
 // Positive control. Without this the suite would still pass if the handler
 // rejected everything unconditionally.
 test("accepts a correctly signed webhook", async () => {
