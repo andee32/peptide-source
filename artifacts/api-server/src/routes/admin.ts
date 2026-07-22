@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and, asc, desc, count, sql } from "drizzle-orm";
+import { eq, and, ne, asc, desc, count, inArray, sql } from "drizzle-orm";
 import { createHash, timingSafeEqual } from "crypto";
 import { db } from "@atlab/db";
 import {
@@ -33,6 +33,10 @@ import {
   adminActorEmail,
 } from "../lib/adminSession";
 import { loginRateLimit } from "../lib/rateLimit";
+import {
+  SETTLEABLE_ORDER_STATUSES,
+  TERMINAL_ORDER_STATUSES,
+} from "../lib/orderStatus";
 
 const router: IRouter = Router();
 
@@ -926,18 +930,53 @@ router.post("/admin/orders/:id/confirm-ach", async (req, res) => {
     };
     if (parsed.data.bankLast4 != null) paymentUpdates.bankLast4 = parsed.data.bankLast4;
 
-    // Settle the payment record and confirm the order atomically — mirrors the
-    // BTCPay webhook settle path; neither write should land without the other.
-    await db.transaction(async (tx) => {
-      await tx
+    // Settle the payment record and confirm the order atomically — same shape as
+    // the BTCPay webhook settle path. Both updates carry their own status
+    // predicate rather than trusting the SELECT above: without them two
+    // concurrent confirmations both succeed, and an order an admin has already
+    // refunded is confirmed a second time.
+    const settled = await db.transaction(async (tx) => {
+      const [movedPayment] = await tx
         .update(paymentRecordsTable)
         .set(paymentUpdates)
-        .where(eq(paymentRecordsTable.id, payment.id));
-      await tx
+        .where(
+          and(
+            eq(paymentRecordsTable.id, payment.id),
+            eq(paymentRecordsTable.status, "pending")
+          )
+        )
+        .returning();
+
+      if (!movedPayment) return false;
+
+      const [movedOrder] = await tx
         .update(ordersTable)
-        .set({ status: "confirmed" })
-        .where(eq(ordersTable.id, order.id));
+        .set({ status: "confirmed", updatedAt: new Date() })
+        .where(
+          and(
+            eq(ordersTable.id, order.id),
+            inArray(ordersTable.status, SETTLEABLE_ORDER_STATUSES)
+          )
+        )
+        .returning();
+
+      if (!movedOrder) {
+        console.error(
+          `[admin] ACH payment ${payment.id} was confirmed but order ${order.id} ` +
+            `was not in a settleable status; needs manual review`
+        );
+      }
+
+      return true;
     });
+
+    if (!settled) {
+      res.status(409).json({
+        error: "conflict",
+        message: "This payment has already been settled",
+      });
+      return;
+    }
 
     res.json({
       orderId: order.id,
@@ -1088,8 +1127,6 @@ router.get("/admin/orders/:id", async (req, res) => {
 });
 
 // Terminal states cannot transition to a different status.
-const TERMINAL_ORDER_STATUSES: readonly string[] = ["refunded"];
-
 const PatchOrderSchema = z
   .object({
     status: z.enum(orderStatusEnum.enumValues).optional(),
@@ -1159,11 +1196,21 @@ router.post("/admin/orders/:id/refund", async (req, res) => {
       return;
     }
 
+    // The status predicate lives on the UPDATE, not just the check above: two
+    // concurrent refund clicks would otherwise both pass the SELECT and both
+    // write, recording the refund twice.
     const [updated] = await db
       .update(ordersTable)
       .set({ status: "refunded", updatedAt: new Date() })
-      .where(eq(ordersTable.id, order.id))
+      .where(
+        and(eq(ordersTable.id, order.id), ne(ordersTable.status, "refunded"))
+      )
       .returning();
+
+    if (!updated) {
+      res.status(409).json({ error: "conflict", message: "Order is already refunded" });
+      return;
+    }
 
     res.json(updated);
   } catch (err) {

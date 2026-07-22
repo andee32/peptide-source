@@ -3,16 +3,9 @@ import { eq, and, inArray } from "drizzle-orm";
 import { db } from "@atlab/db";
 import { ordersTable, paymentRecordsTable } from "@atlab/db/schema";
 import { btcpayService } from "../services/btcpay";
+import { SETTLEABLE_ORDER_STATUSES } from "../lib/orderStatus";
 
 const router = Router();
-
-// Statuses a webhook may move an order OUT of. An order that is already
-// confirmed, or that an admin has refunded, must never be rewritten by an
-// inbound webhook — BTCPay redelivers on its own schedule and an operator can
-// replay a delivery by hand, so an unguarded UPDATE lets a refunded order walk
-// back to confirmed.
-const WEBHOOK_MUTABLE_ORDER_STATUSES: readonly ("pending" | "awaiting_payment")[] =
-  ["pending", "awaiting_payment"];
 
 interface RequestWithRawBody extends Request {
   rawBody?: Buffer;
@@ -92,7 +85,7 @@ router.post("/webhooks/btcpay", async (req: RequestWithRawBody, res) => {
         .where(
           and(
             eq(ordersTable.id, payment!.orderId),
-            inArray(ordersTable.status, WEBHOOK_MUTABLE_ORDER_STATUSES)
+            inArray(ordersTable.status, SETTLEABLE_ORDER_STATUSES)
           )
         )
         .returning();
