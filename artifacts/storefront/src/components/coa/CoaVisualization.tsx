@@ -219,7 +219,7 @@ export function CoaVisualization({ batch, productName }: CoaVisualizationProps) 
             </span>
           </div>
         )}
-        <div className={`grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border/50 ${isDemo ? 'opacity-60 grayscale' : ''}`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border/50">
 
           {/* PURITY GAUGE */}
           <div className="p-6 flex flex-col items-center justify-center text-center">
