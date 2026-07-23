@@ -88,6 +88,14 @@ visibility (see "Research findings" below).
 ### Dev-only data to clear before launch
 - Discount code **`TEST10`** (10%, unlimited) — deactivate in Admin → Discounts.
 - **`$189`** retail price on the Tirzepatide 10mg kit — demo value.
+- **Two batches flipped to non-demo** so the clickable COA-Verified badge renders
+  for a demo: `TIR-2026-001` (Tirzepatide) and `BPC-2026-001` (BPC-157). These
+  present SEED COA data as real lab results — the `isDemo` guard exists to
+  prevent exactly that. **Revert before launch** (or replace with genuine
+  batches):
+  ```sql
+  UPDATE batches SET is_demo = true WHERE id IN ('TIR-2026-001','BPC-2026-001');
+  ```
 
 ### Decisions made this session (reversible)
 - Age gate stays scoped to the retail store, remembered per browser.
