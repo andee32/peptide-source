@@ -242,6 +242,24 @@ export const GetRetailProductResponse = zod
     zod.object({
       longDescription: zod.string(),
       researchUses: zod.array(zod.string()),
+      latestBatchId: zod
+        .string()
+        .nullish()
+        .describe(
+          "ID of the most recent released batch, or null. Only non-demo released batches are surfaced — this is what backs the clickable COA-Verified badge (links to \/verify\/{id}).",
+        ),
+      latestBatchPurity: zod
+        .number()
+        .nullish()
+        .describe(
+          "Purity % from the latest released batch's COA, if available.",
+        ),
+      latestBatchIsDemo: zod
+        .boolean()
+        .nullish()
+        .describe(
+          "True when the latest batch is seeded sample data (no real COA).",
+        ),
     }),
   );
 

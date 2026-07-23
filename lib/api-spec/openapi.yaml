@@ -3441,6 +3441,18 @@ components:
               type: array
               items:
                 type: string
+            latestBatchId:
+              type: string
+              nullable: true
+              description: ID of the most recent released batch, or null. Only non-demo released batches are surfaced — this is what backs the clickable COA-Verified badge (links to /verify/{id}).
+            latestBatchPurity:
+              type: number
+              nullable: true
+              description: Purity % from the latest released batch's COA, if available.
+            latestBatchIsDemo:
+              type: boolean
+              nullable: true
+              description: True when the latest batch is seeded sample data (no real COA).
           required:
             - longDescription
             - researchUses

@@ -1,7 +1,13 @@
 import { Router, type IRouter } from "express";
 import { eq, and, or, asc, isNotNull } from "drizzle-orm";
 import { db } from "@atlab/db";
-import { productsTable, productVariantsTable, categoryEnum } from "@atlab/db/schema";
+import {
+  productsTable,
+  productVariantsTable,
+  categoryEnum,
+  batchesTable,
+  coaResultsTable,
+} from "@atlab/db/schema";
 import {
   ListRetailProductsQueryParams,
   ListRetailProductsResponse,
@@ -135,10 +141,29 @@ router.get("/retail/products/:slug", async (req, res) => {
       orderBy: [asc(productVariantsTable.priceCents)],
     });
 
+    // Latest released batch → backs the clickable COA-Verified badge. Only a
+    // real (non-demo) released batch counts; demo/seed batches carry no COA.
+    const latestBatch = await db.query.batchesTable.findFirst({
+      where: (b, { eq: eqFn, and: andFn }) =>
+        andFn(eqFn(b.productId, product.id), eqFn(b.status, "released")),
+      orderBy: (b, { desc: descFn }) => [descFn(b.productionDate)],
+    });
+    let latestBatchPurity: number | null = null;
+    if (latestBatch) {
+      const purityCoa = await db.query.coaResultsTable.findFirst({
+        where: (c, { eq: eqFn, and: andFn }) =>
+          andFn(eqFn(c.batchId, latestBatch.id), eqFn(c.testType, "purity")),
+      });
+      latestBatchPurity = purityCoa?.purityPercent ?? null;
+    }
+
     const responseData = {
       ...toRetail(product, retailVariants),
       longDescription: product.longDescription,
       researchUses: product.researchUses,
+      latestBatchId: latestBatch?.id ?? null,
+      latestBatchPurity,
+      latestBatchIsDemo: latestBatch?.isDemo ?? null,
     };
 
     const validated = GetRetailProductResponse.parse(responseData);

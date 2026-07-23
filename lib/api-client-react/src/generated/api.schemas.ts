@@ -1086,6 +1086,12 @@ export interface RetailProduct {
 export type RetailProductDetail = RetailProduct & {
   longDescription: string;
   researchUses: string[];
+  /** ID of the most recent released batch, or null. Only non-demo released batches are surfaced — this is what backs the clickable COA-Verified badge (links to /verify/{id}). */
+  latestBatchId?: string | null;
+  /** Purity % from the latest released batch's COA, if available. */
+  latestBatchPurity?: number | null;
+  /** True when the latest batch is seeded sample data (no real COA). */
+  latestBatchIsDemo?: boolean | null;
 };
 
 export type PatchProductRequestSourcingPath =

@@ -69,7 +69,12 @@ export function RetailProductPage() {
   }
 
   const selectedVariant = product.variants.find((v) => v.id === selectedVariantId);
-  const isCleared = product.complianceStatus === "cleared";
+  // The badge means "a real, released batch has a COA you can look up" — not
+  // just an admin compliance flag. Demo/seed batches don't count.
+  const verifiedBatchId =
+    product.latestBatchId && product.latestBatchIsDemo === false
+      ? product.latestBatchId
+      : null;
 
   const handleAddToCart = () => {
     if (!selectedVariant) return;
@@ -122,13 +127,21 @@ export function RetailProductPage() {
               <Badge className="w-fit bg-primary/15 text-teal-ink border-primary/30 font-mono text-sm px-4 py-1">
                 {product.category}
               </Badge>
-              {isCleared && (
-                <Badge
-                  variant="outline"
-                  className="w-fit bg-background/80 backdrop-blur-sm border-[#c8a84b]/40 text-[#c8a84b] text-sm px-4 py-1 flex items-center gap-2"
-                >
-                  <ShieldCheck className="h-4 w-4" /> COA-Verified
-                </Badge>
+              {verifiedBatchId && (
+                <Link href={`/verify/${verifiedBatchId}`} className="w-fit">
+                  <Badge
+                    variant="outline"
+                    className="w-fit bg-background/80 backdrop-blur-sm border-[#c8a84b]/40 text-[#c8a84b] text-sm px-4 py-1 flex items-center gap-2 cursor-pointer hover:bg-[#c8a84b]/10 transition-colors"
+                    title="View this batch's certificate of analysis"
+                  >
+                    <ShieldCheck className="h-4 w-4" /> COA-Verified
+                    {product.latestBatchPurity != null && (
+                      <span className="font-mono">
+                        {product.latestBatchPurity}%
+                      </span>
+                    )}
+                  </Badge>
+                </Link>
               )}
             </div>
           </div>
@@ -141,13 +154,21 @@ export function RetailProductPage() {
               <Badge className="w-fit bg-primary/15 text-teal-ink border-primary/30 font-mono text-sm px-4 py-1">
                 {product.category}
               </Badge>
-              {isCleared && (
-                <Badge
-                  variant="outline"
-                  className="w-fit border-[#c8a84b]/40 text-[#c8a84b] text-sm px-4 py-1 flex items-center gap-2"
-                >
-                  <ShieldCheck className="h-4 w-4" /> COA-Verified
-                </Badge>
+              {verifiedBatchId && (
+                <Link href={`/verify/${verifiedBatchId}`} className="w-fit">
+                  <Badge
+                    variant="outline"
+                    className="w-fit border-[#c8a84b]/40 text-[#c8a84b] text-sm px-4 py-1 flex items-center gap-2 cursor-pointer hover:bg-[#c8a84b]/10 transition-colors"
+                    title="View this batch's certificate of analysis"
+                  >
+                    <ShieldCheck className="h-4 w-4" /> COA-Verified
+                    {product.latestBatchPurity != null && (
+                      <span className="font-mono">
+                        {product.latestBatchPurity}%
+                      </span>
+                    )}
+                  </Badge>
+                </Link>
               )}
             </div>
           )}
