@@ -821,6 +821,94 @@ export function useGetBatch<
 }
 
 /**
+ * Streams the most recent uploaded COA file as an attachment. Only released, non-demo batches serve a file; all others return 404.
+ * @summary Download the batch COA document
+ */
+export const getGetBatchCoaFileUrl = (id: string) => {
+  return `/api/batches/${id}/coa-file`;
+};
+
+export const getBatchCoaFile = async (
+  id: string,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getGetBatchCoaFileUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetBatchCoaFileQueryKey = (id: string) => {
+  return [`/api/batches/${id}/coa-file`] as const;
+};
+
+export const getGetBatchCoaFileQueryOptions = <
+  TData = Awaited<ReturnType<typeof getBatchCoaFile>>,
+  TError = ErrorType<ApiError>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBatchCoaFile>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetBatchCoaFileQueryKey(id);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getBatchCoaFile>>> = ({
+    signal,
+  }) => getBatchCoaFile(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getBatchCoaFile>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetBatchCoaFileQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getBatchCoaFile>>
+>;
+export type GetBatchCoaFileQueryError = ErrorType<ApiError>;
+
+/**
+ * @summary Download the batch COA document
+ */
+
+export function useGetBatchCoaFile<
+  TData = Awaited<ReturnType<typeof getBatchCoaFile>>,
+  TError = ErrorType<ApiError>,
+>(
+  id: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getBatchCoaFile>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetBatchCoaFileQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * Creates an order. Retail orders paid with crypto receive the admin-configured crypto payment discount (store settings, basis points); wholesale orders never do.
  * @summary Create a new order
  */

@@ -229,6 +229,33 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+  /batches/{id}/coa-file:
+    get:
+      operationId: getBatchCoaFile
+      tags: [batches]
+      summary: Download the batch COA document
+      description: Streams the most recent uploaded COA file as an attachment. Only released, non-demo batches serve a file; all others return 404.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: COA document (PDF or image)
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: No downloadable COA for this batch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
   /orders:
     post:
       operationId: createOrder
@@ -2676,8 +2703,12 @@ components:
             notes:
               type: string
               nullable: true
+            hasCoaFile:
+              type: boolean
+              description: True when a downloadable COA document is attached AND the batch is released and non-demo.
           required:
             - coaResults
+            - hasCoaFile
 
     OrderLineItem:
       type: object
