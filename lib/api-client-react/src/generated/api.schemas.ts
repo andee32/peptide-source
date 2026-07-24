@@ -237,7 +237,38 @@ export interface PriceTier {
   name: string;
   slug: string;
   isDefault: boolean;
+  /** Wholesale discount off list price in basis points (1000 = 10%). Server derives kit prices as list × (1 − discountBps/10000). */
+  discountBps: number;
   createdAt: string;
+}
+
+export interface CreatePriceTierRequest {
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  name: string;
+  /**
+   * Discount off list in basis points (1000 = 10%). Capped at 90%.
+   * @minimum 0
+   * @maximum 9000
+   */
+  discountBps: number;
+  isDefault?: boolean;
+}
+
+export interface PatchPriceTierRequest {
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  name?: string;
+  /**
+   * @minimum 0
+   * @maximum 9000
+   */
+  discountBps?: number;
+  isDefault?: boolean;
 }
 
 export type ApplyAccountRequestBusinessType =

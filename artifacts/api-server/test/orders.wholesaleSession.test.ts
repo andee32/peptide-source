@@ -1,8 +1,13 @@
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { eq } from "drizzle-orm";
 import { db } from "@atlab/db";
-import { customerUsersTable, customerAccountsTable } from "@atlab/db/schema";
+import {
+  customerUsersTable,
+  customerAccountsTable,
+  priceTiersTable,
+} from "@atlab/db/schema";
 import { startTestServer, type TestServer } from "./helpers/server";
 import { resetDb } from "./helpers/db";
 import { makeVariant, orderPayload } from "./helpers/factories";
@@ -145,4 +150,35 @@ test("session wholesale can use the quote endpoint", async () => {
   assert.equal(res.status, 200);
   const q = (await res.json()) as { subtotalCents: number };
   assert.equal(q.subtotalCents, 100_000); // 5 x 20_000, list (no tier entries)
+});
+
+test("wholesale price applies the account's tier discount off list", async () => {
+  const { id, token } = await signedInUser(`tier-${randomUUID()}@example.test`);
+  const account = await linkedApprovedAccount(id);
+  const [tier] = await db
+    .insert(priceTiersTable)
+    .values({ name: "Test Ten", slug: "test-ten", discountBps: 1000 }) // 10% off
+    .returning();
+  await db
+    .update(customerAccountsTable)
+    .set({ priceTierId: tier.id })
+    .where(eq(customerAccountsTable.id, account.id));
+  const { variant } = await makeVariant({ unitType: "kit", priceCents: 20_000 });
+
+  const res = await fetch(`${server.url}/api/orders/quote`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      lineItems: [{ variantId: variant.id, quantity: 5 }],
+      paymentMethod: "wire",
+      channel: "wholesale",
+    }),
+  });
+  assert.equal(res.status, 200);
+  const q = (await res.json()) as { subtotalCents: number };
+  // 20_000 × (1 − 0.10) = 18_000 per kit × 5 = 90_000
+  assert.equal(q.subtotalCents, 90_000);
 });

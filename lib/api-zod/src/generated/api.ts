@@ -1260,6 +1260,11 @@ export const GetAccountResponse = zod.object({
       name: zod.string(),
       slug: zod.string(),
       isDefault: zod.boolean(),
+      discountBps: zod
+        .number()
+        .describe(
+          "Wholesale discount off list price in basis points (1000 = 10%). Server derives kit prices as list × (1 − discountBps\/10000).",
+        ),
       createdAt: zod.date(),
     })
     .nullish(),
@@ -1307,6 +1312,11 @@ export const AdminListCustomersResponseItem = zod
             name: zod.string(),
             slug: zod.string(),
             isDefault: zod.boolean(),
+            discountBps: zod
+              .number()
+              .describe(
+                "Wholesale discount off list price in basis points (1000 = 10%). Server derives kit prices as list × (1 − discountBps\/10000).",
+              ),
             createdAt: zod.date(),
           })
           .nullish(),
@@ -1350,6 +1360,11 @@ export const AdminListAccountsResponseItem = zod.object({
       name: zod.string(),
       slug: zod.string(),
       isDefault: zod.boolean(),
+      discountBps: zod
+        .number()
+        .describe(
+          "Wholesale discount off list price in basis points (1000 = 10%). Server derives kit prices as list × (1 − discountBps\/10000).",
+        ),
       createdAt: zod.date(),
     })
     .nullish(),
@@ -1392,6 +1407,11 @@ export const AdminPatchAccountResponse = zod.object({
       name: zod.string(),
       slug: zod.string(),
       isDefault: zod.boolean(),
+      discountBps: zod
+        .number()
+        .describe(
+          "Wholesale discount off list price in basis points (1000 = 10%). Server derives kit prices as list × (1 − discountBps\/10000).",
+        ),
       createdAt: zod.date(),
     })
     .nullish(),
@@ -1409,11 +1429,79 @@ export const AdminListPriceTiersResponseItem = zod.object({
   name: zod.string(),
   slug: zod.string(),
   isDefault: zod.boolean(),
+  discountBps: zod
+    .number()
+    .describe(
+      "Wholesale discount off list price in basis points (1000 = 10%). Server derives kit prices as list × (1 − discountBps\/10000).",
+    ),
   createdAt: zod.date(),
 });
 export const AdminListPriceTiersResponse = zod.array(
   AdminListPriceTiersResponseItem,
 );
+
+/**
+ * Creates a wholesale price tier with a discount off list. Requires x-admin-key header.
+ * @summary Admin — create a price tier
+ */
+export const adminCreatePriceTierBodyNameMax = 80;
+
+export const adminCreatePriceTierBodyDiscountBpsMin = 0;
+export const adminCreatePriceTierBodyDiscountBpsMax = 9000;
+
+export const AdminCreatePriceTierBody = zod.object({
+  name: zod.string().min(1).max(adminCreatePriceTierBodyNameMax),
+  discountBps: zod
+    .number()
+    .min(adminCreatePriceTierBodyDiscountBpsMin)
+    .max(adminCreatePriceTierBodyDiscountBpsMax)
+    .describe("Discount off list in basis points (1000 = 10%). Capped at 90%."),
+  isDefault: zod.boolean().optional(),
+});
+
+/**
+ * Updates a tier's name, discount, or default flag. Requires x-admin-key header.
+ * @summary Admin — update a price tier
+ */
+export const AdminPatchPriceTierParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const adminPatchPriceTierBodyNameMax = 80;
+
+export const adminPatchPriceTierBodyDiscountBpsMin = 0;
+export const adminPatchPriceTierBodyDiscountBpsMax = 9000;
+
+export const AdminPatchPriceTierBody = zod.object({
+  name: zod.string().min(1).max(adminPatchPriceTierBodyNameMax).optional(),
+  discountBps: zod
+    .number()
+    .min(adminPatchPriceTierBodyDiscountBpsMin)
+    .max(adminPatchPriceTierBodyDiscountBpsMax)
+    .optional(),
+  isDefault: zod.boolean().optional(),
+});
+
+export const AdminPatchPriceTierResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  slug: zod.string(),
+  isDefault: zod.boolean(),
+  discountBps: zod
+    .number()
+    .describe(
+      "Wholesale discount off list price in basis points (1000 = 10%). Server derives kit prices as list × (1 − discountBps\/10000).",
+    ),
+  createdAt: zod.date(),
+});
+
+/**
+ * Deletes a tier. Blocked for the default tier or a tier with assigned customers. Requires x-admin-key header.
+ * @summary Admin — delete a price tier
+ */
+export const AdminDeletePriceTierParams = zod.object({
+  id: zod.coerce.number(),
+});
 
 /**
  * Server-derived operational counters and confirmed revenue. Requires x-admin-key header.
@@ -1608,6 +1696,11 @@ export const AdminGetOrderResponse = zod
             name: zod.string(),
             slug: zod.string(),
             isDefault: zod.boolean(),
+            discountBps: zod
+              .number()
+              .describe(
+                "Wholesale discount off list price in basis points (1000 = 10%). Server derives kit prices as list × (1 − discountBps\/10000).",
+              ),
             createdAt: zod.date(),
           })
           .nullish(),
@@ -1770,6 +1863,11 @@ export const AdminPatchOrderResponse = zod
             name: zod.string(),
             slug: zod.string(),
             isDefault: zod.boolean(),
+            discountBps: zod
+              .number()
+              .describe(
+                "Wholesale discount off list price in basis points (1000 = 10%). Server derives kit prices as list × (1 − discountBps\/10000).",
+              ),
             createdAt: zod.date(),
           })
           .nullish(),
@@ -1908,6 +2006,11 @@ export const AdminRefundOrderResponse = zod
             name: zod.string(),
             slug: zod.string(),
             isDefault: zod.boolean(),
+            discountBps: zod
+              .number()
+              .describe(
+                "Wholesale discount off list price in basis points (1000 = 10%). Server derives kit prices as list × (1 − discountBps\/10000).",
+              ),
             createdAt: zod.date(),
           })
           .nullish(),

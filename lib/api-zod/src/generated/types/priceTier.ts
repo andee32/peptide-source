@@ -11,5 +11,7 @@ export interface PriceTier {
   name: string;
   slug: string;
   isDefault: boolean;
+  /** Wholesale discount off list price in basis points (1000 = 10%). Server derives kit prices as list × (1 − discountBps/10000). */
+  discountBps: number;
   createdAt: Date;
 }

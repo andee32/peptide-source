@@ -64,10 +64,11 @@ import { CatalogPanel } from "@/components/admin/CatalogPanel";
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { UsersPanel } from "@/components/admin/UsersPanel";
 import { DiscountsPanel } from "@/components/admin/DiscountsPanel";
+import { TierManagementPanel } from "@/components/admin/TierManagementPanel";
 
 type BatchStatus = "pending" | "released" | "quarantined";
 type TestType = "purity" | "endotoxin" | "sterility" | "heavyMetals";
-type AdminTab = "dashboard" | "orders" | "catalog" | "batches" | "subscriptions" | "products" | "accounts" | "discounts" | "users" | "settings";
+type AdminTab = "dashboard" | "orders" | "catalog" | "batches" | "subscriptions" | "products" | "accounts" | "tiers" | "discounts" | "users" | "settings";
 
 type AdminCoaResult = {
   id: string;
@@ -1000,6 +1001,7 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
             { key: "batches", label: "Batch Management" },
             { key: "subscriptions", label: "Subscriptions" },
             { key: "accounts", label: "Customers" },
+            { key: "tiers", label: "Price Tiers" },
             { key: "discounts", label: "Discounts" },
             { key: "products", label: "Products" },
             { key: "users", label: "Users" },
@@ -1031,6 +1033,8 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
           <ProductsPanel adminKey={adminKey} />
         ) : activeTab === "accounts" ? (
           <CustomersPanel adminKey={adminKey} />
+        ) : activeTab === "tiers" ? (
+          <TierManagementPanel adminKey={adminKey} />
         ) : activeTab === "subscriptions" ? (
           <AdminSubscriptionsPanel adminKey={adminKey} />
         ) : activeTab === "discounts" ? (

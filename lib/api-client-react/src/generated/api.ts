@@ -41,6 +41,7 @@ import type {
   CreateAdminUserRequest,
   CreateDiscountCodeRequest,
   CreateOrderRequest,
+  CreatePriceTierRequest,
   CreateReviewerSubmissionRequest,
   CreateSubscriptionRequest,
   CryptoInvoice,
@@ -70,6 +71,7 @@ import type {
   PatchAdminUserRequest,
   PatchDiscountCodeRequest,
   PatchOrderRequest,
+  PatchPriceTierRequest,
   PatchProductRequest,
   PatchReviewerSubmissionRequest,
   PatchStoreSettingsRequest,
@@ -3711,6 +3713,266 @@ export function useAdminListPriceTiers<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Creates a wholesale price tier with a discount off list. Requires x-admin-key header.
+ * @summary Admin — create a price tier
+ */
+export const getAdminCreatePriceTierUrl = () => {
+  return `/api/admin/price-tiers`;
+};
+
+export const adminCreatePriceTier = async (
+  createPriceTierRequest: CreatePriceTierRequest,
+  options?: RequestInit,
+): Promise<PriceTier> => {
+  return customFetch<PriceTier>(getAdminCreatePriceTierUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createPriceTierRequest),
+  });
+};
+
+export const getAdminCreatePriceTierMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreatePriceTier>>,
+    TError,
+    { data: BodyType<CreatePriceTierRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreatePriceTier>>,
+  TError,
+  { data: BodyType<CreatePriceTierRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminCreatePriceTier"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreatePriceTier>>,
+    { data: BodyType<CreatePriceTierRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreatePriceTier(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreatePriceTierMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreatePriceTier>>
+>;
+export type AdminCreatePriceTierMutationBody = BodyType<CreatePriceTierRequest>;
+export type AdminCreatePriceTierMutationError = ErrorType<void>;
+
+/**
+ * @summary Admin — create a price tier
+ */
+export const useAdminCreatePriceTier = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreatePriceTier>>,
+    TError,
+    { data: BodyType<CreatePriceTierRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreatePriceTier>>,
+  TError,
+  { data: BodyType<CreatePriceTierRequest> },
+  TContext
+> => {
+  return useMutation(getAdminCreatePriceTierMutationOptions(options));
+};
+
+/**
+ * Updates a tier's name, discount, or default flag. Requires x-admin-key header.
+ * @summary Admin — update a price tier
+ */
+export const getAdminPatchPriceTierUrl = (id: number) => {
+  return `/api/admin/price-tiers/${id}`;
+};
+
+export const adminPatchPriceTier = async (
+  id: number,
+  patchPriceTierRequest: PatchPriceTierRequest,
+  options?: RequestInit,
+): Promise<PriceTier> => {
+  return customFetch<PriceTier>(getAdminPatchPriceTierUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(patchPriceTierRequest),
+  });
+};
+
+export const getAdminPatchPriceTierMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchPriceTier>>,
+    TError,
+    { id: number; data: BodyType<PatchPriceTierRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminPatchPriceTier>>,
+  TError,
+  { id: number; data: BodyType<PatchPriceTierRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminPatchPriceTier"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminPatchPriceTier>>,
+    { id: number; data: BodyType<PatchPriceTierRequest> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminPatchPriceTier(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminPatchPriceTierMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminPatchPriceTier>>
+>;
+export type AdminPatchPriceTierMutationBody = BodyType<PatchPriceTierRequest>;
+export type AdminPatchPriceTierMutationError = ErrorType<void>;
+
+/**
+ * @summary Admin — update a price tier
+ */
+export const useAdminPatchPriceTier = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchPriceTier>>,
+    TError,
+    { id: number; data: BodyType<PatchPriceTierRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminPatchPriceTier>>,
+  TError,
+  { id: number; data: BodyType<PatchPriceTierRequest> },
+  TContext
+> => {
+  return useMutation(getAdminPatchPriceTierMutationOptions(options));
+};
+
+/**
+ * Deletes a tier. Blocked for the default tier or a tier with assigned customers. Requires x-admin-key header.
+ * @summary Admin — delete a price tier
+ */
+export const getAdminDeletePriceTierUrl = (id: number) => {
+  return `/api/admin/price-tiers/${id}`;
+};
+
+export const adminDeletePriceTier = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getAdminDeletePriceTierUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeletePriceTierMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeletePriceTier>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeletePriceTier>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeletePriceTier"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeletePriceTier>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeletePriceTier(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeletePriceTierMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeletePriceTier>>
+>;
+
+export type AdminDeletePriceTierMutationError = ErrorType<void>;
+
+/**
+ * @summary Admin — delete a price tier
+ */
+export const useAdminDeletePriceTier = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeletePriceTier>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeletePriceTier>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeletePriceTierMutationOptions(options));
+};
 
 /**
  * Server-derived operational counters and confirmed revenue. Requires x-admin-key header.

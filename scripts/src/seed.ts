@@ -5,7 +5,6 @@ import {
   batchesTable,
   coaResultsTable,
   priceTiersTable,
-  priceListEntriesTable,
   storeSettingsTable,
 } from "@atlab/db/schema";
 import { sql } from "drizzle-orm";
@@ -532,39 +531,17 @@ async function seed() {
   const tiers = await db
     .insert(priceTiersTable)
     .values([
-      { name: "Standard", slug: "standard", isDefault: true },
-      { name: "Preferred", slug: "preferred" },
-      { name: "Distributor", slug: "distributor" },
+      // discountBps = % off list in basis points. Editable in admin; the server
+      // derives every wholesale kit price as list × (1 − discountBps/10000).
+      { name: "Standard", slug: "standard", isDefault: true, discountBps: 0 },
+      { name: "Preferred", slug: "preferred", discountBps: 800 },
+      { name: "Distributor", slug: "distributor", discountBps: 1500 },
     ])
     .returning();
-  const tierBySlug = new Map(tiers.map((t) => [t.slug, t.id]));
   console.log(`Inserted ${tiers.length} price tiers`);
 
-  // --- Price list entries (contract) ---
-  // Standard: NONE (falls back to base variant price).
-  // Preferred: round(base * 0.92) for every kit variant.
-  // Distributor: round(base * 0.85) for every kit variant.
-  // Tiers are a wholesale-only construct — retail vial variants are excluded.
-  const entryValues = variants
-    .filter((v) => v.unitType === "kit")
-    .flatMap((v) => [
-    {
-      priceTierId: tierBySlug.get("preferred")!,
-      variantId: v.id,
-      priceCents: Math.round(v.priceCents * 0.92),
-    },
-    {
-      priceTierId: tierBySlug.get("distributor")!,
-      variantId: v.id,
-      priceCents: Math.round(v.priceCents * 0.85),
-    },
-  ]);
-
-  const entries = await db
-    .insert(priceListEntriesTable)
-    .values(entryValues)
-    .returning();
-  console.log(`Inserted ${entries.length} price list entries`);
+  // Per-SKU price_list_entries are an optional advanced override and are no
+  // longer seeded — tier pricing comes from each tier's discountBps.
 
   // --- Batches + COA results for representative products (COA /verify flow) ---
   type BatchSeed = {

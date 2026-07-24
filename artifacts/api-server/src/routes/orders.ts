@@ -11,6 +11,7 @@ import {
   productsTable,
   customerAccountsTable,
   priceListEntriesTable,
+  priceTiersTable,
   orderAttestationsTable,
   storeSettingsTable,
   discountCodesTable,
@@ -292,6 +293,7 @@ async function priceOrderRequest(input: {
     };
   }
   const priceOverrides = new Map<number, number>();
+  let tierDiscountBps = 0;
 
   // Retail kit pricing: kits sell retail only at their admin-set
   // retailPriceCents (above wholesale list by pricing discipline). A kit with
@@ -349,6 +351,11 @@ async function priceOrderRequest(input: {
     }
 
     if (account.priceTierId !== null) {
+      const tier = await db.query.priceTiersTable.findFirst({
+        where: eq(priceTiersTable.id, account.priceTierId),
+      });
+      tierDiscountBps = tier?.discountBps ?? 0;
+
       const entries = await db
         .select({
           variantId: priceListEntriesTable.variantId,
@@ -367,10 +374,12 @@ async function priceOrderRequest(input: {
 
   const resolvedLineItems = input.lineItems.map((li) => {
     const v = variantMap.get(li.variantId)!;
-    // Wholesale: tier override ?? list price. Retail: kits at their retail
-    // price (validated non-null above), vials at list price.
+    // Wholesale: an explicit per-SKU tier override wins; otherwise the tier's
+    // % off list (list × (1 − discountBps/10000), floored at 0). Retail: kits at
+    // their retail price (validated non-null above), vials at list price.
     const unitPriceCents = isWholesale
-      ? priceOverrides.get(li.variantId) ?? v.priceCents
+      ? priceOverrides.get(li.variantId) ??
+        Math.max(0, Math.round(v.priceCents * (1 - tierDiscountBps / 10000)))
       : v.unitType === "kit"
         ? v.retailPriceCents!
         : v.priceCents;

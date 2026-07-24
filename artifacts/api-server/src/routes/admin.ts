@@ -1185,6 +1185,170 @@ router.get("/admin/price-tiers", async (_req, res) => {
   }
 });
 
+function slugifyTier(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+// discountBps is basis points off list (1000 = 10%). Capped at 90% so a typo
+// can't zero out (or invert) wholesale pricing.
+const CreatePriceTierSchema = z.object({
+  name: z.string().min(1).max(80),
+  discountBps: z.number().int().min(0).max(9000),
+  isDefault: z.boolean().optional(),
+});
+
+const PatchPriceTierSchema = z.object({
+  name: z.string().min(1).max(80).optional(),
+  discountBps: z.number().int().min(0).max(9000).optional(),
+  isDefault: z.boolean().optional(),
+});
+
+router.post("/admin/price-tiers", async (req, res) => {
+  const parsed = CreatePriceTierSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "bad_request", message: parsed.error.issues[0]?.message ?? "Invalid input" });
+    return;
+  }
+  const { name, discountBps, isDefault } = parsed.data;
+  const slug = slugifyTier(name);
+  if (!slug) {
+    res.status(400).json({ error: "bad_request", message: "Name must contain letters or numbers." });
+    return;
+  }
+  try {
+    const created = await db.transaction(async (tx) => {
+      // Exactly one default tier — a new default demotes the others.
+      if (isDefault) {
+        await tx.update(priceTiersTable).set({ isDefault: false });
+      }
+      const [row] = await tx
+        .insert(priceTiersTable)
+        .values({ name, slug, discountBps, isDefault: isDefault ?? false })
+        .returning();
+      return row;
+    });
+    res.status(201).json(created);
+  } catch (err) {
+    if ((err as { code?: string }).code === "23505") {
+      res.status(409).json({ error: "conflict", message: "A tier with that name already exists." });
+      return;
+    }
+    console.error("admin createPriceTier error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+router.patch("/admin/price-tiers/:id", async (req, res) => {
+  const parsed = PatchPriceTierSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "bad_request", message: parsed.error.issues[0]?.message ?? "Invalid input" });
+    return;
+  }
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "bad_request", message: "Invalid tier id" });
+    return;
+  }
+  const { name, discountBps, isDefault } = parsed.data;
+  const updates: Record<string, unknown> = {};
+  if (name !== undefined) {
+    const slug = slugifyTier(name);
+    if (!slug) {
+      res.status(400).json({ error: "bad_request", message: "Name must contain letters or numbers." });
+      return;
+    }
+    updates.name = name;
+    updates.slug = slug;
+  }
+  if (discountBps !== undefined) updates.discountBps = discountBps;
+  try {
+    const updated = await db.transaction(async (tx) => {
+      const existing = await tx.query.priceTiersTable.findFirst({
+        where: eq(priceTiersTable.id, id),
+      });
+      if (!existing) return null;
+      // Can't unset the only default — some tier must stay default.
+      if (isDefault === true) {
+        await tx.update(priceTiersTable).set({ isDefault: false });
+        updates.isDefault = true;
+      } else if (isDefault === false && existing.isDefault) {
+        res.status(400).json({ error: "bad_request", message: "Assign another default tier instead of unsetting this one." });
+        return "ABORT" as const;
+      }
+      const [row] = await tx
+        .update(priceTiersTable)
+        .set(updates)
+        .where(eq(priceTiersTable.id, id))
+        .returning();
+      return row;
+    });
+    if (updated === "ABORT") return;
+    if (!updated) {
+      res.status(404).json({ error: "not_found", message: "Tier not found" });
+      return;
+    }
+    res.json(updated);
+  } catch (err) {
+    if ((err as { code?: string }).code === "23505") {
+      res.status(409).json({ error: "conflict", message: "A tier with that name already exists." });
+      return;
+    }
+    console.error("admin patchPriceTier error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+router.delete("/admin/price-tiers/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) {
+    res.status(400).json({ error: "bad_request", message: "Invalid tier id" });
+    return;
+  }
+  try {
+    const tier = await db.query.priceTiersTable.findFirst({
+      where: eq(priceTiersTable.id, id),
+    });
+    if (!tier) {
+      res.status(404).json({ error: "not_found", message: "Tier not found" });
+      return;
+    }
+    if (tier.isDefault) {
+      res.status(400).json({ error: "bad_request", message: "The default tier can't be deleted." });
+      return;
+    }
+    // Don't orphan assigned customers — block until they're moved off it.
+    const [{ assigned }] = await db
+      .select({ assigned: count() })
+      .from(customerAccountsTable)
+      .where(eq(customerAccountsTable.priceTierId, id));
+    if (assigned > 0) {
+      res.status(409).json({
+        error: "conflict",
+        message: `${assigned} customer(s) are on this tier. Reassign them before deleting it.`,
+      });
+      return;
+    }
+    await db.delete(priceTiersTable).where(eq(priceTiersTable.id, id));
+    res.status(204).end();
+  } catch (err) {
+    // A customer assigned to this tier between the check and the delete trips
+    // the FK — surface it as the same 409, not a 500.
+    if ((err as { code?: string }).code === "23503") {
+      res.status(409).json({
+        error: "conflict",
+        message: "Customers were just assigned to this tier. Reassign them before deleting it.",
+      });
+      return;
+    }
+    console.error("admin deletePriceTier error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
 // ── ACH / wire settlement ────────────────────────────────────────────────────
 // Manual reconciliation: an admin confirms an incoming transfer was received,
 // which settles the pending payment record and confirms the order. Mirrors the

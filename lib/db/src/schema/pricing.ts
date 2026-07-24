@@ -6,18 +6,32 @@ import {
   boolean,
   timestamp,
   uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { productVariantsTable } from "./products";
 
-export const priceTiersTable = pgTable("price_tiers", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  slug: text("slug").notNull().unique(),
-  isDefault: boolean("is_default").notNull().default(false),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const priceTiersTable = pgTable(
+  "price_tiers",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+    isDefault: boolean("is_default").notNull().default(false),
+    // Wholesale discount off list price, in basis points (1000 = 10%). The
+    // server derives every wholesale kit price as list × (1 − discountBps/10000).
+    // A per-SKU price_list_entry, if present, still overrides this.
+    discountBps: integer("discount_bps").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    // Hard guarantee behind the app-level 0..9000 validation: a value written
+    // outside the API can't invert pricing (>10000 → free, negative → above list).
+    check("price_tiers_discount_bps_range", sql`${t.discountBps} >= 0 AND ${t.discountBps} <= 9000`),
+  ],
+);
 
 export const insertPriceTierSchema = createInsertSchema(priceTiersTable).omit({
   id: true,
