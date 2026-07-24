@@ -9,6 +9,9 @@ export type CartItem = {
   quantity: number;
   subscribeInterval?: number;
   subscribePlanId?: number;
+  // "kit" marks a wholesale kit line so the wholesale order panel can count
+  // toward the 5-kit MOQ without mistaking a stray retail vial for a kit.
+  unitType?: "kit" | "vial";
 };
 
 function lineKey(item: Pick<CartItem, "variantId" | "subscribePlanId">): string {
@@ -17,7 +20,7 @@ function lineKey(item: Pick<CartItem, "variantId" | "subscribePlanId">): string 
 
 interface CartContextType {
   cartItems: CartItem[];
-  addToCart: (item: CartItem) => void;
+  addToCart: (item: CartItem, opts?: { openDrawer?: boolean }) => void;
   removeFromCart: (variantId: number, subscribePlanId?: number) => void;
   updateQuantity: (variantId: number, qty: number, subscribePlanId?: number) => void;
   clearCart: () => void;
@@ -44,7 +47,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("lab_cart", JSON.stringify(cartItems));
   }, [cartItems]);
 
-  const addToCart = (item: CartItem) => {
+  const addToCart = (item: CartItem, opts?: { openDrawer?: boolean }) => {
     setCartItems((prev) => {
       const key = lineKey(item);
       const existing = prev.find((i) => lineKey(i) === key);
@@ -55,7 +58,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
       return [...prev, item];
     });
-    setIsCartOpen(true);
+    // The wholesale list view keeps its own order sidebar visible, so it opts
+    // out of popping the slide-out drawer on every add.
+    if (opts?.openDrawer !== false) setIsCartOpen(true);
   };
 
   const removeFromCart = (variantId: number, subscribePlanId?: number) => {

@@ -544,6 +544,8 @@ export interface ProductVariant {
   name: string;
   concentration: string;
   sizeml: number;
+  /** Vials per kit (wholesale kits are 10-vial). Drives the "N vial/kit" label. */
+  vialsPerUnit: number;
   priceCents: number;
   sku: string;
   inStock: boolean;
@@ -564,6 +566,8 @@ export interface Product {
   latestBatchPurity?: number | null;
   /** Demo status of the batch behind latestBatchPurity. True/null = treat the purity as fabricated sample data, not a real COA. */
   latestBatchIsDemo?: boolean | null;
+  /** Kit variants (SKU, dose, price) for this product — powers the wholesale list view. */
+  variants: ProductVariant[];
 }
 
 export type BatchSummaryStatus =
@@ -623,7 +627,6 @@ export type BatchDetail = BatchSummary & {
 export type ProductDetail = Product & {
   longDescription: string;
   researchUses: string[];
-  variants: ProductVariant[];
   latestBatch?: BatchDetail | null;
 };
 

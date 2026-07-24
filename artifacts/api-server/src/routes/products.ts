@@ -111,6 +111,16 @@ router.get("/products", async (req, res) => {
           latestBatchStatus: latestBatch?.status ?? null,
           latestBatchPurity: latestBatchPurity ?? null,
           latestBatchIsDemo: latestBatch?.isDemo ?? null,
+          variants: variants.map((v) => ({
+            id: v.id,
+            name: v.name,
+            concentration: v.concentration,
+            sizeml: v.sizeml,
+            vialsPerUnit: v.vialsPerUnit,
+            priceCents: v.priceCents,
+            sku: v.sku,
+            inStock: v.inStock,
+          })),
         };
       })
     );
@@ -224,6 +234,7 @@ router.get("/products/:id", async (req, res) => {
         name: v.name,
         concentration: v.concentration,
         sizeml: v.sizeml,
+        vialsPerUnit: v.vialsPerUnit,
         priceCents: v.priceCents,
         sku: v.sku,
         inStock: v.inStock,

@@ -7,11 +7,9 @@
  */
 import type { BatchDetail } from "./batchDetail";
 import type { Product } from "./product";
-import type { ProductVariant } from "./productVariant";
 
 export type ProductDetail = Product & {
   longDescription: string;
   researchUses: string[];
-  variants: ProductVariant[];
   latestBatch?: BatchDetail | null;
 };

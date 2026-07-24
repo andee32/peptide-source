@@ -11,6 +11,8 @@ export interface ProductVariant {
   name: string;
   concentration: string;
   sizeml: number;
+  /** Vials per kit (wholesale kits are 10-vial). Drives the "N vial/kit" label. */
+  vialsPerUnit: number;
   priceCents: number;
   sku: string;
   inStock: boolean;

@@ -47,6 +47,26 @@ export const ListProductsResponseItem = zod.object({
     .describe(
       "Demo status of the batch behind latestBatchPurity. True\/null = treat the purity as fabricated sample data, not a real COA.",
     ),
+  variants: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        name: zod.string(),
+        concentration: zod.string(),
+        sizeml: zod.number(),
+        vialsPerUnit: zod
+          .number()
+          .describe(
+            'Vials per kit (wholesale kits are 10-vial). Drives the \"N vial\/kit\" label.',
+          ),
+        priceCents: zod.number(),
+        sku: zod.string(),
+        inStock: zod.boolean(),
+      }),
+    )
+    .describe(
+      "Kit variants (SKU, dose, price) for this product — powers the wholesale list view.",
+    ),
 });
 export const ListProductsResponse = zod.array(ListProductsResponseItem);
 
@@ -82,22 +102,31 @@ export const GetProductResponse = zod
       .describe(
         "Demo status of the batch behind latestBatchPurity. True\/null = treat the purity as fabricated sample data, not a real COA.",
       ),
-  })
-  .and(
-    zod.object({
-      longDescription: zod.string(),
-      researchUses: zod.array(zod.string()),
-      variants: zod.array(
+    variants: zod
+      .array(
         zod.object({
           id: zod.number(),
           name: zod.string(),
           concentration: zod.string(),
           sizeml: zod.number(),
+          vialsPerUnit: zod
+            .number()
+            .describe(
+              'Vials per kit (wholesale kits are 10-vial). Drives the \"N vial\/kit\" label.',
+            ),
           priceCents: zod.number(),
           sku: zod.string(),
           inStock: zod.boolean(),
         }),
+      )
+      .describe(
+        "Kit variants (SKU, dose, price) for this product — powers the wholesale list view.",
       ),
+  })
+  .and(
+    zod.object({
+      longDescription: zod.string(),
+      researchUses: zod.array(zod.string()),
       latestBatch: zod
         .object({
           id: zod.string(),
@@ -1973,22 +2002,31 @@ export const AdminPatchProductResponse = zod
       .describe(
         "Demo status of the batch behind latestBatchPurity. True\/null = treat the purity as fabricated sample data, not a real COA.",
       ),
-  })
-  .and(
-    zod.object({
-      longDescription: zod.string(),
-      researchUses: zod.array(zod.string()),
-      variants: zod.array(
+    variants: zod
+      .array(
         zod.object({
           id: zod.number(),
           name: zod.string(),
           concentration: zod.string(),
           sizeml: zod.number(),
+          vialsPerUnit: zod
+            .number()
+            .describe(
+              'Vials per kit (wholesale kits are 10-vial). Drives the \"N vial\/kit\" label.',
+            ),
           priceCents: zod.number(),
           sku: zod.string(),
           inStock: zod.boolean(),
         }),
+      )
+      .describe(
+        "Kit variants (SKU, dose, price) for this product — powers the wholesale list view.",
       ),
+  })
+  .and(
+    zod.object({
+      longDescription: zod.string(),
+      researchUses: zod.array(zod.string()),
       latestBatch: zod
         .object({
           id: zod.string(),
@@ -2062,6 +2100,11 @@ export const AdminPatchVariantResponse = zod.object({
   name: zod.string(),
   concentration: zod.string(),
   sizeml: zod.number(),
+  vialsPerUnit: zod
+    .number()
+    .describe(
+      'Vials per kit (wholesale kits are 10-vial). Drives the \"N vial\/kit\" label.',
+    ),
   priceCents: zod.number(),
   sku: zod.string(),
   inStock: zod.boolean(),

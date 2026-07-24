@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ComplianceStatus } from "./complianceStatus";
+import type { ProductVariant } from "./productVariant";
 
 export interface Product {
   id: number;
@@ -22,4 +23,6 @@ export interface Product {
   latestBatchPurity?: number | null;
   /** Demo status of the batch behind latestBatchPurity. True/null = treat the purity as fabricated sample data, not a real COA. */
   latestBatchIsDemo?: boolean | null;
+  /** Kit variants (SKU, dose, price) for this product — powers the wholesale list view. */
+  variants: ProductVariant[];
 }

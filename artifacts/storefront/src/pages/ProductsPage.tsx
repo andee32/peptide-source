@@ -1,10 +1,17 @@
 import { useListProducts } from "@atlab/api-client-react";
 import { ProductCard } from "@/components/product/ProductCard";
+import { WholesaleListView } from "@/components/wholesale/WholesaleListView";
+import { WholesaleOrderPanel } from "@/components/wholesale/WholesaleOrderPanel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { WholesaleGate } from "@/components/wholesale/WholesaleGate";
 import { useWholesaleSession } from "@/hooks/useWholesaleSession";
 import { useState, useMemo } from "react";
+import { LayoutGrid, List } from "lucide-react";
+
+type CatalogView = "card" | "list";
+const VIEW_KEY = "wholesale_catalog_view";
 
 // Wholesale kit catalog — approved-accounts-only. The server enforces the gate
 // (GET /products is 401 without valid wholesale auth); this component gates
@@ -23,6 +30,13 @@ function WholesaleCatalog({ accountId, wholesaleHeaders }: { accountId: string; 
     request: { headers: wholesaleHeaders },
   });
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [view, setView] = useState<CatalogView>(
+    () => (localStorage.getItem(VIEW_KEY) as CatalogView) ?? "card",
+  );
+  const setViewPersisted = (v: CatalogView) => {
+    setView(v);
+    localStorage.setItem(VIEW_KEY, v);
+  };
 
   const categories = useMemo(() => {
     if (!products) return ["All"];
@@ -48,20 +62,40 @@ function WholesaleCatalog({ accountId, wholesaleHeaders }: { accountId: string; 
         </p>
       </div>
 
-      <div className="flex justify-center mb-12">
-        <Tabs defaultValue="All" value={selectedCategory} onValueChange={setSelectedCategory} className="w-full overflow-x-auto pb-2 flex justify-center">
-          <TabsList className="bg-muted border border-border">
-            {categories.map((cat) => (
-              <TabsTrigger
-                key={cat}
-                value={cat}
-                className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-              >
-                {cat}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+      <div className="flex flex-col md:flex-row md:items-center gap-4 mb-10">
+        <div className="flex-1 min-w-0 overflow-x-auto">
+          <Tabs defaultValue="All" value={selectedCategory} onValueChange={setSelectedCategory} className="pb-2">
+            <TabsList className="bg-muted border border-border">
+              {categories.map((cat) => (
+                <TabsTrigger
+                  key={cat}
+                  value={cat}
+                  className="font-mono text-xs uppercase tracking-wider data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  {cat}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+        <div className="flex items-center gap-1 rounded-lg border border-border p-1 shrink-0 self-start md:self-auto">
+          <Button
+            variant={view === "card" ? "secondary" : "ghost"}
+            size="sm"
+            className="font-mono text-xs uppercase tracking-wider gap-1.5"
+            onClick={() => setViewPersisted("card")}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> Cards
+          </Button>
+          <Button
+            variant={view === "list" ? "secondary" : "ghost"}
+            size="sm"
+            className="font-mono text-xs uppercase tracking-wider gap-1.5"
+            onClick={() => setViewPersisted("list")}
+          >
+            <List className="h-3.5 w-3.5" /> List
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -75,6 +109,19 @@ function WholesaleCatalog({ accountId, wholesaleHeaders }: { accountId: string; 
               </div>
             </div>
           ))}
+        </div>
+      ) : view === "list" ? (
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_20rem] gap-8 items-start">
+          <div>
+            {filteredProducts.length > 0 ? (
+              <WholesaleListView products={filteredProducts} />
+            ) : (
+              <div className="text-center py-24 bg-secondary/20 rounded-xl border border-border border-dashed">
+                <p className="text-xl text-muted-foreground font-mono">No products found in this category.</p>
+              </div>
+            )}
+          </div>
+          <WholesaleOrderPanel />
         </div>
       ) : filteredProducts.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">

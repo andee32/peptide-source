@@ -2562,6 +2562,9 @@ components:
           type: string
         sizeml:
           type: number
+        vialsPerUnit:
+          type: integer
+          description: Vials per kit (wholesale kits are 10-vial). Drives the "N vial/kit" label.
         priceCents:
           type: integer
         sku:
@@ -2573,6 +2576,7 @@ components:
         - name
         - concentration
         - sizeml
+        - vialsPerUnit
         - priceCents
         - sku
         - inStock
@@ -2614,6 +2618,11 @@ components:
           description: >-
             Demo status of the batch behind latestBatchPurity. True/null =
             treat the purity as fabricated sample data, not a real COA.
+        variants:
+          type: array
+          description: Kit variants (SKU, dose, price) for this product — powers the wholesale list view.
+          items:
+            $ref: "#/components/schemas/ProductVariant"
       required:
         - id
         - name
@@ -2623,6 +2632,7 @@ components:
         - shortDescription
         - featured
         - startingPriceCents
+        - variants
 
     ProductDetail:
       allOf:
@@ -2635,17 +2645,12 @@ components:
               type: array
               items:
                 type: string
-            variants:
-              type: array
-              items:
-                $ref: "#/components/schemas/ProductVariant"
             latestBatch:
               $ref: "#/components/schemas/BatchDetail"
               nullable: true
           required:
             - longDescription
             - researchUses
-            - variants
 
     CoaHeavyMetal:
       type: object
