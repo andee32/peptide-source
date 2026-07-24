@@ -50,6 +50,7 @@ import type {
   DiscountCodeError,
   DiscountCodeReport,
   DispatchSubscriptionReminders200,
+  ForgotPasswordRequest,
   GetAccountParams,
   GetSubscriptionParams,
   HandleBtcpayWebhook200,
@@ -80,6 +81,7 @@ import type {
   QuoteOrderRequest,
   RegisterCustomerRequest,
   ReorderPayload,
+  ResetPasswordRequest,
   RetailProduct,
   RetailProductDetail,
   ReviewerSubmission,
@@ -5016,6 +5018,180 @@ export const useLogoutCustomer = <
   TContext
 > => {
   return useMutation(getLogoutCustomerMutationOptions(options));
+};
+
+/**
+ * Always returns 200 regardless of whether the email is registered (no user enumeration). Rate-limited. When the account exists, a single-use reset link is emailed.
+ * @summary Request a password-reset link
+ */
+export const getForgotPasswordUrl = () => {
+  return `/api/auth/forgot-password`;
+};
+
+export const forgotPassword = async (
+  forgotPasswordRequest: ForgotPasswordRequest,
+  options?: RequestInit,
+): Promise<OkResponse> => {
+  return customFetch<OkResponse>(getForgotPasswordUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(forgotPasswordRequest),
+  });
+};
+
+export const getForgotPasswordMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof forgotPassword>>,
+    TError,
+    { data: BodyType<ForgotPasswordRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof forgotPassword>>,
+  TError,
+  { data: BodyType<ForgotPasswordRequest> },
+  TContext
+> => {
+  const mutationKey = ["forgotPassword"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof forgotPassword>>,
+    { data: BodyType<ForgotPasswordRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return forgotPassword(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ForgotPasswordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof forgotPassword>>
+>;
+export type ForgotPasswordMutationBody = BodyType<ForgotPasswordRequest>;
+export type ForgotPasswordMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Request a password-reset link
+ */
+export const useForgotPassword = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof forgotPassword>>,
+    TError,
+    { data: BodyType<ForgotPasswordRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof forgotPassword>>,
+  TError,
+  { data: BodyType<ForgotPasswordRequest> },
+  TContext
+> => {
+  return useMutation(getForgotPasswordMutationOptions(options));
+};
+
+/**
+ * Consumes a single-use token (reset or migration invite), sets the new password, and revokes all existing sessions.
+ * @summary Set a new password using a reset/invite token
+ */
+export const getResetPasswordUrl = () => {
+  return `/api/auth/reset-password`;
+};
+
+export const resetPassword = async (
+  resetPasswordRequest: ResetPasswordRequest,
+  options?: RequestInit,
+): Promise<OkResponse> => {
+  return customFetch<OkResponse>(getResetPasswordUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(resetPasswordRequest),
+  });
+};
+
+export const getResetPasswordMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetPassword>>,
+    TError,
+    { data: BodyType<ResetPasswordRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resetPassword>>,
+  TError,
+  { data: BodyType<ResetPasswordRequest> },
+  TContext
+> => {
+  const mutationKey = ["resetPassword"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resetPassword>>,
+    { data: BodyType<ResetPasswordRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return resetPassword(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResetPasswordMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resetPassword>>
+>;
+export type ResetPasswordMutationBody = BodyType<ResetPasswordRequest>;
+export type ResetPasswordMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Set a new password using a reset/invite token
+ */
+export const useResetPassword = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetPassword>>,
+    TError,
+    { data: BodyType<ResetPasswordRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resetPassword>>,
+  TError,
+  { data: BodyType<ResetPasswordRequest> },
+  TContext
+> => {
+  return useMutation(getResetPasswordMutationOptions(options));
 };
 
 /**

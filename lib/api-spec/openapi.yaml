@@ -1682,6 +1682,52 @@ paths:
               schema:
                 $ref: "#/components/schemas/OkResponse"
 
+  /auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      tags: [auth]
+      summary: Request a password-reset link
+      description: Always returns 200 regardless of whether the email is registered (no user enumeration). Rate-limited. When the account exists, a single-use reset link is emailed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordRequest"
+      responses:
+        "200":
+          description: Accepted (no indication of whether the email exists)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+
+  /auth/reset-password:
+    post:
+      operationId: resetPassword
+      tags: [auth]
+      summary: Set a new password using a reset/invite token
+      description: Consumes a single-use token (reset or migration invite), sets the new password, and revokes all existing sessions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+      responses:
+        "200":
+          description: Password set
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+        "400":
+          description: Invalid input or invalid/expired token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
   /auth/me:
     get:
       operationId: getCurrentCustomer
@@ -3504,6 +3550,30 @@ components:
           nullable: true
         inStock:
           type: boolean
+
+    ForgotPasswordRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 320
+      required:
+        - email
+
+    ResetPasswordRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 8
+          maxLength: 200
+      required:
+        - token
+        - password
 
     OkResponse:
       type: object

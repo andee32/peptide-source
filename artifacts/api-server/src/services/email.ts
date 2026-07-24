@@ -200,3 +200,46 @@ ${dashboardUrl}
     `.trim(),
   });
 }
+
+export interface PasswordResetEmailData {
+  to: string;
+  resetUrl: string;
+  purpose: "reset" | "invite";
+  expiresLabel: string; // e.g. "1 hour" / "21 days"
+}
+
+// Placeholder-guarded like the other senders: when SMTP is unconfigured the
+// link is logged (never blocks — a migration/reset can proceed via the logged
+// URL or a CSV export) rather than silently failing.
+export async function sendPasswordResetEmail(
+  data: PasswordResetEmailData
+): Promise<void> {
+  const transport = getTransport();
+  const isInvite = data.purpose === "invite";
+  if (!transport) {
+    console.log(
+      `[email] SMTP not configured — ${data.purpose} link for ${data.to}: ${data.resetUrl}`
+    );
+    return;
+  }
+  await transport.sendMail({
+    from: FROM,
+    to: data.to,
+    subject: isInvite
+      ? "Set your AT Lab Sourcing password"
+      : "Reset your AT Lab Sourcing password",
+    text: `
+${
+      isInvite
+        ? "Your wholesale account is ready — set a password to sign in."
+        : "You requested a password reset."
+    } This link expires in ${data.expiresLabel}.
+
+${data.resetUrl}
+
+If you did not request this, you can safely ignore this email.
+
+— AT Lab Sourcing
+`.trim(),
+  });
+}

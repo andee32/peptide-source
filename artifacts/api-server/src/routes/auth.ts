@@ -4,6 +4,7 @@ import { eq, and, desc, inArray } from "drizzle-orm";
 import { db } from "@atlab/db";
 import {
   customerUsersTable,
+  customerSessionsTable,
   ordersTable,
   productVariantsTable,
   productsTable,
@@ -21,7 +22,13 @@ import {
   deleteCustomerSession,
   resolveCustomerUser,
 } from "../lib/customerSession";
-import { loginRateLimit, registerRateLimit } from "../lib/rateLimit";
+import {
+  loginRateLimit,
+  registerRateLimit,
+  forgotPasswordRateLimit,
+} from "../lib/rateLimit";
+import { createResetToken, consumeResetToken } from "../lib/passwordReset";
+import { sendPasswordResetEmail } from "../services/email";
 
 const router: IRouter = Router();
 
@@ -89,6 +96,7 @@ router.post("/auth/register", registerRateLimit, async (req: Request, res: Respo
         id,
         email,
         passwordHash: await hashPassword(parsed.data.password),
+        passwordSetAt: new Date(),
         name: parsed.data.name ?? null,
       })
       .returning();
@@ -168,6 +176,90 @@ router.post("/auth/logout", async (req: Request, res: Response) => {
     res.status(500).json({ error: "internal_error", message: "Server error" });
   }
 });
+
+const ForgotPasswordSchema = z.object({
+  email: z.string().email().max(320),
+});
+
+// Always 200, timing-neutral: never reveal whether an email is registered.
+// A token is minted + emailed only when the account exists; otherwise the same
+// response is returned after doing no work.
+router.post(
+  "/auth/forgot-password",
+  forgotPasswordRateLimit,
+  async (req: Request, res: Response) => {
+    const parsed = ForgotPasswordSchema.safeParse(req.body);
+    // Even on a malformed body, respond 200 so the endpoint is not an oracle.
+    if (!parsed.success) {
+      res.json({ ok: true });
+      return;
+    }
+    const email = parsed.data.email.trim().toLowerCase();
+    try {
+      const user = await db.query.customerUsersTable.findFirst({
+        where: eq(customerUsersTable.email, email),
+      });
+      if (user) {
+        const { token } = await createResetToken(user.id, "reset");
+        const base = process.env.PUBLIC_APP_URL ?? "";
+        await sendPasswordResetEmail({
+          to: email,
+          resetUrl: `${base}/account/reset-password?token=${token}`,
+          purpose: "reset",
+          expiresLabel: "1 hour",
+        });
+      }
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("forgotPassword error:", err);
+      // Still 200 — do not leak internal state through status codes.
+      res.json({ ok: true });
+    }
+  },
+);
+
+const ResetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8).max(200),
+});
+
+router.post(
+  "/auth/reset-password",
+  async (req: Request, res: Response) => {
+    const parsed = ResetPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({
+        error: "bad_request",
+        message: parsed.error.issues[0]?.message ?? "Invalid input",
+      });
+      return;
+    }
+    try {
+      // Atomic single-use consume — unknown / expired / used all collapse here.
+      const consumed = await consumeResetToken(parsed.data.token);
+      if (!consumed) {
+        res.status(400).json({
+          error: "invalid_token",
+          message: "That reset link is invalid or has expired.",
+        });
+        return;
+      }
+      const passwordHash = await hashPassword(parsed.data.password);
+      await db
+        .update(customerUsersTable)
+        .set({ passwordHash, passwordSetAt: new Date() })
+        .where(eq(customerUsersTable.id, consumed.customerUserId));
+      // Revoke every existing session — a reset should log other devices out.
+      await db
+        .delete(customerSessionsTable)
+        .where(eq(customerSessionsTable.customerUserId, consumed.customerUserId));
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("resetPassword error:", err);
+      res.status(500).json({ error: "internal_error", message: "Server error" });
+    }
+  },
+);
 
 router.get("/auth/me", async (req: Request, res: Response) => {
   try {

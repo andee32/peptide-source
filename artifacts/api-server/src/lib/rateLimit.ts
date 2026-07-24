@@ -93,3 +93,15 @@ export const createOrderRateLimit = rateLimit({
   keyGenerator: (req) => ipKeyGenerator(req.ip ?? "unknown"),
   message: TOO_MANY,
 });
+
+/** Password-reset requests. Tight and keyed on IP+email like login — the
+ * endpoint is always-200 (no user enumeration), but minting tokens and sending
+ * mail must not be a spam/flood lever. */
+export const forgotPasswordRateLimit = rateLimit({
+  windowMs: WINDOW_MS,
+  limit: 5,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  keyGenerator: ipAndEmailKey,
+  message: TOO_MANY,
+});

@@ -2201,40 +2201,6 @@ export const LogoutCustomerResponse = zod.object({
 });
 
 /**
- * Always returns 200 regardless of whether the email is registered (no user enumeration). Rate-limited. When the account exists, a single-use reset link is emailed.
- * @summary Request a password-reset link
- */
-export const forgotPasswordBodyEmailMax = 320;
-
-export const ForgotPasswordBody = zod.object({
-  email: zod.string().email().max(forgotPasswordBodyEmailMax),
-});
-
-export const ForgotPasswordResponse = zod.object({
-  ok: zod.boolean(),
-});
-
-/**
- * Consumes a single-use token (reset or migration invite), sets the new password, and revokes all existing sessions.
- * @summary Set a new password using a reset/invite token
- */
-
-export const resetPasswordBodyPasswordMin = 8;
-export const resetPasswordBodyPasswordMax = 200;
-
-export const ResetPasswordBody = zod.object({
-  token: zod.string().min(1),
-  password: zod
-    .string()
-    .min(resetPasswordBodyPasswordMin)
-    .max(resetPasswordBodyPasswordMax),
-});
-
-export const ResetPasswordResponse = zod.object({
-  ok: zod.boolean(),
-});
-
-/**
  * Requires an Authorization bearer session token.
  * @summary Current signed-in retail customer
  */

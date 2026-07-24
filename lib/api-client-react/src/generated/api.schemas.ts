@@ -1137,6 +1137,21 @@ export interface PatchVariantRequest {
   inStock?: boolean;
 }
 
+export interface ForgotPasswordRequest {
+  /** @maxLength 320 */
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  /** @minLength 1 */
+  token: string;
+  /**
+   * @minLength 8
+   * @maxLength 200
+   */
+  password: string;
+}
+
 export interface OkResponse {
   ok: boolean;
 }
