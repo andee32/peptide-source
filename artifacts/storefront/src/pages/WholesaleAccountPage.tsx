@@ -163,7 +163,6 @@ export function WholesaleAccountPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 gap-2.5">
-                <InfoRow label="Account ID" value={<code className="font-mono">{wholesale.accountId}</code>} />
                 {account.data?.email && <InfoRow label="Email" value={account.data.email} />}
                 {account.data?.phone && <InfoRow label="Phone" value={account.data.phone} />}
                 {account.data?.businessType && (

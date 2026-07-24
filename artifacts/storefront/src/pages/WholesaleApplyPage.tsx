@@ -65,10 +65,6 @@ function SuccessCard({ account }: { account: AccountCreated }) {
         </p>
         <div className="grid grid-cols-1 gap-3 text-sm">
           <div className="flex items-center justify-between rounded-lg bg-muted/50 border border-border px-3 py-2">
-            <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Account ID</span>
-            <code className="font-mono text-sm">{account.id}</code>
-          </div>
-          <div className="flex items-center justify-between rounded-lg bg-muted/50 border border-border px-3 py-2">
             <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Status</span>
             <Badge variant="gold" className="font-mono uppercase tracking-wider">{account.status}</Badge>
           </div>
