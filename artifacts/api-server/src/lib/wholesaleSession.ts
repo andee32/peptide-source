@@ -23,11 +23,24 @@ export function extractAccountToken(req: Request): string | undefined {
   return headerVal || undefined;
 }
 
-/** Resolves the request's wholesale account, or null when the token is
- * missing, unknown, or the account is not approved. */
+/**
+ * Resolves the request's APPROVED wholesale account, or null. Dual-auth during
+ * the account-unification window: prefers a Bearer session whose linked profile
+ * is approved; falls back to the legacy x-account-token. The token path is
+ * removed at cutover.
+ */
 export async function resolveWholesaleAccount(
   req: Request
 ): Promise<WholesaleAccount | null> {
+  // Session path (preferred).
+  const user = await resolveCustomerUser(req);
+  if (user) {
+    const byUser = await db.query.customerAccountsTable.findFirst({
+      where: eq(customerAccountsTable.customerUserId, user.id),
+    });
+    if (byUser && byUser.status === "approved") return byUser;
+  }
+  // Legacy token path (transition only).
   const token = extractAccountToken(req);
   if (!token) return null;
   const account = await db.query.customerAccountsTable.findFirst({

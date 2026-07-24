@@ -402,6 +402,12 @@ export const CreateOrderBody = zod.object({
     .describe(
       "Optional promo code (retail only). Trimmed and uppercased server-side. Invalid, expired, or exhausted codes hard-reject the order (422) — never silently ignored. Submitting a code on a wholesale order is a 422.",
     ),
+  channel: zod
+    .enum(["retail", "wholesale"])
+    .optional()
+    .describe(
+      'Order channel intent. \"wholesale\" requires a Bearer session whose linked account is approved (accountId\/tier are server-derived). The legacy accountId+token body is still accepted during the migration window.',
+    ),
   ruoAffirmed: zod
     .boolean()
     .describe(
@@ -457,6 +463,7 @@ export const QuoteOrderBody = zod
         "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
       ),
     discountCode: zod.string().max(quoteOrderBodyDiscountCodeMax).nullish(),
+    channel: zod.enum(["retail", "wholesale"]).optional(),
   })
   .describe(
     "Pricing-relevant subset of CreateOrderRequest. Runs the identical pipeline with no writes.",

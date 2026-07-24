@@ -379,6 +379,14 @@ export interface DiscountCodeError {
   code: DiscountCodeErrorCode;
 }
 
+export type QuoteOrderRequestChannel =
+  (typeof QuoteOrderRequestChannel)[keyof typeof QuoteOrderRequestChannel];
+
+export const QuoteOrderRequestChannel = {
+  retail: "retail",
+  wholesale: "wholesale",
+} as const;
+
 /**
  * Line item for order creation — server resolves price and names from variantId
  */
@@ -415,6 +423,7 @@ export interface QuoteOrderRequest {
   paymentMethod: PaymentMethod;
   /** @maxLength 64 */
   discountCode?: string | null;
+  channel?: QuoteOrderRequestChannel;
 }
 
 export type OrderQuoteDiscountSource =
@@ -630,6 +639,17 @@ export interface OrderLineItem {
   unitPriceCents: number;
 }
 
+/**
+ * Order channel intent. "wholesale" requires a Bearer session whose linked account is approved (accountId/tier are server-derived). The legacy accountId+token body is still accepted during the migration window.
+ */
+export type CreateOrderRequestChannel =
+  (typeof CreateOrderRequestChannel)[keyof typeof CreateOrderRequestChannel];
+
+export const CreateOrderRequestChannel = {
+  retail: "retail",
+  wholesale: "wholesale",
+} as const;
+
 export interface CreateOrderRequest {
   /** B2B wholesale account ID. When present with a valid token, the order is placed on the wholesale channel with tier-resolved pricing and kit/MOQ enforcement. */
   accountId?: string | null;
@@ -644,6 +664,8 @@ export interface CreateOrderRequest {
    * @maxLength 64
    */
   discountCode?: string | null;
+  /** Order channel intent. "wholesale" requires a Bearer session whose linked account is approved (accountId/tier are server-derived). The legacy accountId+token body is still accepted during the migration window. */
+  channel?: CreateOrderRequestChannel;
   /** Must be true. Server-side RUO (Research Use Only) affirmation; the order is rejected (400) when not exactly true. */
   ruoAffirmed: boolean;
   /**

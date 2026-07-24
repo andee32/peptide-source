@@ -17,7 +17,11 @@ import {
 } from "@atlab/db/schema";
 import { btcpayService, PaymentRailUnavailableError, type CryptoCurrency } from "../services/btcpay";
 import { resolveCustomerUser } from "../lib/customerSession";
-import { extractAccountToken } from "../lib/wholesaleSession";
+import {
+  extractAccountToken,
+  resolveWholesaleAccount,
+  type WholesaleAccount,
+} from "../lib/wholesaleSession";
 import { quoteRateLimit, createOrderRateLimit } from "../lib/rateLimit";
 import {
   resolveDiscounts,
@@ -88,7 +92,12 @@ async function canReadOrder(
     const account = await db.query.customerAccountsTable.findFirst({
       where: eq(customerAccountsTable.id, order.accountId),
     });
-    if (!account?.accessToken) return false;
+    if (!account) return false;
+    // Session path: the signed-in user owns the order's wholesale account.
+    const user = await resolveCustomerUser(req);
+    if (user && account.customerUserId === user.id) return true;
+    // Legacy token path (transition only).
+    if (!account.accessToken) return false;
     return extractAccountToken(req) === account.accessToken;
   }
 
@@ -139,6 +148,9 @@ const createOrderSchema = z.object({
   signerName: z.string().min(1).max(200),
   paymentMethod: z.enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"]),
   discountCode: z.string().max(64).nullish(),
+  // Wholesale intent (account-unification). New clients send this + a Bearer
+  // session; the legacy accountId+token body is still accepted in the window.
+  channel: z.enum(["retail", "wholesale"]).optional(),
   shippingName: z.string().min(1).max(200),
   shippingEmail: z.string().email(),
   shippingAddress1: z.string().min(1).max(500),
@@ -157,6 +169,7 @@ const quoteOrderSchema = z.object({
   lineItems: z.array(lineItemInputSchema).min(1).max(50),
   paymentMethod: z.enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"]),
   discountCode: z.string().max(64).nullish(),
+  channel: z.enum(["retail", "wholesale"]).optional(),
 });
 
 // Thrown inside the order transaction when the atomic code consumption finds
@@ -167,6 +180,7 @@ class CodeConsumptionError extends Error {}
 type PricedOrder = {
   ok: true;
   isWholesale: boolean;
+  wholesaleAccountId: string | null;
   channel: "retail" | "wholesale";
   resolvedLineItems: Array<{
     variantId: number;
@@ -193,8 +207,8 @@ type PricingError = { ok: false; status: number; body: Record<string, unknown> }
  * resolution via resolveDiscounts(). Never writes.
  */
 async function priceOrderRequest(input: {
-  accountId?: string | null;
-  token?: string | null;
+  // Pre-authenticated by the handler (legacy body token OR session). null = retail.
+  wholesaleAccount?: WholesaleAccount | null;
   lineItems: Array<{ variantId: number; quantity: number }>;
   paymentMethod: "crypto_btc" | "crypto_usdc" | "ach" | "wire" | "zelle";
   discountCode?: string | null;
@@ -267,7 +281,8 @@ async function priceOrderRequest(input: {
 
   // ── Wholesale path: authenticate account, enforce kit-only + MOQ, resolve
   // tier pricing. Retail path (no accountId) is unchanged.
-  const isWholesale = !!input.accountId;
+  const account = input.wholesaleAccount ?? null;
+  const isWholesale = !!account;
 
   // Zelle is wholesale-only, enforced here rather than by hiding the option in
   // the UI. It identifies the recipient by phone/email rather than an account
@@ -311,27 +326,7 @@ async function priceOrderRequest(input: {
     }
   }
 
-  if (isWholesale) {
-    const account = await db.query.customerAccountsTable.findFirst({
-      where: eq(customerAccountsTable.id, input.accountId!),
-    });
-    if (
-      !account ||
-      account.status !== "approved" ||
-      !input.token ||
-      !account.accessToken ||
-      account.accessToken !== input.token
-    ) {
-      return {
-        ok: false,
-        status: 403,
-        body: {
-          error: "forbidden",
-          message: "Wholesale account is not approved or the access token is invalid",
-        },
-      };
-    }
-
+  if (isWholesale && account) {
     const nonKit = input.lineItems.filter(
       (li) => variantMap.get(li.variantId)?.unitType !== "kit"
     );
@@ -437,6 +432,7 @@ async function priceOrderRequest(input: {
   return {
     ok: true,
     isWholesale,
+    wholesaleAccountId: account?.id ?? null,
     channel: isWholesale ? "wholesale" : "retail",
     resolvedLineItems,
     subtotalCents,
@@ -450,13 +446,71 @@ async function priceOrderRequest(input: {
   };
 }
 
+// Authorize wholesale intent for an order/quote — the dual-auth bridge during
+// the account-unification transition. Legacy body {accountId, token} still
+// works; new clients send a Bearer session + channel:"wholesale". Either way
+// the account is resolved + verified APPROVED here, then handed to
+// priceOrderRequest pre-authenticated (the client never asserts its own tier).
+async function authorizeWholesale(
+  req: Request,
+  body: {
+    accountId?: string | null;
+    token?: string | null;
+    channel?: "retail" | "wholesale";
+  },
+): Promise<
+  | { ok: true; account: WholesaleAccount | null }
+  | { ok: false; status: number; body: Record<string, unknown> }
+> {
+  const FORBIDDEN_WS = {
+    ok: false as const,
+    status: 403,
+    body: {
+      error: "forbidden",
+      message:
+        "Wholesale account is not approved or the credentials are invalid",
+    },
+  };
+  // Legacy path: explicit body accountId + token (retired at cutover).
+  if (body.accountId && body.token) {
+    const account = await db.query.customerAccountsTable.findFirst({
+      where: eq(customerAccountsTable.id, body.accountId),
+    });
+    if (
+      !account ||
+      account.status !== "approved" ||
+      !account.accessToken ||
+      account.accessToken !== body.token
+    ) {
+      return FORBIDDEN_WS;
+    }
+    return { ok: true, account };
+  }
+  // New path: session-authenticated wholesale intent.
+  if (body.channel === "wholesale") {
+    const account = await resolveWholesaleAccount(req);
+    if (!account) return FORBIDDEN_WS;
+    return { ok: true, account };
+  }
+  // Retail — even an approved user who did not request wholesale.
+  return { ok: true, account: null };
+}
+
 router.post("/orders/quote", quoteRateLimit, async (req, res) => {
   const parsed = quoteOrderSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "validation_error", message: String(parsed.error) });
     return;
   }
-  const priced = await priceOrderRequest(parsed.data);
+  const auth = await authorizeWholesale(req, parsed.data);
+  if (!auth.ok) {
+    res.status(auth.status).json(auth.body);
+    return;
+  }
+  const priced = await priceOrderRequest({
+    ...parsed.data,
+    wholesaleAccount: auth.account,
+  });
   if (!priced.ok) {
     res.status(priced.status).json(priced.body);
     return;
@@ -491,7 +545,12 @@ router.post("/orders", createOrderRateLimit, async (req, res) => {
     return;
   }
 
-  const priced = await priceOrderRequest(data);
+  const auth = await authorizeWholesale(req, data);
+  if (!auth.ok) {
+    res.status(auth.status).json(auth.body);
+    return;
+  }
+  const priced = await priceOrderRequest({ ...data, wholesaleAccount: auth.account });
   if (!priced.ok) {
     res.status(priced.status).json(priced.body);
     return;
@@ -562,7 +621,7 @@ router.post("/orders", createOrderRateLimit, async (req, res) => {
       totalCents,
       paymentMethod: data.paymentMethod,
       channel,
-      accountId: isWholesale ? data.accountId! : null,
+      accountId: priced.wholesaleAccountId,
       customerUserId: customerUser?.id ?? null,
       status: "pending",
       shippingName: data.shippingName,
@@ -577,7 +636,7 @@ router.post("/orders", createOrderRateLimit, async (req, res) => {
 
       await tx.insert(orderAttestationsTable).values({
         orderId,
-        accountId: isWholesale ? data.accountId! : null,
+        accountId: priced.wholesaleAccountId,
         attestationVersion: ATTESTATION_VERSION,
         attestationText: ATTESTATION_TEXT,
         ruoAffirmed: data.ruoAffirmed,

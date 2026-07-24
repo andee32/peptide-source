@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateOrderLineItem } from "./createOrderLineItem";
+import type { CreateOrderRequestChannel } from "./createOrderRequestChannel";
 import type { PaymentMethod } from "./paymentMethod";
 
 export interface CreateOrderRequest {
@@ -22,6 +23,8 @@ export interface CreateOrderRequest {
    * @maxLength 64
    */
   discountCode?: string | null;
+  /** Order channel intent. "wholesale" requires a Bearer session whose linked account is approved (accountId/tier are server-derived). The legacy accountId+token body is still accepted during the migration window. */
+  channel?: CreateOrderRequestChannel;
   /** Must be true. Server-side RUO (Research Use Only) affirmation; the order is rejected (400) when not exactly true. */
   ruoAffirmed: boolean;
   /**

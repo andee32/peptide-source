@@ -2348,6 +2348,9 @@ components:
           type: string
           maxLength: 64
           nullable: true
+        channel:
+          type: string
+          enum: [retail, wholesale]
       required:
         - lineItems
         - paymentMethod
@@ -2785,6 +2788,10 @@ components:
           maxLength: 64
           nullable: true
           description: Optional promo code (retail only). Trimmed and uppercased server-side. Invalid, expired, or exhausted codes hard-reject the order (422) — never silently ignored. Submitting a code on a wholesale order is a 422.
+        channel:
+          type: string
+          enum: [retail, wholesale]
+          description: Order channel intent. "wholesale" requires a Bearer session whose linked account is approved (accountId/tier are server-derived). The legacy accountId+token body is still accepted during the migration window.
         ruoAffirmed:
           type: boolean
           description: Must be true. Server-side RUO (Research Use Only) affirmation; the order is rejected (400) when not exactly true.

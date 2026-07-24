@@ -7,6 +7,7 @@
  */
 import type { CreateOrderLineItem } from "./createOrderLineItem";
 import type { PaymentMethod } from "./paymentMethod";
+import type { QuoteOrderRequestChannel } from "./quoteOrderRequestChannel";
 
 /**
  * Pricing-relevant subset of CreateOrderRequest. Runs the identical pipeline with no writes.
@@ -19,4 +20,5 @@ export interface QuoteOrderRequest {
   paymentMethod: PaymentMethod;
   /** @maxLength 64 */
   discountCode?: string | null;
+  channel?: QuoteOrderRequestChannel;
 }
