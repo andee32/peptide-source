@@ -7,20 +7,20 @@ import { useWholesaleSession } from "@/hooks/useWholesaleSession";
 import { useState, useMemo } from "react";
 
 // Wholesale kit catalog — approved-accounts-only. The server enforces the gate
-// (GET /products is 401 without a valid x-account-token); this component gates
-// the UI and forwards the session token.
+// (GET /products is 401 without valid wholesale auth); this component gates
+// the UI and forwards the wholesale auth headers.
 export function ProductsPage() {
-  const { session } = useWholesaleSession();
+  const { session, wholesaleHeaders } = useWholesaleSession();
   if (!session) return <WholesaleGate />;
-  return <WholesaleCatalog token={session.token} />;
+  return <WholesaleCatalog accountId={session.accountId} wholesaleHeaders={wholesaleHeaders} />;
 }
 
-function WholesaleCatalog({ token }: { token: string }) {
+function WholesaleCatalog({ accountId, wholesaleHeaders }: { accountId: string; wholesaleHeaders: Record<string, string> }) {
   const { data: products, isLoading } = useListProducts(undefined, {
-    // Key includes the token so sign-out/account-switch can't serve a stale
+    // Key includes the accountId so sign-out/account-switch can't serve a stale
     // cached catalog.
-    query: { queryKey: ["/api/products", token] },
-    request: { headers: { "x-account-token": token } },
+    query: { queryKey: ["/api/products", accountId] },
+    request: { headers: wholesaleHeaders },
   });
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
 

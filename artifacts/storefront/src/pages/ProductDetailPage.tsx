@@ -28,19 +28,19 @@ import { WholesaleGate } from "@/components/wholesale/WholesaleGate";
 export function ProductDetailPage() {
   const { session } = useWholesaleSession();
   if (!session) return <WholesaleGate />;
-  return <WholesaleProductDetail token={session.token} />;
+  return <WholesaleProductDetail accountId={session.accountId} />;
 }
 
-function WholesaleProductDetail({ token }: { token: string }) {
+function WholesaleProductDetail({ accountId }: { accountId: string }) {
   const { slug } = useParams<{ slug: string }>();
   const { trackEvent } = useAnalytics();
   const { addToCart } = useCart();
   const { showVialImages } = useStoreSettings();
-  const wholesaleHeaders = { "x-account-token": token };
+  const { wholesaleHeaders } = useWholesaleSession();
 
   // First fetch list to find the ID by slug
   const { data: products } = useListProducts(undefined, {
-    query: { queryKey: ["/api/products", token] },
+    query: { queryKey: ["/api/products", accountId] },
     request: { headers: wholesaleHeaders },
   });
   const productSummary = products?.find(p => p.slug === slug);
@@ -48,7 +48,7 @@ function WholesaleProductDetail({ token }: { token: string }) {
 
   // Then fetch the full detail
   const { data: product, isLoading } = useGetProduct(productId ?? 0, {
-    query: { enabled: !!productId, queryKey: ['/api/products', productId, token] },
+    query: { enabled: !!productId, queryKey: ['/api/products', productId, accountId] },
     request: { headers: wholesaleHeaders },
   });
 

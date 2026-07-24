@@ -263,7 +263,7 @@ function OrderSummaryPanel({
 
 export function CheckoutPage() {
   const { cartItems, totalCents, clearCart } = useCart();
-  const { session } = useWholesaleSession();
+  const { session, wholesaleHeaders, wholesaleOrderFields } = useWholesaleSession();
   // Retail shopper session (optional): the bearer token below is what makes the
   // server stamp customerUserId on the order. Guest checkout sends no header.
   const customerSession = useCustomerSession();
@@ -406,9 +406,9 @@ export function CheckoutPage() {
   const orderAuthHeaders = useMemo(
     (): Record<string, string> => ({
       ...bearerHeaders(isWholesale ? null : customerSession?.token),
-      ...(session ? { "x-account-token": session.token } : {}),
+      ...(session ? wholesaleHeaders : {}),
     }),
-    [isWholesale, customerSession?.token, session],
+    [isWholesale, customerSession?.token, session, wholesaleHeaders],
   );
 
   const isCrypto = paymentMethod === "crypto_btc" || paymentMethod === "crypto_usdc";
@@ -508,9 +508,7 @@ export function CheckoutPage() {
         body: JSON.stringify({
           // Wholesale session: backend switches to wholesale channel, applies
           // the account's tier pricing, and enforces the 5-kit MOQ.
-          ...(session
-            ? { accountId: session.accountId, token: session.token }
-            : {}),
+          ...(session ? wholesaleOrderFields : {}),
           lineItems,
           paymentMethod,
           ...(appliedCode && !isWholesale ? { discountCode: appliedCode } : {}),
