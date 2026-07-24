@@ -13,8 +13,6 @@ import type { QuoteOrderRequestChannel } from "./quoteOrderRequestChannel";
  * Pricing-relevant subset of CreateOrderRequest. Runs the identical pipeline with no writes.
  */
 export interface QuoteOrderRequest {
-  accountId?: string | null;
-  token?: string | null;
   /** @minItems 1 */
   lineItems: CreateOrderLineItem[];
   paymentMethod: PaymentMethod;

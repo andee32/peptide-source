@@ -10,10 +10,6 @@ import type { CreateOrderRequestChannel } from "./createOrderRequestChannel";
 import type { PaymentMethod } from "./paymentMethod";
 
 export interface CreateOrderRequest {
-  /** B2B wholesale account ID. When present with a valid token, the order is placed on the wholesale channel with tier-resolved pricing and kit/MOQ enforcement. */
-  accountId?: string | null;
-  /** Wholesale account access token. Required when accountId is provided. */
-  token?: string | null;
   sessionId?: string | null;
   /** @minItems 1 */
   lineItems: CreateOrderLineItem[];
@@ -23,7 +19,7 @@ export interface CreateOrderRequest {
    * @maxLength 64
    */
   discountCode?: string | null;
-  /** Order channel intent. "wholesale" requires a Bearer session whose linked account is approved (accountId/tier are server-derived). The legacy accountId+token body is still accepted during the migration window. */
+  /** Order channel intent. "wholesale" requires a Bearer session whose linked wholesale account is approved; the account and price tier are resolved server-side from that session. */
   channel?: CreateOrderRequestChannel;
   /** Must be true. Server-side RUO (Research Use Only) affirmation; the order is rejected (400) when not exactly true. */
   ruoAffirmed: boolean;

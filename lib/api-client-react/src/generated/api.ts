@@ -51,7 +51,6 @@ import type {
   DiscountCodeReport,
   DispatchSubscriptionReminders200,
   ForgotPasswordRequest,
-  GetAccountParams,
   GetSubscriptionParams,
   HandleBtcpayWebhook200,
   HealthStatus,
@@ -185,7 +184,7 @@ export function useHealthCheck<
 }
 
 /**
- * Wholesale kit catalog with kit pricing. Requires the x-account-token of an APPROVED wholesale account; 401 otherwise. The public retail catalog is GET /retail/products.
+ * Wholesale kit catalog with kit pricing. Requires a Bearer session whose linked wholesale account is APPROVED; 401 otherwise. The public retail catalog is GET /retail/products.
  * @summary List wholesale kit catalog
  */
 export const getListProductsUrl = (params?: ListProductsParams) => {
@@ -280,7 +279,7 @@ export function useListProducts<
 }
 
 /**
- * Returns a single kit product with its variants and pricing. Requires the x-account-token of an APPROVED wholesale account; 401 otherwise.
+ * Returns a single kit product with its variants and pricing. Requires a Bearer session whose linked wholesale account is APPROVED; 401 otherwise.
  * @summary Get wholesale kit product by ID
  */
 export const getGetProductUrl = (id: number) => {
@@ -3286,41 +3285,25 @@ export const useApplyForAccount = <
 };
 
 /**
- * Requires either x-admin-key header or the account's accessToken (header x-account-token or query token). Returns status and assigned price tier. Does NOT return the accessToken.
+ * Requires either the x-admin-key header or a Bearer session that owns this account (the account is linked to the signed-in identity). Returns status and assigned price tier.
  * @summary Get a wholesale account by ID
  */
-export const getGetAccountUrl = (id: string, params?: GetAccountParams) => {
-  const normalizedParams = new URLSearchParams();
-
-  Object.entries(params || {}).forEach(([key, value]) => {
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? "null" : value.toString());
-    }
-  });
-
-  const stringifiedParams = normalizedParams.toString();
-
-  return stringifiedParams.length > 0
-    ? `/api/accounts/${id}?${stringifiedParams}`
-    : `/api/accounts/${id}`;
+export const getGetAccountUrl = (id: string) => {
+  return `/api/accounts/${id}`;
 };
 
 export const getAccount = async (
   id: string,
-  params?: GetAccountParams,
   options?: RequestInit,
 ): Promise<Account> => {
-  return customFetch<Account>(getGetAccountUrl(id, params), {
+  return customFetch<Account>(getGetAccountUrl(id), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetAccountQueryKey = (
-  id: string,
-  params?: GetAccountParams,
-) => {
-  return [`/api/accounts/${id}`, ...(params ? [params] : [])] as const;
+export const getGetAccountQueryKey = (id: string) => {
+  return [`/api/accounts/${id}`] as const;
 };
 
 export const getGetAccountQueryOptions = <
@@ -3328,7 +3311,6 @@ export const getGetAccountQueryOptions = <
   TError = ErrorType<ApiError>,
 >(
   id: string,
-  params?: GetAccountParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getAccount>>,
@@ -3340,11 +3322,11 @@ export const getGetAccountQueryOptions = <
 ) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetAccountQueryKey(id, params);
+  const queryKey = queryOptions?.queryKey ?? getGetAccountQueryKey(id);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof getAccount>>> = ({
     signal,
-  }) => getAccount(id, params, { signal, ...requestOptions });
+  }) => getAccount(id, { signal, ...requestOptions });
 
   return {
     queryKey,
@@ -3372,7 +3354,6 @@ export function useGetAccount<
   TError = ErrorType<ApiError>,
 >(
   id: string,
-  params?: GetAccountParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof getAccount>>,
@@ -3382,7 +3363,7 @@ export function useGetAccount<
     request?: SecondParameter<typeof customFetch>;
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetAccountQueryOptions(id, params, options);
+  const queryOptions = getGetAccountQueryOptions(id, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -72,7 +72,6 @@ test("applying signed-in links the profile and issues no token", async () => {
     .from(customerAccountsTable)
     .where(eq(customerAccountsTable.id, body.id));
   assert.equal(acct.customerUserId, id);
-  assert.equal(acct.accessToken, ""); // sentinel empty, never a real token
 });
 
 test("a second application from the same identity is 409", async () => {

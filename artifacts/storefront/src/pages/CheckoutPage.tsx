@@ -503,7 +503,11 @@ export function CheckoutPage() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(isWholesale ? {} : bearerHeaders(customerSession?.token)),
+          // Wholesale rides the customer Bearer (via wholesaleHeaders); retail
+          // sends the customer Bearer directly. Same credential the per-order
+          // endpoints below re-check, so the order is placed and read under one
+          // identity. A guest order sends neither and stays a capability URL.
+          ...orderAuthHeaders,
         },
         body: JSON.stringify({
           // Wholesale session: backend switches to wholesale channel, applies

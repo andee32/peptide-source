@@ -9,7 +9,6 @@ import {
 } from "@atlab/db/schema";
 import { z } from "zod/v4";
 import { isAdminRequest } from "../lib/adminSession";
-import { extractAccountToken } from "../lib/wholesaleSession";
 import { resolveCustomerUser } from "../lib/customerSession";
 
 const router: IRouter = Router();
@@ -72,11 +71,20 @@ router.post("/accounts/apply", async (req: Request, res: Response) => {
       resaleCertUrl: data.resaleCertUrl ?? null,
       status: "pending",
       customerUserId: user.id,
-      // no accessToken — session-authenticated (empty string = none issued)
     });
 
     res.status(201).json({ id, status: "pending" });
   } catch (err) {
+    // Two applications racing past the findFirst check both reach the insert;
+    // the unique index on customer_user_id (1:1) rejects the loser. Surface that
+    // as the same 409 the sequential path returns, not a 500.
+    if ((err as { code?: string }).code === "23505") {
+      res.status(409).json({
+        error: "conflict",
+        message: "This account already has a wholesale application.",
+      });
+      return;
+    }
     console.error("applyForAccount error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });
   }
@@ -92,13 +100,14 @@ router.get("/accounts/:id", async (req: Request, res: Response) => {
       return;
     }
 
+    const user = await resolveCustomerUser(req);
     const authorized =
       (await isAdminRequest(req)) ||
-      (!!account.accessToken && extractAccountToken(req) === account.accessToken);
+      (!!user && account.customerUserId === user.id);
     if (!authorized) {
       res.status(403).json({
         error: "forbidden",
-        message: "Provide a valid account access token",
+        message: "Not authorized to view this account",
       });
       return;
     }
@@ -111,8 +120,7 @@ router.get("/accounts/:id", async (req: Request, res: Response) => {
         })) ?? null;
     }
 
-    const { accessToken: _at, ...safe } = account;
-    res.json({ ...safe, priceTier });
+    res.json({ ...account, priceTier });
   } catch (err) {
     console.error("getAccount error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });

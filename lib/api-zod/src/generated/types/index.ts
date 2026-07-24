@@ -73,7 +73,6 @@ export * from "./discountCodeErrorCode";
 export * from "./discountCodeReport";
 export * from "./dispatchSubscriptionReminders200";
 export * from "./forgotPasswordRequest";
-export * from "./getAccountParams";
 export * from "./getSubscriptionParams";
 export * from "./handleBtcpayWebhook200";
 export * from "./healthStatus";

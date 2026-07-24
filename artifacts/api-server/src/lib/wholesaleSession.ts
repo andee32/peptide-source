@@ -7,49 +7,29 @@ import { resolveCustomerUser } from "./customerSession";
 /**
  * Wholesale session resolution — the kit catalog (and its pricing) is
  * account-holders-only, so every wholesale-catalog route resolves the caller's
- * x-account-token to an APPROVED account row before returning anything.
+ * signed-in identity to an APPROVED linked account row before returning
+ * anything.
  *
- * Same predicate as order creation and GET /accounts/:id: the opaque
- * accessToken minted at application time, presented via the x-account-token
- * header. Not a general auth system — one token per account. Access is revoked
- * today by moving the account off `approved` status (there is no
- * token-rotation endpoint yet); the status check below is what enforces it.
+ * Same predicate as order creation and GET /accounts/:id: the wholesale profile
+ * (customer_accounts) linked to the session's identity via customerUserId. Post
+ * account-unification there is no access token — auth is the retail session and
+ * the account's `approved` status. Access is revoked by moving the account off
+ * `approved`; the status check below is what enforces it on every request.
  */
 export type WholesaleAccount = typeof customerAccountsTable.$inferSelect;
 
-export function extractAccountToken(req: Request): string | undefined {
-  const fromHeader = req.headers["x-account-token"];
-  const headerVal = Array.isArray(fromHeader) ? fromHeader[0] : fromHeader;
-  return headerVal || undefined;
-}
-
 /**
- * Resolves the request's APPROVED wholesale account, or null. Dual-auth during
- * the account-unification window: prefers a Bearer session whose linked profile
- * is approved; falls back to the legacy x-account-token. The token path is
- * removed at cutover.
+ * Resolves the request's APPROVED wholesale account, or null. Session-authenticated: the signed-in user's linked profile, if approved.
  */
 export async function resolveWholesaleAccount(
   req: Request
 ): Promise<WholesaleAccount | null> {
-  // Session path (preferred).
   const user = await resolveCustomerUser(req);
-  if (user) {
-    const byUser = await db.query.customerAccountsTable.findFirst({
-      where: eq(customerAccountsTable.customerUserId, user.id),
-    });
-    if (byUser && byUser.status === "approved") return byUser;
-  }
-  // Legacy token path (transition only).
-  const token = extractAccountToken(req);
-  if (!token) return null;
+  if (!user) return null;
   const account = await db.query.customerAccountsTable.findFirst({
-    where: eq(customerAccountsTable.accessToken, token),
+    where: eq(customerAccountsTable.customerUserId, user.id),
   });
-  if (!account || account.status !== "approved" || !account.accessToken) {
-    return null;
-  }
-  return account;
+  return account && account.status === "approved" ? account : null;
 }
 
 /**

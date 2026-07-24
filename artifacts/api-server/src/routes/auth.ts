@@ -197,11 +197,19 @@ router.post(
       return;
     }
     const email = parsed.data.email.trim().toLowerCase();
-    try {
-      const user = await db.query.customerUsersTable.findFirst({
-        where: eq(customerUsersTable.email, email),
-      });
-      if (user) {
+    // Respond BEFORE doing any account-dependent work. The DB lookup + token
+    // mint + SMTP round-trip only happen for a registered email; awaiting them
+    // on the response path makes the registered case measurably slower — a
+    // timing oracle for account enumeration that the status code alone does not
+    // leak. Move that work off the response path so both cases return in
+    // constant time.
+    res.json({ ok: true });
+    void (async () => {
+      try {
+        const user = await db.query.customerUsersTable.findFirst({
+          where: eq(customerUsersTable.email, email),
+        });
+        if (!user) return;
         const { token } = await createResetToken(user.id, "reset");
         const base = process.env.PUBLIC_APP_URL ?? "";
         await sendPasswordResetEmail({
@@ -210,13 +218,10 @@ router.post(
           purpose: "reset",
           expiresLabel: "1 hour",
         });
+      } catch (err) {
+        console.error("forgotPassword error:", err);
       }
-      res.json({ ok: true });
-    } catch (err) {
-      console.error("forgotPassword error:", err);
-      // Still 200 — do not leak internal state through status codes.
-      res.json({ ok: true });
-    }
+    })();
   },
 );
 

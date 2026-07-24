@@ -1025,8 +1025,7 @@ async function serializeAccount(account: typeof customerAccountsTable.$inferSele
         where: eq(priceTiersTable.id, account.priceTierId),
       })) ?? null;
   }
-  const { accessToken: _at, ...safe } = account;
-  return { ...safe, priceTier };
+  return { ...account, priceTier };
 }
 
 router.get("/admin/accounts", async (req, res) => {
@@ -1349,10 +1348,6 @@ router.get("/admin/orders/:id", async (req, res) => {
       account = (await db.query.customerAccountsTable.findFirst({
         where: eq(customerAccountsTable.id, order.accountId),
       })) ?? null;
-      if (account) {
-        const { accessToken: _at, ...safe } = account;
-        account = safe as typeof account;
-      }
     }
 
     res.json({ ...order, payments, attestations, account });

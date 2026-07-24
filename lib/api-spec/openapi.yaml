@@ -44,7 +44,7 @@ paths:
       operationId: listProducts
       tags: [products]
       summary: List wholesale kit catalog
-      description: Wholesale kit catalog with kit pricing. Requires the x-account-token of an APPROVED wholesale account; 401 otherwise. The public retail catalog is GET /retail/products.
+      description: Wholesale kit catalog with kit pricing. Requires a Bearer session whose linked wholesale account is APPROVED; 401 otherwise. The public retail catalog is GET /retail/products.
       parameters:
         - name: category
           in: query
@@ -66,7 +66,7 @@ paths:
                 items:
                   $ref: "#/components/schemas/Product"
         "401":
-          description: Approved wholesale account token required
+          description: Approved wholesale session required
           content:
             application/json:
               schema:
@@ -77,7 +77,7 @@ paths:
       operationId: getProduct
       tags: [products]
       summary: Get wholesale kit product by ID
-      description: Returns a single kit product with its variants and pricing. Requires the x-account-token of an APPROVED wholesale account; 401 otherwise.
+      description: Returns a single kit product with its variants and pricing. Requires a Bearer session whose linked wholesale account is APPROVED; 401 otherwise.
       parameters:
         - name: id
           in: path
@@ -92,7 +92,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ProductDetail"
         "401":
-          description: Approved wholesale account token required
+          description: Approved wholesale session required
           content:
             application/json:
               schema:
@@ -1074,19 +1074,13 @@ paths:
       operationId: getAccount
       tags: [accounts]
       summary: Get a wholesale account by ID
-      description: Requires either x-admin-key header or the account's accessToken (header x-account-token or query token). Returns status and assigned price tier. Does NOT return the accessToken.
+      description: Requires either the x-admin-key header or a Bearer session that owns this account (the account is linked to the signed-in identity). Returns status and assigned price tier.
       parameters:
         - name: id
           in: path
           required: true
           schema:
             type: string
-        - name: token
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Account access token (required for non-admin)
       responses:
         "200":
           description: Account detail
@@ -1095,7 +1089,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Account"
         "403":
-          description: Invalid or missing access token
+          description: Not the admin and not the owning session
           content:
             application/json:
               schema:
@@ -2339,12 +2333,6 @@ components:
       type: object
       description: Pricing-relevant subset of CreateOrderRequest. Runs the identical pipeline with no writes.
       properties:
-        accountId:
-          type: string
-          nullable: true
-        token:
-          type: string
-          nullable: true
         lineItems:
           type: array
           items:
@@ -2773,14 +2761,6 @@ components:
     CreateOrderRequest:
       type: object
       properties:
-        accountId:
-          type: string
-          nullable: true
-          description: B2B wholesale account ID. When present with a valid token, the order is placed on the wholesale channel with tier-resolved pricing and kit/MOQ enforcement.
-        token:
-          type: string
-          nullable: true
-          description: Wholesale account access token. Required when accountId is provided.
         sessionId:
           type: string
           nullable: true
@@ -2799,7 +2779,7 @@ components:
         channel:
           type: string
           enum: [retail, wholesale]
-          description: Order channel intent. "wholesale" requires a Bearer session whose linked account is approved (accountId/tier are server-derived). The legacy accountId+token body is still accepted during the migration window.
+          description: Order channel intent. "wholesale" requires a Bearer session whose linked wholesale account is approved; the account and price tier are resolved server-side from that session.
         ruoAffirmed:
           type: boolean
           description: Must be true. Server-side RUO (Research Use Only) affirmation; the order is rejected (400) when not exactly true.

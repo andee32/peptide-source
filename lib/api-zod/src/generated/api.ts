@@ -16,7 +16,7 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * Wholesale kit catalog with kit pricing. Requires the x-account-token of an APPROVED wholesale account; 401 otherwise. The public retail catalog is GET /retail/products.
+ * Wholesale kit catalog with kit pricing. Requires a Bearer session whose linked wholesale account is APPROVED; 401 otherwise. The public retail catalog is GET /retail/products.
  * @summary List wholesale kit catalog
  */
 export const ListProductsQueryParams = zod.object({
@@ -51,7 +51,7 @@ export const ListProductsResponseItem = zod.object({
 export const ListProductsResponse = zod.array(ListProductsResponseItem);
 
 /**
- * Returns a single kit product with its variants and pricing. Requires the x-account-token of an APPROVED wholesale account; 401 otherwise.
+ * Returns a single kit product with its variants and pricing. Requires a Bearer session whose linked wholesale account is APPROVED; 401 otherwise.
  * @summary Get wholesale kit product by ID
  */
 export const GetProductParams = zod.object({
@@ -362,18 +362,6 @@ export const createOrderBodySignerNameMax = 200;
 export const createOrderBodyShippingCountryDefault = `US`;
 
 export const CreateOrderBody = zod.object({
-  accountId: zod
-    .string()
-    .nullish()
-    .describe(
-      "B2B wholesale account ID. When present with a valid token, the order is placed on the wholesale channel with tier-resolved pricing and kit\/MOQ enforcement.",
-    ),
-  token: zod
-    .string()
-    .nullish()
-    .describe(
-      "Wholesale account access token. Required when accountId is provided.",
-    ),
   sessionId: zod.string().nullish(),
   lineItems: zod
     .array(
@@ -406,7 +394,7 @@ export const CreateOrderBody = zod.object({
     .enum(["retail", "wholesale"])
     .optional()
     .describe(
-      'Order channel intent. \"wholesale\" requires a Bearer session whose linked account is approved (accountId\/tier are server-derived). The legacy accountId+token body is still accepted during the migration window.',
+      'Order channel intent. \"wholesale\" requires a Bearer session whose linked wholesale account is approved; the account and price tier are resolved server-side from that session.',
     ),
   ruoAffirmed: zod
     .boolean()
@@ -440,8 +428,6 @@ export const quoteOrderBodyDiscountCodeMax = 64;
 
 export const QuoteOrderBody = zod
   .object({
-    accountId: zod.string().nullish(),
-    token: zod.string().nullish(),
     lineItems: zod
       .array(
         zod
@@ -1221,18 +1207,11 @@ export const ApplyForAccountBody = zod.object({
 });
 
 /**
- * Requires either x-admin-key header or the account's accessToken (header x-account-token or query token). Returns status and assigned price tier. Does NOT return the accessToken.
+ * Requires either the x-admin-key header or a Bearer session that owns this account (the account is linked to the signed-in identity). Returns status and assigned price tier.
  * @summary Get a wholesale account by ID
  */
 export const GetAccountParams = zod.object({
   id: zod.coerce.string(),
-});
-
-export const GetAccountQueryParams = zod.object({
-  token: zod.coerce
-    .string()
-    .optional()
-    .describe("Account access token (required for non-admin)"),
 });
 
 export const GetAccountResponse = zod.object({

@@ -47,7 +47,6 @@ async function linkedApprovedAccount(customerUserId: string) {
       email: `ws-${randomUUID()}@example.test`,
       status: "approved",
       customerUserId,
-      accessToken: "", // no token — pure session auth
     })
     .returning();
   return account;

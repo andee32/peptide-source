@@ -18,7 +18,6 @@ import {
 import { btcpayService, PaymentRailUnavailableError, type CryptoCurrency } from "../services/btcpay";
 import { resolveCustomerUser } from "../lib/customerSession";
 import {
-  extractAccountToken,
   resolveWholesaleAccount,
   type WholesaleAccount,
 } from "../lib/wholesaleSession";
@@ -74,8 +73,8 @@ function rejectIfNotPayable(
  * email and shipping address.
  *
  * - customerUserId set  -> require that customer's session
- * - accountId set       -> require that wholesale account's access token
- *   (same predicate as GET /accounts/:id)
+ * - accountId set       -> require the session whose identity owns that
+ *   wholesale account (same predicate as GET /accounts/:id)
  * - neither set         -> genuine guest order; the id stays a capability URL,
  *   which is what lets the confirmation page work with no credential
  */
@@ -93,12 +92,8 @@ async function canReadOrder(
       where: eq(customerAccountsTable.id, order.accountId),
     });
     if (!account) return false;
-    // Session path: the signed-in user owns the order's wholesale account.
     const user = await resolveCustomerUser(req);
-    if (user && account.customerUserId === user.id) return true;
-    // Legacy token path (transition only).
-    if (!account.accessToken) return false;
-    return extractAccountToken(req) === account.accessToken;
+    return !!user && account.customerUserId === user.id;
   }
 
   return true;
@@ -140,8 +135,6 @@ const lineItemInputSchema = z.object({
 });
 
 const createOrderSchema = z.object({
-  accountId: z.string().nullish(),
-  token: z.string().nullish(),
   sessionId: z.string().optional(),
   lineItems: z.array(lineItemInputSchema).min(1).max(50),
   ruoAffirmed: z.boolean(),
@@ -164,8 +157,6 @@ const createOrderSchema = z.object({
 // Pricing-relevant subset of createOrderSchema — POST /orders/quote runs the
 // identical pipeline with no writes.
 const quoteOrderSchema = z.object({
-  accountId: z.string().nullish(),
-  token: z.string().nullish(),
   lineItems: z.array(lineItemInputSchema).min(1).max(50),
   paymentMethod: z.enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"]),
   discountCode: z.string().max(64).nullish(),
@@ -446,53 +437,33 @@ async function priceOrderRequest(input: {
   };
 }
 
-// Authorize wholesale intent for an order/quote — the dual-auth bridge during
-// the account-unification transition. Legacy body {accountId, token} still
-// works; new clients send a Bearer session + channel:"wholesale". Either way
-// the account is resolved + verified APPROVED here, then handed to
-// priceOrderRequest pre-authenticated (the client never asserts its own tier).
+// Authorize wholesale intent for an order/quote. The client sends a Bearer
+// session + channel:"wholesale"; the account is resolved from that session and
+// verified APPROVED here, then handed to priceOrderRequest pre-authenticated
+// (the client never asserts its own account or tier).
 async function authorizeWholesale(
   req: Request,
-  body: {
-    accountId?: string | null;
-    token?: string | null;
-    channel?: "retail" | "wholesale";
-  },
+  body: { channel?: "retail" | "wholesale" },
 ): Promise<
   | { ok: true; account: WholesaleAccount | null }
   | { ok: false; status: number; body: Record<string, unknown> }
 > {
-  const FORBIDDEN_WS = {
-    ok: false as const,
-    status: 403,
-    body: {
-      error: "forbidden",
-      message:
-        "Wholesale account is not approved or the credentials are invalid",
-    },
-  };
-  // Legacy path: explicit body accountId + token (retired at cutover).
-  if (body.accountId && body.token) {
-    const account = await db.query.customerAccountsTable.findFirst({
-      where: eq(customerAccountsTable.id, body.accountId),
-    });
-    if (
-      !account ||
-      account.status !== "approved" ||
-      !account.accessToken ||
-      account.accessToken !== body.token
-    ) {
-      return FORBIDDEN_WS;
+  // Session-authenticated wholesale intent. accountId/tier are server-resolved
+  // from the approved linked profile — the client never asserts its account.
+  if (body.channel === "wholesale") {
+    const account = await resolveWholesaleAccount(req);
+    if (!account) {
+      return {
+        ok: false,
+        status: 403,
+        body: {
+          error: "forbidden",
+          message: "Wholesale account is not approved for this session.",
+        },
+      };
     }
     return { ok: true, account };
   }
-  // New path: session-authenticated wholesale intent.
-  if (body.channel === "wholesale") {
-    const account = await resolveWholesaleAccount(req);
-    if (!account) return FORBIDDEN_WS;
-    return { ok: true, account };
-  }
-  // Retail — even an approved user who did not request wholesale.
   return { ok: true, account: null };
 }
 

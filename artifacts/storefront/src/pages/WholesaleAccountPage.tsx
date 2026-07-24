@@ -1,10 +1,11 @@
-import { useState } from "react";
 import { Link } from "wouter";
-import { useGetAccount, type AccountStatus } from "@atlab/api-client-react";
-import { useWholesaleSession } from "@/hooks/useWholesaleSession";
+import {
+  useGetAccount,
+  useGetCurrentCustomer,
+  type AccountStatus,
+} from "@atlab/api-client-react";
+import { useCustomerSession, bearerHeaders } from "@/hooks/useCustomerAuth";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -14,13 +15,13 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import {
-  KeyRound,
   CheckCircle2,
   Clock,
   XCircle,
   PauseCircle,
   AlertTriangle,
   PackageCheck,
+  Building2,
 } from "lucide-react";
 
 function StatusBadge({ status }: { status: AccountStatus }) {
@@ -62,35 +63,27 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export function WholesaleAccountPage() {
-  const [idInput, setIdInput] = useState("");
-  const [tokenInput, setTokenInput] = useState("");
-  const [query, setQuery] = useState<{ id: string; token: string } | null>(null);
-  const { session, set: setSession, clear: clearSession } = useWholesaleSession();
+  const customer = useCustomerSession();
+  const bearer = { headers: bearerHeaders(customer?.token) };
 
-  const account = useGetAccount(
-    query?.id ?? "",
-    undefined,
-    {
-      query: {
-        enabled: !!query,
-        retry: false,
-        // Token-scoped so a different token can't be served a stale cache hit.
-        queryKey: ["/api/accounts", query?.id ?? "", query?.token ?? ""],
-      },
-      // Send the access token as a header, never a query param — it's a
-      // long-lived credential and must not land in URL / proxy / history logs.
-      // The server reads x-account-token (query-string tokens are not accepted).
-      request: query?.token
-        ? { headers: { "x-account-token": query.token } }
-        : undefined,
+  // The wholesale profile (any status) rides along on /auth/me once the account
+  // is linked to this identity.
+  const me = useGetCurrentCustomer({
+    query: { enabled: !!customer?.token, queryKey: ["/api/auth/me", customer?.token] },
+    request: bearer,
+  });
+  const wholesale = me.data?.wholesale ?? null;
+
+  // Full detail (contact, tier object, KYB) — the session owns this account, so
+  // the now session-gated GET /accounts/{id} serves it to the owner.
+  const account = useGetAccount(wholesale?.accountId ?? "", {
+    query: {
+      enabled: !!wholesale?.accountId,
+      retry: false,
+      queryKey: ["/api/accounts", wholesale?.accountId ?? "", customer?.token ?? ""],
     },
-  );
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!idInput.trim() || !tokenInput.trim()) return;
-    setQuery({ id: idInput.trim(), token: tokenInput.trim() });
-  };
+    request: bearer,
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -103,91 +96,77 @@ export function WholesaleAccountPage() {
             Your wholesale account
           </h1>
           <p className="text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            Enter your account ID and access token to check your application status and assigned pricing tier.
+            Your application status and assigned pricing tier, tied to your signed-in account.
           </p>
         </div>
       </section>
 
       <div className="container mx-auto px-4 max-w-2xl py-12 space-y-6">
-        <Card className="border-border">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
-                <KeyRound className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="font-display text-xl">Look up account</CardTitle>
-                <CardDescription>Credentials were shown when you applied.</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="accountId" className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                  Account ID
-                </Label>
-                <Input
-                  id="accountId"
-                  value={idInput}
-                  onChange={(e) => setIdInput(e.target.value)}
-                  placeholder="acct_…"
-                  className="mt-1.5 font-mono"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="accessToken" className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                  Access Token
-                </Label>
-                <Input
-                  id="accessToken"
-                  value={tokenInput}
-                  onChange={(e) => setTokenInput(e.target.value)}
-                  placeholder="Your one-time access token"
-                  className="mt-1.5 font-mono"
-                  required
-                />
-              </div>
-              <Button
-                type="submit"
-                className="w-full font-mono uppercase tracking-widest h-11"
-                disabled={!idInput.trim() || !tokenInput.trim() || account.isFetching}
-              >
-                {account.isFetching ? "Checking…" : "Check Status"}
+        {!customer ? (
+          <Card className="border-border">
+            <CardHeader>
+              <CardTitle className="font-display text-xl">Sign in to view your account</CardTitle>
+              <CardDescription>
+                Wholesale status is tied to your account — sign in to see it.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col sm:flex-row gap-3">
+              <Button asChild className="font-mono uppercase tracking-widest">
+                <Link href="/account/login">Sign in</Link>
               </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        {account.isError && (
-          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-            <span>
-              {account.error instanceof Error
-                ? account.error.message
-                : "Could not find that account. Check your ID and token."}
-            </span>
-          </div>
-        )}
-
-        {account.isSuccess && account.data && (
+              <Button asChild variant="outline" className="font-mono uppercase tracking-widest">
+                <Link href="/account/register">Create an account</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : me.isLoading ? (
+          <Card className="border-border">
+            <CardContent className="py-10 text-center text-sm text-muted-foreground">
+              Loading your account…
+            </CardContent>
+          </Card>
+        ) : !wholesale ? (
+          <Card className="border-border">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
+                  <Building2 className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="font-display text-xl">No wholesale application yet</CardTitle>
+                  <CardDescription>
+                    Apply for a wholesale account to unlock tiered kit pricing.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="font-mono uppercase tracking-widest">
+                <Link href="/wholesale">Apply for wholesale</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
           <Card className="border-border">
             <CardHeader>
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <CardTitle className="font-display text-xl">{account.data.businessName}</CardTitle>
-                  <CardDescription>{account.data.contactName}</CardDescription>
+                  <CardTitle className="font-display text-xl">
+                    {account.data?.businessName ?? wholesale.businessName}
+                  </CardTitle>
+                  {account.data?.contactName && (
+                    <CardDescription>{account.data.contactName}</CardDescription>
+                  )}
                 </div>
-                <StatusBadge status={account.data.status} />
+                <StatusBadge status={wholesale.status} />
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 gap-2.5">
-                <InfoRow label="Account ID" value={<code className="font-mono">{account.data.id}</code>} />
-                <InfoRow label="Email" value={account.data.email} />
-                {account.data.phone && <InfoRow label="Phone" value={account.data.phone} />}
-                {account.data.businessType && (
+                <InfoRow label="Account ID" value={<code className="font-mono">{wholesale.accountId}</code>} />
+                {account.data?.email && <InfoRow label="Email" value={account.data.email} />}
+                {account.data?.phone && <InfoRow label="Phone" value={account.data.phone} />}
+                {account.data?.businessType && (
                   <InfoRow
                     label="Type"
                     value={<span className="capitalize">{account.data.businessType.replace(/_/g, " ")}</span>}
@@ -196,8 +175,8 @@ export function WholesaleAccountPage() {
                 <InfoRow
                   label="Price Tier"
                   value={
-                    account.data.priceTier ? (
-                      <Badge variant="gold" className="font-mono">{account.data.priceTier.name}</Badge>
+                    wholesale.priceTierName ? (
+                      <Badge variant="gold" className="font-mono">{wholesale.priceTierName}</Badge>
                     ) : (
                       <span className="text-muted-foreground">Not yet assigned</span>
                     )
@@ -205,42 +184,22 @@ export function WholesaleAccountPage() {
                 />
               </div>
 
-              {account.data.status === "approved" ? (
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3 rounded-lg border border-[color-mix(in_srgb,var(--atl-teal)_35%,transparent)] bg-[color-mix(in_srgb,var(--atl-teal)_10%,transparent)] p-4">
-                    <PackageCheck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-                    <p className="text-sm text-foreground">
-                      You can now place wholesale orders — <strong>5-kit minimum</strong>, and your tier
-                      pricing applies automatically at checkout.
-                    </p>
-                  </div>
-                  {session?.accountId === account.data.id ? (
-                    <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-muted/50 px-4 py-3">
-                      <span className="text-sm text-muted-foreground">
-                        <CheckCircle2 className="inline h-4 w-4 text-primary mr-1.5 -mt-0.5" />
-                        Signed in for wholesale ordering.
-                      </span>
-                      <Button variant="outline" size="sm" className="font-mono uppercase tracking-wider" onClick={clearSession}>
-                        Sign out
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      className="w-full font-mono uppercase tracking-widest h-11"
-                      onClick={() =>
-                        setSession({
-                          accountId: account.data!.id,
-                          token: query!.token,
-                          businessName: account.data!.businessName,
-                          priceTierName: account.data!.priceTier?.name ?? null,
-                        })
-                      }
-                    >
-                      Use this account for ordering
-                    </Button>
-                  )}
+              {account.isError && (
+                <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>Couldn't load full account details. Your status above is current.</span>
                 </div>
-              ) : account.data.status === "pending" ? (
+              )}
+
+              {wholesale.status === "approved" ? (
+                <div className="flex items-start gap-3 rounded-lg border border-[color-mix(in_srgb,var(--atl-teal)_35%,transparent)] bg-[color-mix(in_srgb,var(--atl-teal)_10%,transparent)] p-4">
+                  <PackageCheck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+                  <p className="text-sm text-foreground">
+                    You can place wholesale orders — <strong>5-kit minimum</strong>, and your tier
+                    pricing applies automatically at checkout while you're signed in.
+                  </p>
+                </div>
+              ) : wholesale.status === "pending" ? (
                 <div className="flex items-start gap-3 rounded-lg border border-[color-mix(in_srgb,var(--atl-gold)_45%,transparent)] bg-[color-mix(in_srgb,var(--atl-gold)_10%,transparent)] p-4">
                   <Clock className="h-5 w-5 text-[color-mix(in_srgb,var(--atl-gold)_70%,#0e1117)] mt-0.5 shrink-0" />
                   <p className="text-sm text-muted-foreground">

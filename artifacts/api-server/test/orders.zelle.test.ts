@@ -3,10 +3,16 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@atlab/db";
-import { ordersTable, customerAccountsTable } from "@atlab/db/schema";
+import {
+  ordersTable,
+  customerAccountsTable,
+  customerUsersTable,
+} from "@atlab/db/schema";
 import { startTestServer, type TestServer } from "./helpers/server";
 import { resetDb } from "./helpers/db";
 import { makeVariant, orderPayload } from "./helpers/factories";
+import { hashPassword } from "../src/lib/password";
+import { createCustomerSession } from "../src/lib/customerSession";
 
 // Zelle is WHOLESALE-ONLY, and that is enforced server-side rather than by
 // hiding the option in the UI.
@@ -30,30 +36,37 @@ beforeEach(async () => {
   delete process.env.ZELLE_RECIPIENT_NAME;
 });
 
-function createOrder(body: unknown) {
+function createOrder(body: unknown, extraHeaders: Record<string, string> = {}) {
   return fetch(`${server.url}/api/orders`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...extraHeaders },
     body: JSON.stringify(body),
   });
 }
 
 async function approvedAccount() {
-  const token = randomUUID();
+  const userId = randomUUID();
+  await db.insert(customerUsersTable).values({
+    id: userId,
+    email: `buyer-${randomUUID()}@example.test`,
+    passwordHash: await hashPassword("password12"),
+    passwordSetAt: new Date(),
+  });
   const [account] = await db
     .insert(customerAccountsTable)
     .values({
       id: randomUUID(),
       businessName: "Test Lab LLC",
       contactName: "Buyer",
-      email: `buyer-${randomUUID()}@example.test`,
+      email: `biz-${randomUUID()}@example.test`,
       phone: "555-0100",
       businessType: "research_lab",
       status: "approved",
-      accessToken: token,
+      customerUserId: userId,
     })
     .returning();
-  return { account, token };
+  const session = await createCustomerSession(userId);
+  return { account, token: session.token };
 }
 
 test("a retail order cannot use Zelle", async () => {
@@ -74,15 +87,15 @@ test("a retail order cannot use Zelle", async () => {
 
 test("an approved wholesale account can use Zelle", async () => {
   const { variant } = await makeVariant({ unitType: "kit" });
-  const { account, token } = await approvedAccount();
+  const { token } = await approvedAccount();
 
   const res = await createOrder(
     orderPayload(variant.id, {
       paymentMethod: "zelle",
-      accountId: account.id,
-      token,
+      channel: "wholesale",
       lineItems: [{ variantId: variant.id, quantity: 5 }],
-    })
+    }),
+    { Authorization: `Bearer ${token}` }
   );
 
   assert.equal(res.status, 201);
@@ -96,21 +109,21 @@ test("an approved wholesale account can use Zelle", async () => {
 
 test("Zelle fails closed until a recipient handle is provisioned", async () => {
   const { variant } = await makeVariant({ unitType: "kit" });
-  const { account, token } = await approvedAccount();
+  const { token } = await approvedAccount();
 
   const created = await createOrder(
     orderPayload(variant.id, {
       paymentMethod: "zelle",
-      accountId: account.id,
-      token,
+      channel: "wholesale",
       lineItems: [{ variantId: variant.id, quantity: 5 }],
-    })
+    }),
+    { Authorization: `Bearer ${token}` }
   );
   const { id } = (await created.json()) as { id: string };
 
   const res = await fetch(`${server.url}/api/orders/${id}/ach-instructions`, {
     method: "POST",
-    headers: { "x-account-token": token },
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   assert.equal(res.status, 503);
@@ -130,16 +143,16 @@ test("a de-approved account stops being served the Zelle handle", async () => {
   const created = await createOrder(
     orderPayload(variant.id, {
       paymentMethod: "zelle",
-      accountId: account.id,
-      token,
+      channel: "wholesale",
       lineItems: [{ variantId: variant.id, quantity: 5 }],
-    })
+    }),
+    { Authorization: `Bearer ${token}` }
   );
   const { id } = (await created.json()) as { id: string };
 
   const first = await fetch(`${server.url}/api/orders/${id}/ach-instructions`, {
     method: "POST",
-    headers: { "x-account-token": token },
+    headers: { Authorization: `Bearer ${token}` },
   });
   assert.equal(first.status, 201, "approved account is served normally");
 
@@ -150,7 +163,7 @@ test("a de-approved account stops being served the Zelle handle", async () => {
 
   const after = await fetch(`${server.url}/api/orders/${id}/ach-instructions`, {
     method: "POST",
-    headers: { "x-account-token": token },
+    headers: { Authorization: `Bearer ${token}` },
   });
   assert.equal(after.status, 403, "the token alone must not keep it flowing");
   const body = await after.text();
@@ -162,14 +175,14 @@ test("a de-approved account stops being served the Zelle handle", async () => {
 
 test("a malformed Zelle handle keeps the rail closed", async () => {
   const { variant } = await makeVariant({ unitType: "kit" });
-  const { account, token } = await approvedAccount();
+  const { token } = await approvedAccount();
   const created = await createOrder(
     orderPayload(variant.id, {
       paymentMethod: "zelle",
-      accountId: account.id,
-      token,
+      channel: "wholesale",
       lineItems: [{ variantId: variant.id, quantity: 5 }],
-    })
+    }),
+    { Authorization: `Bearer ${token}` }
   );
   const { id } = (await created.json()) as { id: string };
 
@@ -179,7 +192,7 @@ test("a malformed Zelle handle keeps the rail closed", async () => {
     process.env.ZELLE_RECIPIENT = bad;
     const res = await fetch(`${server.url}/api/orders/${id}/ach-instructions`, {
       method: "POST",
-      headers: { "x-account-token": token },
+      headers: { Authorization: `Bearer ${token}` },
     });
     assert.equal(res.status, 503, `"${bad}" must not provision the rail`);
   }
@@ -189,14 +202,14 @@ test("a malformed Zelle handle keeps the rail closed", async () => {
 // a mismatch in the buyer's bank app means an abandoned transfer.
 test("a missing recipient name keeps the rail closed", async () => {
   const { variant } = await makeVariant({ unitType: "kit" });
-  const { account, token } = await approvedAccount();
+  const { token } = await approvedAccount();
   const created = await createOrder(
     orderPayload(variant.id, {
       paymentMethod: "zelle",
-      accountId: account.id,
-      token,
+      channel: "wholesale",
       lineItems: [{ variantId: variant.id, quantity: 5 }],
-    })
+    }),
+    { Authorization: `Bearer ${token}` }
   );
   const { id } = (await created.json()) as { id: string };
 
@@ -205,7 +218,7 @@ test("a missing recipient name keeps the rail closed", async () => {
 
   const res = await fetch(`${server.url}/api/orders/${id}/ach-instructions`, {
     method: "POST",
-    headers: { "x-account-token": token },
+    headers: { Authorization: `Bearer ${token}` },
   });
   assert.equal(res.status, 503);
 });
@@ -214,21 +227,21 @@ test("a provisioned Zelle order returns the handle and a reference code", async 
   process.env.ZELLE_RECIPIENT = "payments@example.test";
   process.env.ZELLE_RECIPIENT_NAME = "AT Lab Sourcing LLC";
   const { variant } = await makeVariant({ unitType: "kit" });
-  const { account, token } = await approvedAccount();
+  const { token } = await approvedAccount();
 
   const created = await createOrder(
     orderPayload(variant.id, {
       paymentMethod: "zelle",
-      accountId: account.id,
-      token,
+      channel: "wholesale",
       lineItems: [{ variantId: variant.id, quantity: 5 }],
-    })
+    }),
+    { Authorization: `Bearer ${token}` }
   );
   const { id } = (await created.json()) as { id: string };
 
   const res = await fetch(`${server.url}/api/orders/${id}/ach-instructions`, {
     method: "POST",
-    headers: { "x-account-token": token },
+    headers: { Authorization: `Bearer ${token}` },
   });
 
   assert.equal(res.status, 201);

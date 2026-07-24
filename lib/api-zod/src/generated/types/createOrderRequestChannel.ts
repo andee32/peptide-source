@@ -7,7 +7,7 @@
  */
 
 /**
- * Order channel intent. "wholesale" requires a Bearer session whose linked account is approved (accountId/tier are server-derived). The legacy accountId+token body is still accepted during the migration window.
+ * Order channel intent. "wholesale" requires a Bearer session whose linked wholesale account is approved; the account and price tier are resolved server-side from that session.
  */
 export type CreateOrderRequestChannel =
   (typeof CreateOrderRequestChannel)[keyof typeof CreateOrderRequestChannel];

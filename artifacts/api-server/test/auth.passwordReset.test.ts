@@ -65,7 +65,14 @@ test("forgot-password returns 200 for a known email and mints a token", async ()
     body: JSON.stringify({ email: "known@example.com" }),
   });
   assert.equal(res.status, 200);
-  const tokens = await db.select().from(passwordResetTokensTable);
+  // The token mint + email happen OFF the response path (so response time can't
+  // reveal whether the email is registered — an account-enumeration oracle), so
+  // poll briefly for the row rather than reading immediately.
+  let tokens = await db.select().from(passwordResetTokensTable);
+  for (let i = 0; i < 50 && tokens.length === 0; i++) {
+    await new Promise((r) => setTimeout(r, 20));
+    tokens = await db.select().from(passwordResetTokensTable);
+  }
   assert.equal(tokens.length, 1);
   assert.equal(tokens[0].purpose, "reset");
 });
