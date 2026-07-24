@@ -9,6 +9,7 @@ import {
   productVariantsTable,
   adminUsersTable,
   customerAccountsTable,
+  customerUsersTable,
   priceTiersTable,
   ordersTable,
   paymentRecordsTable,
@@ -1027,6 +1028,69 @@ async function serializeAccount(account: typeof customerAccountsTable.$inferSele
   }
   return { ...account, priceTier };
 }
+
+// Identity-centric view of the unified account model: every login is a
+// customer_users row (email + password). Wholesale is an admin-approved add-on
+// linked to that identity, so a customer's channel is derived — "wholesale"
+// once their linked profile is approved, otherwise "retail". passwordHash is
+// never serialized.
+async function serializeCustomer(user: typeof customerUsersTable.$inferSelect) {
+  const account = await db.query.customerAccountsTable.findFirst({
+    where: eq(customerAccountsTable.customerUserId, user.id),
+  });
+
+  let wholesale = null;
+  if (account) {
+    const priceTier =
+      account.priceTierId !== null
+        ? (await db.query.priceTiersTable.findFirst({
+            where: eq(priceTiersTable.id, account.priceTierId),
+          })) ?? null
+        : null;
+    wholesale = {
+      accountId: account.id,
+      status: account.status,
+      businessName: account.businessName,
+      contactName: account.contactName,
+      businessType: account.businessType,
+      phone: account.phone,
+      taxId: account.taxId,
+      resaleCertUrl: account.resaleCertUrl,
+      kybNotes: account.kybNotes,
+      priceTierId: account.priceTierId,
+      priceTier,
+      approvedAt: account.approvedAt ? account.approvedAt.toISOString() : null,
+      createdAt: account.createdAt.toISOString(),
+    };
+  }
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    // passwordSetAt null = invited/not-yet-activated (e.g. a backfilled
+    // wholesale account that hasn't set a password).
+    activated: user.passwordSetAt !== null,
+    channel: wholesale?.status === "approved" ? "wholesale" : "retail",
+    createdAt: user.createdAt.toISOString(),
+    wholesale,
+  };
+}
+
+// Unified customer directory — one row per login identity, with its derived
+// channel and (if any) linked wholesale profile for review/tier assignment.
+router.get("/admin/customers", async (_req, res) => {
+  try {
+    const users = await db.query.customerUsersTable.findMany({
+      orderBy: [desc(customerUsersTable.createdAt)],
+    });
+    const result = await Promise.all(users.map(serializeCustomer));
+    res.json(result);
+  } catch (err) {
+    console.error("admin listCustomers error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
 
 router.get("/admin/accounts", async (req, res) => {
   try {

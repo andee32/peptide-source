@@ -1101,6 +1101,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+  /admin/customers:
+    get:
+      operationId: adminListCustomers
+      tags: [accounts]
+      summary: Admin — list customer identities (unified account directory)
+      description: >
+        One row per login identity (customer_users: email + password). Each
+        carries a derived channel — "wholesale" once its linked profile is
+        approved, otherwise "retail" — plus the linked wholesale profile (if any)
+        for review and tier assignment. Never returns password hashes. Requires
+        x-admin-key header.
+      responses:
+        "200":
+          description: List of customer identities
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminCustomer"
+        "401":
+          description: Admin key required
+
   /admin/accounts:
     get:
       operationId: adminListAccounts
@@ -3577,6 +3600,84 @@ components:
           type: boolean
       required:
         - ok
+
+    AdminCustomerWholesale:
+      type: object
+      description: The wholesale profile linked to a customer identity, for admin review and tier assignment.
+      properties:
+        accountId:
+          type: string
+        status:
+          $ref: "#/components/schemas/AccountStatus"
+        businessName:
+          type: string
+        contactName:
+          type: string
+        businessType:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        taxId:
+          type: string
+          nullable: true
+        resaleCertUrl:
+          type: string
+          nullable: true
+        kybNotes:
+          type: string
+          nullable: true
+        priceTierId:
+          type: integer
+          nullable: true
+        priceTier:
+          $ref: "#/components/schemas/PriceTier"
+          nullable: true
+        approvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - accountId
+        - status
+        - businessName
+        - contactName
+        - createdAt
+
+    AdminCustomer:
+      type: object
+      description: A unified customer identity (email + password login) with its derived channel and optional wholesale profile. passwordHash is never serialized.
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+          nullable: true
+        activated:
+          type: boolean
+          description: True once the identity has set a real password. False = invited/backfilled but not yet activated.
+        channel:
+          type: string
+          enum: [retail, wholesale]
+          description: Derived — "wholesale" when the linked profile is approved, otherwise "retail".
+        createdAt:
+          type: string
+          format: date-time
+        wholesale:
+          $ref: "#/components/schemas/AdminCustomerWholesale"
+          nullable: true
+      required:
+        - id
+        - email
+        - activated
+        - channel
+        - createdAt
 
     AdminUser:
       type: object

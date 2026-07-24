@@ -20,6 +20,7 @@ import type {
   Account,
   AccountCreated,
   AchInstructions,
+  AdminCustomer,
   AdminListAccountsParams,
   AdminListOrdersParams,
   AdminOrderDetail,
@@ -3364,6 +3365,83 @@ export function useGetAccount<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetAccountQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * One row per login identity (customer_users: email + password). Each carries a derived channel — "wholesale" once its linked profile is approved, otherwise "retail" — plus the linked wholesale profile (if any) for review and tier assignment. Never returns password hashes. Requires x-admin-key header.
+
+ * @summary Admin — list customer identities (unified account directory)
+ */
+export const getAdminListCustomersUrl = () => {
+  return `/api/admin/customers`;
+};
+
+export const adminListCustomers = async (
+  options?: RequestInit,
+): Promise<AdminCustomer[]> => {
+  return customFetch<AdminCustomer[]>(getAdminListCustomersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListCustomersQueryKey = () => {
+  return [`/api/admin/customers`] as const;
+};
+
+export const getAdminListCustomersQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListCustomers>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListCustomers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminListCustomersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListCustomers>>
+  > = ({ signal }) => adminListCustomers({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListCustomers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListCustomersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListCustomers>>
+>;
+export type AdminListCustomersQueryError = ErrorType<void>;
+
+/**
+ * @summary Admin — list customer identities (unified account directory)
+ */
+
+export function useAdminListCustomers<
+  TData = Awaited<ReturnType<typeof adminListCustomers>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListCustomers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListCustomersQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -1171,6 +1171,51 @@ export interface OkResponse {
 }
 
 /**
+ * The wholesale profile linked to a customer identity, for admin review and tier assignment.
+ */
+export interface AdminCustomerWholesale {
+  accountId: string;
+  status: AccountStatus;
+  businessName: string;
+  contactName: string;
+  businessType?: string | null;
+  phone?: string | null;
+  taxId?: string | null;
+  resaleCertUrl?: string | null;
+  kybNotes?: string | null;
+  priceTierId?: number | null;
+  priceTier?: PriceTier | null;
+  approvedAt?: string | null;
+  createdAt: string;
+}
+
+/**
+ * Derived — "wholesale" when the linked profile is approved, otherwise "retail".
+ */
+export type AdminCustomerChannel =
+  (typeof AdminCustomerChannel)[keyof typeof AdminCustomerChannel];
+
+export const AdminCustomerChannel = {
+  retail: "retail",
+  wholesale: "wholesale",
+} as const;
+
+/**
+ * A unified customer identity (email + password login) with its derived channel and optional wholesale profile. passwordHash is never serialized.
+ */
+export interface AdminCustomer {
+  id: string;
+  email: string;
+  name?: string | null;
+  /** True once the identity has set a real password. False = invited/backfilled but not yet activated. */
+  activated: boolean;
+  /** Derived — "wholesale" when the linked profile is approved, otherwise "retail". */
+  channel: AdminCustomerChannel;
+  createdAt: string;
+  wholesale?: AdminCustomerWholesale | null;
+}
+
+/**
  * A back-office operator. passwordHash is never serialized.
  */
 export interface AdminUser {

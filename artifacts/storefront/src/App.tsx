@@ -34,6 +34,8 @@ import { RetailShopPage } from "@/pages/retail/RetailShopPage";
 import { RetailProductPage } from "@/pages/retail/RetailProductPage";
 import { LoginPage } from "@/pages/account/LoginPage";
 import { RegisterPage } from "@/pages/account/RegisterPage";
+import { ForgotPasswordPage } from "@/pages/account/ForgotPasswordPage";
+import { ResetPasswordPage } from "@/pages/account/ResetPasswordPage";
 import { AccountPage } from "@/pages/account/AccountPage";
 import { AgeGate } from "@/components/retail/AgeGate";
 
@@ -71,6 +73,8 @@ function StorefrontRouter() {
           <Route path="/account/subscriptions/new" component={CustomerSubscriptionsPage} />
           <Route path="/account/login" component={LoginPage} />
           <Route path="/account/register" component={RegisterPage} />
+          <Route path="/account/forgot-password" component={ForgotPasswordPage} />
+          <Route path="/account/reset-password" component={ResetPasswordPage} />
           <Route path="/account" component={AccountPage} />
           <Route component={NotFound} />
         </Switch>

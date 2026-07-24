@@ -1240,6 +1240,63 @@ export const GetAccountResponse = zod.object({
 });
 
 /**
+ * One row per login identity (customer_users: email + password). Each carries a derived channel — "wholesale" once its linked profile is approved, otherwise "retail" — plus the linked wholesale profile (if any) for review and tier assignment. Never returns password hashes. Requires x-admin-key header.
+
+ * @summary Admin — list customer identities (unified account directory)
+ */
+export const AdminListCustomersResponseItem = zod
+  .object({
+    id: zod.string(),
+    email: zod.string(),
+    name: zod.string().nullish(),
+    activated: zod
+      .boolean()
+      .describe(
+        "True once the identity has set a real password. False = invited\/backfilled but not yet activated.",
+      ),
+    channel: zod
+      .enum(["retail", "wholesale"])
+      .describe(
+        'Derived — \"wholesale\" when the linked profile is approved, otherwise \"retail\".',
+      ),
+    createdAt: zod.date(),
+    wholesale: zod
+      .object({
+        accountId: zod.string(),
+        status: zod.enum(["pending", "approved", "rejected", "suspended"]),
+        businessName: zod.string(),
+        contactName: zod.string(),
+        businessType: zod.string().nullish(),
+        phone: zod.string().nullish(),
+        taxId: zod.string().nullish(),
+        resaleCertUrl: zod.string().nullish(),
+        kybNotes: zod.string().nullish(),
+        priceTierId: zod.number().nullish(),
+        priceTier: zod
+          .object({
+            id: zod.number(),
+            name: zod.string(),
+            slug: zod.string(),
+            isDefault: zod.boolean(),
+            createdAt: zod.date(),
+          })
+          .nullish(),
+        approvedAt: zod.date().nullish(),
+        createdAt: zod.date(),
+      })
+      .nullish()
+      .describe(
+        "The wholesale profile linked to a customer identity, for admin review and tier assignment.",
+      ),
+  })
+  .describe(
+    "A unified customer identity (email + password login) with its derived channel and optional wholesale profile. passwordHash is never serialized.",
+  );
+export const AdminListCustomersResponse = zod.array(
+  AdminListCustomersResponseItem,
+);
+
+/**
  * Returns wholesale accounts, optionally filtered by status. Requires x-admin-key header.
  * @summary Admin — list wholesale account applications
  */

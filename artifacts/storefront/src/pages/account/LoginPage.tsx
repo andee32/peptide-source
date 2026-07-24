@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useSearch } from "wouter";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,10 +12,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AlertTriangle, LogIn } from "lucide-react";
+import { AlertTriangle, LogIn, CheckCircle2 } from "lucide-react";
 
 export function LoginPage() {
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const justReset = useMemo(() => new URLSearchParams(search).get("reset") === "1", [search]);
   const { customer, login, isLoggingIn } = useCustomerAuth();
 
   const [email, setEmail] = useState("");
@@ -72,12 +74,18 @@ export function LoginPage() {
                   Account sign in
                 </CardTitle>
                 <CardDescription>
-                  Retail shoppers only — wholesale accounts sign in separately.
+                  One account for everything — retail, and wholesale once approved.
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent>
+            {justReset && (
+              <div className="mb-4 flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--atl-teal)_35%,transparent)] bg-[color-mix(in_srgb,var(--atl-teal)_10%,transparent)] p-3 text-sm">
+                <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                <span>Password updated — sign in with your new password.</span>
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <Label
@@ -115,6 +123,11 @@ export function LoginPage() {
                   maxLength={200}
                   required
                 />
+                <div className="mt-1.5 text-right">
+                  <Link href="/account/forgot-password" className="text-xs text-primary hover:underline">
+                    Forgot password?
+                  </Link>
+                </div>
               </div>
 
               {error && (

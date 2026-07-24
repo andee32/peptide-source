@@ -52,10 +52,10 @@ import { format } from "date-fns";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
-  useAdminListAccounts,
+  useAdminListCustomers,
   useAdminListPriceTiers,
   useAdminPatchAccount,
-  type Account,
+  type AdminCustomer,
   type AccountStatus,
 } from "@atlab/api-client-react";
 import { DashboardPanel } from "@/components/admin/DashboardPanel";
@@ -999,7 +999,7 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
             { key: "catalog", label: "Catalog" },
             { key: "batches", label: "Batch Management" },
             { key: "subscriptions", label: "Subscriptions" },
-            { key: "accounts", label: "Accounts" },
+            { key: "accounts", label: "Customers" },
             { key: "discounts", label: "Discounts" },
             { key: "products", label: "Products" },
             { key: "users", label: "Users" },
@@ -1030,7 +1030,7 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
         ) : activeTab === "products" ? (
           <ProductsPanel adminKey={adminKey} />
         ) : activeTab === "accounts" ? (
-          <AccountsPanel adminKey={adminKey} />
+          <CustomersPanel adminKey={adminKey} />
         ) : activeTab === "subscriptions" ? (
           <AdminSubscriptionsPanel adminKey={adminKey} />
         ) : activeTab === "discounts" ? (
@@ -2050,19 +2050,20 @@ function AccountStatusBadge({ status }: { status: AccountStatus }) {
   );
 }
 
-function AccountRow({
-  account,
+function CustomerRow({
+  customer,
   tiers,
   adminKey,
   onChanged,
 }: {
-  account: Account;
+  customer: AdminCustomer;
   tiers: { id: number; name: string }[];
   adminKey: string;
   onChanged: () => void;
 }) {
+  const ws = customer.wholesale;
   const [tierId, setTierId] = useState<string>(
-    account.priceTierId != null ? String(account.priceTierId) : "",
+    ws?.priceTierId != null ? String(ws.priceTierId) : "",
   );
   const [error, setError] = useState("");
 
@@ -2077,9 +2078,11 @@ function AccountRow({
     },
   });
 
+  // Approve/reject/tier act on the linked wholesale profile (customer_accounts).
   const submit = (status: AccountStatus) => {
+    if (!ws) return;
     patch.mutate({
-      id: account.id,
+      id: ws.accountId,
       data: {
         status,
         priceTierId: tierId ? Number(tierId) : null,
@@ -2093,104 +2096,144 @@ function AccountRow({
         <div className="flex flex-col lg:flex-row lg:items-start gap-4">
           <div className="flex-1 min-w-0 space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono font-semibold text-sm">{account.businessName}</span>
-              {account.businessType && (
-                <Badge variant="outline" className="text-[10px] font-mono uppercase tracking-wider">
-                  {account.businessType.replace(/_/g, " ")}
-                </Badge>
+              <span className="font-mono font-semibold text-sm">{customer.email}</span>
+              {customer.channel === "wholesale" ? (
+                <Badge variant="verified" className="text-[10px] font-mono uppercase tracking-wider">Wholesale</Badge>
+              ) : (
+                <Badge variant="secondary" className="text-[10px] font-mono uppercase tracking-wider">Retail</Badge>
               )}
-              <AccountStatusBadge status={account.status} />
-              {account.priceTier && (
-                <Badge variant="gold" className="text-[10px] font-mono">{account.priceTier.name}</Badge>
+              {ws && ws.status !== "approved" && <AccountStatusBadge status={ws.status} />}
+              {ws?.priceTier && (
+                <Badge variant="gold" className="text-[10px] font-mono">{ws.priceTier.name}</Badge>
+              )}
+              {!customer.activated && (
+                <Badge variant="outline" className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground bg-muted/40">
+                  Not activated
+                </Badge>
               )}
             </div>
             <div className="text-sm text-muted-foreground">
-              {account.contactName} · {account.email}
-              {account.phone ? ` · ${account.phone}` : ""}
+              {customer.name || "—"}
+              {ws ? ` · ${ws.businessName}` : ""}
+              {ws?.businessType ? ` · ${ws.businessType.replace(/_/g, " ")}` : ""}
+              {ws?.phone ? ` · ${ws.phone}` : ""}
             </div>
             <div className="text-[10px] text-muted-foreground font-mono space-y-0.5">
-              <div>ID: {account.id}</div>
-              {account.taxId && <div>Tax ID: {account.taxId}</div>}
-              {account.resaleCertUrl && (
+              <div>Customer: {customer.id}</div>
+              {ws && <div>Wholesale profile: {ws.accountId}</div>}
+              {ws?.taxId && <div>Tax ID: {ws.taxId}</div>}
+              {ws?.resaleCertUrl && (
                 <div>
                   Resale cert:{" "}
-                  <a href={account.resaleCertUrl} target="_blank" rel="noopener noreferrer" className="text-teal-ink hover:underline">
-                    {account.resaleCertUrl}
+                  <a href={ws.resaleCertUrl} target="_blank" rel="noopener noreferrer" className="text-teal-ink hover:underline">
+                    {ws.resaleCertUrl}
                   </a>
                 </div>
               )}
-              <div>Applied {format(new Date(account.createdAt), "MMM d, yyyy 'at' h:mm a")}</div>
+              <div>Joined {format(new Date(customer.createdAt), "MMM d, yyyy 'at' h:mm a")}</div>
             </div>
             {error && <p className="text-destructive text-xs font-mono">{error}</p>}
           </div>
 
-          <div className="flex flex-col gap-3 shrink-0 lg:w-64">
-            <div className="space-y-1">
-              <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                Price Tier
-              </label>
-              <Select value={tierId} onValueChange={setTierId}>
-                <SelectTrigger className="font-mono text-xs h-9">
-                  <SelectValue placeholder="Select tier" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tiers.map((t) => (
-                    <SelectItem key={t.id} value={String(t.id)} className="font-mono">{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          {/* Review controls only exist for identities that applied for wholesale. */}
+          {ws ? (
+            <div className="flex flex-col gap-3 shrink-0 lg:w-64">
+              <div className="space-y-1">
+                <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                  Price Tier
+                </label>
+                <Select value={tierId} onValueChange={setTierId}>
+                  <SelectTrigger className="font-mono text-xs h-9">
+                    <SelectValue placeholder="Select tier" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tiers.map((t) => (
+                      <SelectItem key={t.id} value={String(t.id)} className="font-mono">{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  className="flex-1 font-mono text-xs"
+                  disabled={patch.isPending}
+                  onClick={() => submit("approved")}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 font-mono text-xs border-destructive/40 text-destructive hover:bg-destructive/10"
+                  disabled={patch.isPending}
+                  onClick={() => submit("rejected")}
+                >
+                  <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Reject
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                className="flex-1 font-mono text-xs"
-                disabled={patch.isPending}
-                onClick={() => submit("approved")}
-              >
-                <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex-1 font-mono text-xs border-destructive/40 text-destructive hover:bg-destructive/10"
-                disabled={patch.isPending}
-                onClick={() => submit("rejected")}
-              >
-                <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Reject
-              </Button>
+          ) : (
+            <div className="shrink-0 lg:w-64 flex items-center">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                Retail login · no wholesale application
+              </p>
             </div>
-          </div>
+          )}
         </div>
       </CardContent>
     </Card>
   );
 }
 
-function AccountsPanel({ adminKey }: { adminKey: string }) {
-  const [statusFilter, setStatusFilter] = useState<AccountStatus | "all">("pending");
+type CustomerFilter = "all" | "retail" | "wholesale" | "pending";
 
-  const accountsQuery = useAdminListAccounts(
-    statusFilter === "all" ? undefined : { status: statusFilter },
-    { request: { headers: { "x-admin-key": adminKey } } },
-  );
+function CustomersPanel({ adminKey }: { adminKey: string }) {
+  const [filter, setFilter] = useState<CustomerFilter>("all");
+
+  const customersQuery = useAdminListCustomers({
+    request: { headers: { "x-admin-key": adminKey } },
+  });
   const tiersQuery = useAdminListPriceTiers({
     request: { headers: { "x-admin-key": adminKey } },
   });
 
-  const accounts = accountsQuery.data ?? [];
+  const allCustomers = customersQuery.data ?? [];
   const tiers = tiersQuery.data ?? [];
 
+  const customers = allCustomers.filter((c) => {
+    switch (filter) {
+      case "retail":
+        return c.channel === "retail";
+      case "wholesale":
+        return c.channel === "wholesale";
+      case "pending":
+        return c.wholesale?.status === "pending";
+      default:
+        return true;
+    }
+  });
+
+  const pendingCount = allCustomers.filter((c) => c.wholesale?.status === "pending").length;
+
   const refetchAll = () => {
-    void accountsQuery.refetch();
+    void customersQuery.refetch();
   };
+
+  const FILTERS: { key: CustomerFilter; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "retail", label: "Retail" },
+    { key: "wholesale", label: "Wholesale" },
+    { key: "pending", label: pendingCount > 0 ? `Pending (${pendingCount})` : "Pending" },
+  ];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Wholesale Accounts</h1>
+          <h1 className="text-2xl font-bold">Customers</h1>
           <p className="text-muted-foreground text-sm mt-1 font-mono">
-            Review applications and assign price tiers
+            Unified account directory — every login is retail; wholesale is an approved add-on
           </p>
         </div>
         <Button
@@ -2204,41 +2247,41 @@ function AccountsPanel({ adminKey }: { adminKey: string }) {
       </div>
 
       <div className="flex gap-2">
-        {(["all", "pending", "approved", "rejected", "suspended"] as const).map((s) => (
+        {FILTERS.map((f) => (
           <Button
-            key={s}
-            variant={statusFilter === s ? "default" : "outline"}
+            key={f.key}
+            variant={filter === f.key ? "default" : "outline"}
             size="sm"
-            className="font-mono capitalize"
-            onClick={() => setStatusFilter(s)}
+            className="font-mono"
+            onClick={() => setFilter(f.key)}
           >
-            {s === "all" ? "All" : s}
+            {f.label}
           </Button>
         ))}
       </div>
 
-      {accountsQuery.isLoading ? (
+      {customersQuery.isLoading ? (
         <div className="flex items-center justify-center py-16">
           <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
         </div>
-      ) : accountsQuery.isError ? (
+      ) : customersQuery.isError ? (
         <div className="text-center py-12">
           <AlertTriangle className="h-6 w-6 text-destructive mx-auto mb-2" />
           <p className="text-destructive text-sm font-mono">
-            {accountsQuery.error instanceof Error ? accountsQuery.error.message : "Failed to load accounts"}
+            {customersQuery.error instanceof Error ? customersQuery.error.message : "Failed to load customers"}
           </p>
           <Button variant="outline" size="sm" className="mt-4 font-mono" onClick={refetchAll}>Retry</Button>
         </div>
-      ) : accounts.length === 0 ? (
+      ) : customers.length === 0 ? (
         <Card className="border-border/30">
           <CardContent className="py-12 text-center text-muted-foreground font-mono text-sm">
-            No accounts in this category.
+            No customers in this category.
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
-          {accounts.map((a) => (
-            <AccountRow key={a.id} account={a} tiers={tiers} adminKey={adminKey} onChanged={refetchAll} />
+          {customers.map((c) => (
+            <CustomerRow key={c.id} customer={c} tiers={tiers} adminKey={adminKey} onChanged={refetchAll} />
           ))}
         </div>
       )}
