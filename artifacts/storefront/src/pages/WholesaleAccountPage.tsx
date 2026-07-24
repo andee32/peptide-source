@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { useGetAccount, getGetAccountQueryKey, type AccountStatus } from "@atlab/api-client-react";
+import { useGetAccount, type AccountStatus } from "@atlab/api-client-react";
 import { useWholesaleSession } from "@/hooks/useWholesaleSession";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,13 +69,20 @@ export function WholesaleAccountPage() {
 
   const account = useGetAccount(
     query?.id ?? "",
-    { token: query?.token },
+    undefined,
     {
       query: {
         enabled: !!query,
         retry: false,
-        queryKey: getGetAccountQueryKey(query?.id ?? "", { token: query?.token }),
+        // Token-scoped so a different token can't be served a stale cache hit.
+        queryKey: ["/api/accounts", query?.id ?? "", query?.token ?? ""],
       },
+      // Send the access token as a header, never a query param — it's a
+      // long-lived credential and must not land in URL / proxy / history logs.
+      // The server reads x-account-token (query-string tokens are not accepted).
+      request: query?.token
+        ? { headers: { "x-account-token": query.token } }
+        : undefined,
     },
   );
 
