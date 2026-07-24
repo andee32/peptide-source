@@ -78,7 +78,7 @@ export function Navbar() {
             className="h-9 w-9 object-contain"
           />
           <span className="font-display text-xl md:text-2xl font-extrabold tracking-tight">
-            AT LAB SOURCING
+            AT <span className="text-[var(--atl-blue)]">LAB</span> SOURCING
           </span>
         </Link>
 
