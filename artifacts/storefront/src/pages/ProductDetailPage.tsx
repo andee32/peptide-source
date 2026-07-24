@@ -406,21 +406,23 @@ function WholesaleProductDetail({ token }: { token: string }) {
               <div className="max-w-4xl">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-2xl font-bold">Batch Testing Verification</h3>
-                  {product.latestBatchId && (
-                    <Button variant="outline" size="sm" asChild className="font-mono text-xs">
-                      <Link href={`/verify/${product.latestBatchId}`}>
-                        View Verification Portal <ExternalLink className="ml-2 h-3 w-3" />
-                      </Link>
-                    </Button>
-                  )}
-                  {product.latestBatchId && (
-                    <a
-                      href={`/api/batches/${product.latestBatchId}/coa-file`}
-                      className="text-xs font-mono underline text-muted-foreground hover:text-foreground ml-3"
-                    >
-                      Download COA
-                    </a>
-                  )}
+                  <div className="flex items-center">
+                    {product.latestBatchId && (
+                      <Button variant="outline" size="sm" asChild className="font-mono text-xs">
+                        <Link href={`/verify/${product.latestBatchId}`}>
+                          View Verification Portal <ExternalLink className="ml-2 h-3 w-3" />
+                        </Link>
+                      </Button>
+                    )}
+                    {product.latestBatchId && (
+                      <a
+                        href={`/api/batches/${product.latestBatchId}/coa-file`}
+                        className="text-xs font-mono underline text-muted-foreground hover:text-foreground ml-3"
+                      >
+                        Download COA
+                      </a>
+                    )}
+                  </div>
                 </div>
                 
                 {product.latestBatch ? (
