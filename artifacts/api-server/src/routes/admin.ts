@@ -55,6 +55,34 @@ const coaUpload = multer({
   },
 });
 
+// multer's `.single()` middleware reports rejections (oversize file,
+// malformed multipart body) by calling `next(err)` from the middleware
+// layer, before the route handler's own try/catch runs. There is no
+// app-wide (err, req, res, next) error handler, so an unwrapped chain
+// falls through to Express's default HTML error page, breaking the API's
+// JSON error contract. This wrapper converts multer rejections into the
+// same { error, message } JSON shape the rest of this router uses.
+function uploadCoaFile(req: Request, res: Response, next: NextFunction) {
+  coaUpload.single("file")(req, res, (err: unknown) => {
+    if (err instanceof multer.MulterError) {
+      const status = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+      res.status(status).json({
+        error: "bad_request",
+        message:
+          err.code === "LIMIT_FILE_SIZE"
+            ? "File too large (max 10 MB)"
+            : `Upload error: ${err.message}`,
+      });
+      return;
+    }
+    if (err) {
+      res.status(400).json({ error: "bad_request", message: "Upload failed" });
+      return;
+    }
+    next();
+  });
+}
+
 // Every /admin request resolves to a live admin_sessions row -> an active
 // admin_users row (or the ops break-glass secret). This is what makes
 // deactivation and password reset actually revoke access — the previous
@@ -581,7 +609,7 @@ router.delete("/admin/coa/:coaId", async (req, res) => {
   }
 });
 
-router.post("/admin/batches/:id/coa-file", coaUpload.single("file"), async (req, res) => {
+router.post("/admin/batches/:id/coa-file", uploadCoaFile, async (req, res) => {
   try {
     // multer's `.single()` middleware is typed as a plain (path-agnostic)
     // RequestHandler, so chaining it here widens req.params to
