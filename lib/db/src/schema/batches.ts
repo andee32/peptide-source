@@ -7,6 +7,7 @@ import {
   timestamp,
   jsonb,
   pgEnum,
+  customType,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -68,3 +69,29 @@ export const insertCoaResultSchema = createInsertSchema(coaResultsTable).omit({
 });
 export type InsertCoaResult = z.infer<typeof insertCoaResultSchema>;
 export type CoaResult = typeof coaResultsTable.$inferSelect;
+
+// Postgres bytea <-> Node Buffer. COA files are small (a few hundred KB) and
+// low-volume, so storing bytes in the DB avoids standing up object storage.
+const bytea = customType<{ data: Buffer; default: false }>({
+  dataType() {
+    return "bytea";
+  },
+});
+
+export const coaDocumentsTable = pgTable("coa_documents", {
+  id: text("id").primaryKey(),
+  batchId: text("batch_id")
+    .notNull()
+    .references(() => batchesTable.id, { onDelete: "cascade" }),
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  data: bytea("data").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertCoaDocumentSchema = createInsertSchema(coaDocumentsTable).omit({
+  createdAt: true,
+});
+export type InsertCoaDocument = z.infer<typeof insertCoaDocumentSchema>;
+export type CoaDocument = typeof coaDocumentsTable.$inferSelect;
