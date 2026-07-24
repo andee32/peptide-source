@@ -2,6 +2,7 @@ import type { Request } from "express";
 import { eq } from "drizzle-orm";
 import { db } from "@atlab/db";
 import { customerAccountsTable } from "@atlab/db/schema";
+import { resolveCustomerUser } from "./customerSession";
 
 /**
  * Wholesale session resolution — the kit catalog (and its pricing) is
@@ -36,4 +37,23 @@ export async function resolveWholesaleAccount(
     return null;
   }
   return account;
+}
+
+/**
+ * The signed-in user's wholesale profile, ANY status (approved/pending/rejected/
+ * suspended) — for display on /auth/me. Distinct from resolveWholesaleAccount
+ * which returns only approved rows for gating. Reads by the linked
+ * customerUserId (account-unification); returns null until the account is
+ * linked by the backfill, or when the caller has no session / no profile.
+ */
+export async function resolveWholesaleProfile(
+  req: Request
+): Promise<WholesaleAccount | null> {
+  const user = await resolveCustomerUser(req);
+  if (!user) return null;
+  return (
+    (await db.query.customerAccountsTable.findFirst({
+      where: eq(customerAccountsTable.customerUserId, user.id),
+    })) ?? null
+  );
 }

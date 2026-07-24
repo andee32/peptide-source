@@ -43,9 +43,9 @@ import type {
   CreateReviewerSubmissionRequest,
   CreateSubscriptionRequest,
   CryptoInvoice,
+  CurrentCustomer,
   CustomerOrderSummary,
   CustomerSession,
-  CustomerUser,
   DiscountCodeAdmin,
   DiscountCodeError,
   DiscountCodeReport,
@@ -5204,8 +5204,8 @@ export const getGetCurrentCustomerUrl = () => {
 
 export const getCurrentCustomer = async (
   options?: RequestInit,
-): Promise<CustomerUser> => {
-  return customFetch<CustomerUser>(getGetCurrentCustomerUrl(), {
+): Promise<CurrentCustomer> => {
+  return customFetch<CurrentCustomer>(getGetCurrentCustomerUrl(), {
     ...options,
     method: "GET",
   });

@@ -2245,7 +2245,22 @@ export const GetCurrentCustomerResponse = zod
     name: zod.string().nullish(),
     createdAt: zod.date(),
   })
-  .describe("A B2C retail shopper. Distinct from a B2B wholesale Account.");
+  .describe("A B2C retail shopper. Distinct from a B2B wholesale Account.")
+  .and(
+    zod.object({
+      wholesale: zod
+        .object({
+          accountId: zod.string(),
+          status: zod.enum(["pending", "approved", "rejected", "suspended"]),
+          businessName: zod.string(),
+          priceTierName: zod.string().nullable(),
+        })
+        .nullable()
+        .describe(
+          "The signed-in customer's wholesale profile, if linked. Any status.",
+        ),
+    }),
+  );
 
 /**
  * Returns retail orders stamped with this customer's id at checkout plus any guest order placed to the same shipping email. Requires an Authorization bearer session token.

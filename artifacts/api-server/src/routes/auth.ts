@@ -5,6 +5,7 @@ import { db } from "@atlab/db";
 import {
   customerUsersTable,
   customerSessionsTable,
+  priceTiersTable,
   ordersTable,
   productVariantsTable,
   productsTable,
@@ -28,6 +29,7 @@ import {
   forgotPasswordRateLimit,
 } from "../lib/rateLimit";
 import { createResetToken, consumeResetToken } from "../lib/passwordReset";
+import { resolveWholesaleProfile } from "../lib/wholesaleSession";
 import { sendPasswordResetEmail } from "../services/email";
 
 const router: IRouter = Router();
@@ -265,7 +267,28 @@ router.get("/auth/me", async (req: Request, res: Response) => {
   try {
     const user = await requireCustomer(req, res);
     if (!user) return;
-    res.json(publicUser(user));
+
+    // Wholesale block — the single frontend source for wholesale state
+    // (replaces the localStorage token session). Null until the account is
+    // linked to this identity (backfill) or if the user has no profile.
+    const profile = await resolveWholesaleProfile(req);
+    let wholesale = null;
+    if (profile) {
+      const tier =
+        profile.priceTierId != null
+          ? await db.query.priceTiersTable.findFirst({
+              where: eq(priceTiersTable.id, profile.priceTierId),
+            })
+          : null;
+      wholesale = {
+        accountId: profile.id,
+        status: profile.status,
+        businessName: profile.businessName,
+        priceTierName: tier?.name ?? null,
+      };
+    }
+
+    res.json({ ...publicUser(user), wholesale });
   } catch (err) {
     console.error("getCurrentCustomer error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });

@@ -1218,6 +1218,30 @@ export interface CustomerUser {
   createdAt: string;
 }
 
+export type WholesaleStatusStatus =
+  (typeof WholesaleStatusStatus)[keyof typeof WholesaleStatusStatus];
+
+export const WholesaleStatusStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+  suspended: "suspended",
+} as const;
+
+/**
+ * The signed-in customer's wholesale profile, if linked. Any status.
+ */
+export interface WholesaleStatus {
+  accountId: string;
+  status: WholesaleStatusStatus;
+  businessName: string;
+  priceTierName: string | null;
+}
+
+export type CurrentCustomer = CustomerUser & {
+  wholesale: WholesaleStatus | null;
+};
+
 export interface CustomerSession {
   /** Opaque bearer token; send as an Authorization bearer header. */
   token: string;

@@ -1736,11 +1736,11 @@ paths:
       description: Requires an Authorization bearer session token.
       responses:
         "200":
-          description: Current customer
+          description: Current customer, including wholesale status if any
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CustomerUser"
+                $ref: "#/components/schemas/CurrentCustomer"
         "401":
           description: Not signed in
           content:
@@ -3671,6 +3671,37 @@ components:
         - id
         - email
         - createdAt
+
+    WholesaleStatus:
+      type: object
+      description: The signed-in customer's wholesale profile, if linked. Any status.
+      properties:
+        accountId:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, suspended]
+        businessName:
+          type: string
+        priceTierName:
+          type: string
+          nullable: true
+      required:
+        - accountId
+        - status
+        - businessName
+        - priceTierName
+
+    CurrentCustomer:
+      allOf:
+        - $ref: "#/components/schemas/CustomerUser"
+        - type: object
+          properties:
+            wholesale:
+              $ref: "#/components/schemas/WholesaleStatus"
+              nullable: true
+          required:
+            - wholesale
 
     CustomerSession:
       type: object

@@ -10,6 +10,7 @@ import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { priceTiersTable } from "./pricing";
+import { customerUsersTable } from "./customerUsers";
 
 export const accountStatusEnum = pgEnum("account_status", [
   "pending",
@@ -43,6 +44,15 @@ export const customerAccountsTable = pgTable("customer_accounts", {
   // by the falsy guard) and may legitimately repeat across accounts that never
   // got one. Access is revoked via account status, not by clearing this column.
   accessToken: text("access_token").notNull().default(""),
+  // The owning login identity (account-unification). Nullable during the
+  // migration window (backfill links existing accounts; flips to NOT NULL at
+  // cutover). Once linked, wholesale auth is "signed-in user whose profile is
+  // approved" — the accessToken is retired at cutover. onDelete restrict: a
+  // KYB/business record must not be silently hard-deleted with its identity.
+  customerUserId: text("customer_user_id").references(
+    () => customerUsersTable.id,
+    { onDelete: "restrict" },
+  ),
   kybNotes: text("kyb_notes"),
   approvedAt: timestamp("approved_at"),
   approvedBy: text("approved_by"),
@@ -51,6 +61,11 @@ export const customerAccountsTable = pgTable("customer_accounts", {
   uniqueIndex("customer_accounts_access_token_unique")
     .on(t.accessToken)
     .where(sql`${t.accessToken} <> ''`),
+  // 1:1 — one wholesale profile per identity. Partial so the many NULLs during
+  // migration don't collide.
+  uniqueIndex("customer_accounts_customer_user_id_unique")
+    .on(t.customerUserId)
+    .where(sql`${t.customerUserId} is not null`),
 ]);
 
 export const insertCustomerAccountSchema = createInsertSchema(
