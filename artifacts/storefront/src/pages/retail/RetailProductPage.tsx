@@ -143,6 +143,14 @@ export function RetailProductPage() {
                   </Badge>
                 </Link>
               )}
+              {verifiedBatchId && (
+                <a
+                  href={`/api/batches/${verifiedBatchId}/coa-file`}
+                  className="text-xs font-mono underline text-muted-foreground hover:text-foreground"
+                >
+                  Download COA
+                </a>
+              )}
             </div>
           </div>
         )}
