@@ -5,6 +5,7 @@ import {
   ApplyAccountRequestBusinessType,
   type AccountCreated,
 } from "@atlab/api-client-react";
+import { useCustomerSession, bearerHeaders } from "@/hooks/useCustomerAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,8 +27,6 @@ import {
 import {
   Building2,
   CheckCircle2,
-  Copy,
-  KeyRound,
   AlertTriangle,
   ArrowRight,
 } from "lucide-react";
@@ -43,18 +42,6 @@ const BUSINESS_TYPES: { value: BusinessType; label: string }[] = [
 ];
 
 function SuccessCard({ account }: { account: AccountCreated }) {
-  const [copied, setCopied] = useState(false);
-
-  const copyToken = async () => {
-    try {
-      await navigator.clipboard.writeText(account.accessToken);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* clipboard unavailable — token is still shown below */
-    }
-  };
-
   return (
     <Card className="border-border">
       <CardHeader>
@@ -71,28 +58,11 @@ function SuccessCard({ account }: { account: AccountCreated }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        <div className="rounded-lg border border-[color-mix(in_srgb,var(--atl-gold)_45%,transparent)] bg-[color-mix(in_srgb,var(--atl-gold)_10%,transparent)] p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <KeyRound className="h-4 w-4 text-[color-mix(in_srgb,var(--atl-gold)_70%,#0e1117)]" />
-            <span className="font-mono text-xs uppercase tracking-widest font-semibold text-[color-mix(in_srgb,var(--atl-gold)_70%,#0e1117)]">
-              Save your access token
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground mb-3">
-            You'll need it to check your status and place wholesale orders. It is shown{" "}
-            <strong>only once</strong> and cannot be recovered.
-          </p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 min-w-0 truncate rounded-md bg-background border border-border px-3 py-2 font-mono text-sm">
-              {account.accessToken}
-            </code>
-            <Button type="button" variant="outline" size="sm" className="font-mono gap-1.5 shrink-0" onClick={copyToken}>
-              <Copy className="h-3.5 w-3.5" />
-              {copied ? "Copied" : "Copy"}
-            </Button>
-          </div>
-        </div>
-
+        <p className="text-sm text-muted-foreground">
+          Your application is linked to your account. Once approved, wholesale
+          pricing and the kit catalog unlock automatically whenever you're signed
+          in — there's no token to save.
+        </p>
         <div className="grid grid-cols-1 gap-3 text-sm">
           <div className="flex items-center justify-between rounded-lg bg-muted/50 border border-border px-3 py-2">
             <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Account ID</span>
@@ -125,7 +95,10 @@ export function WholesaleApplyPage() {
     resaleCertUrl: "",
   });
 
-  const apply = useApplyForAccount();
+  const customer = useCustomerSession();
+  const apply = useApplyForAccount({
+    request: { headers: bearerHeaders(customer?.token) },
+  });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,7 +143,25 @@ export function WholesaleApplyPage() {
       </section>
 
       <div className="container mx-auto px-4 max-w-2xl py-12">
-        {apply.isSuccess && apply.data ? (
+        {!customer ? (
+          <Card className="border-border">
+            <CardHeader>
+              <CardTitle className="font-display text-xl">Sign in to apply</CardTitle>
+              <CardDescription>
+                Wholesale applications are tied to your account, so approval
+                unlocks pricing automatically when you're signed in.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col sm:flex-row gap-3">
+              <Button asChild className="font-mono uppercase tracking-widest">
+                <Link href="/account/login">Sign in</Link>
+              </Button>
+              <Button asChild variant="outline" className="font-mono uppercase tracking-widest">
+                <Link href="/account/register">Create an account</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        ) : apply.isSuccess && apply.data ? (
           <SuccessCard account={apply.data} />
         ) : (
           <Card className="border-border">

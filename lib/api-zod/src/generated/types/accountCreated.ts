@@ -8,11 +8,9 @@
 import type { AccountCreatedStatus } from "./accountCreatedStatus";
 
 /**
- * Returned after applying. The accessToken is a one-time credential; store it to check application status later.
+ * Returned after applying. No token is issued — the account is authenticated by the signed-in session once approved.
  */
 export interface AccountCreated {
   id: string;
   status: AccountCreatedStatus;
-  /** Opaque token required to fetch this account's status. Never returned again after this response. */
-  accessToken: string;
 }

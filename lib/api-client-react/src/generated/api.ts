@@ -3199,7 +3199,7 @@ export const useAdminPatchSubscriptionStatus = <
 };
 
 /**
- * Public endpoint — creates a customer account in pending status and returns an access token used to check application status later.
+ * Requires a signed-in customer (Authorization bearer). Creates a wholesale application in pending status linked to that identity. No token is issued — wholesale is authenticated by the session once approved.
  * @summary Apply for a B2B wholesale account
  */
 export const getApplyForAccountUrl = () => {

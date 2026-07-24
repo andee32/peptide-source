@@ -1036,7 +1036,7 @@ paths:
       operationId: applyForAccount
       tags: [accounts]
       summary: Apply for a B2B wholesale account
-      description: Public endpoint — creates a customer account in pending status and returns an access token used to check application status later.
+      description: Requires a signed-in customer (Authorization bearer). Creates a wholesale application in pending status linked to that identity. No token is issued — wholesale is authenticated by the session once approved.
       requestBody:
         required: true
         content:
@@ -1056,8 +1056,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Must be signed in to apply
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "409":
-          description: An account with that email already exists
+          description: This identity already has a wholesale application
           content:
             application/json:
               schema:
@@ -1629,8 +1635,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Must be signed in to apply
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
         "409":
-          description: An account with that email already exists
+          description: This identity already has a wholesale application
           content:
             application/json:
               schema:
@@ -2187,20 +2199,16 @@ components:
 
     AccountCreated:
       type: object
-      description: Returned after applying. The accessToken is a one-time credential; store it to check application status later.
+      description: Returned after applying. No token is issued — the account is authenticated by the signed-in session once approved.
       properties:
         id:
           type: string
         status:
           type: string
           enum: [pending]
-        accessToken:
-          type: string
-          description: Opaque token required to fetch this account's status. Never returned again after this response.
       required:
         - id
         - status
-        - accessToken
 
     Account:
       type: object

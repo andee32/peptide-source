@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { randomUUID, randomBytes } from "crypto";
+import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@atlab/db";
 import {
@@ -10,6 +10,7 @@ import {
 import { z } from "zod/v4";
 import { isAdminRequest } from "../lib/adminSession";
 import { extractAccountToken } from "../lib/wholesaleSession";
+import { resolveCustomerUser } from "../lib/customerSession";
 
 const router: IRouter = Router();
 
@@ -36,20 +37,30 @@ router.post("/accounts/apply", async (req: Request, res: Response) => {
   const data = parsed.data;
 
   try {
-    const existing = await db.query.customerAccountsTable.findFirst({
-      where: eq(customerAccountsTable.email, data.email),
+    // Account-unification: applying requires a signed-in identity. No access
+    // token is minted — wholesale is authenticated by the session once approved.
+    const user = await resolveCustomerUser(req);
+    if (!user) {
+      res.status(401).json({
+        error: "unauthorized",
+        message: "Sign in or create an account before applying for wholesale.",
+      });
+      return;
+    }
+
+    // 1:1 — one wholesale profile per identity.
+    const linked = await db.query.customerAccountsTable.findFirst({
+      where: eq(customerAccountsTable.customerUserId, user.id),
     });
-    if (existing) {
+    if (linked) {
       res.status(409).json({
         error: "conflict",
-        message: "An account with that email already exists",
+        message: "This account already has a wholesale application.",
       });
       return;
     }
 
     const id = randomUUID();
-    const accessToken = randomBytes(32).toString("hex");
-
     await db.insert(customerAccountsTable).values({
       id,
       businessName: data.businessName,
@@ -60,10 +71,11 @@ router.post("/accounts/apply", async (req: Request, res: Response) => {
       taxId: data.taxId ?? null,
       resaleCertUrl: data.resaleCertUrl ?? null,
       status: "pending",
-      accessToken,
+      customerUserId: user.id,
+      // no accessToken — session-authenticated (empty string = none issued)
     });
 
-    res.status(201).json({ id, status: "pending", accessToken });
+    res.status(201).json({ id, status: "pending" });
   } catch (err) {
     console.error("applyForAccount error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });
