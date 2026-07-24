@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.114.0",
     "@atlab/api-zod": "workspace:*",
     "@atlab/db": "workspace:*",
     "cookie-parser": "^1.4.7",
