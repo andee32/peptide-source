@@ -150,6 +150,11 @@ export const GetProductResponse = zod
           }),
         )
         .nullish(),
+      latestBatchHasCoaFile: zod
+        .boolean()
+        .describe(
+          'True only when the latest batch is released, non-demo, AND has a downloadable COA document. Gates the public \"Download COA\" link.',
+        ),
     }),
   );
 
@@ -264,6 +269,11 @@ export const GetRetailProductResponse = zod
         .nullish()
         .describe(
           "True when the latest batch is seeded sample data (no real COA).",
+        ),
+      latestBatchHasCoaFile: zod
+        .boolean()
+        .describe(
+          'True only when the latest batch is released, non-demo, AND has a downloadable COA document. Gates the public \"Download COA\" link.',
         ),
     }),
   );
@@ -1987,6 +1997,11 @@ export const AdminPatchProductResponse = zod
           }),
         )
         .nullish(),
+      latestBatchHasCoaFile: zod
+        .boolean()
+        .describe(
+          'True only when the latest batch is released, non-demo, AND has a downloadable COA document. Gates the public \"Download COA\" link.',
+        ),
     }),
   );
 

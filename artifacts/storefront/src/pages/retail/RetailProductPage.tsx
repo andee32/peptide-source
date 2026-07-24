@@ -143,9 +143,9 @@ export function RetailProductPage() {
                   </Badge>
                 </Link>
               )}
-              {verifiedBatchId && (
+              {product.latestBatchHasCoaFile && (
                 <a
-                  href={`/api/batches/${verifiedBatchId}/coa-file`}
+                  href={`/api/batches/${product.latestBatchId}/coa-file`}
                   className="text-xs font-mono underline text-muted-foreground hover:text-foreground"
                 >
                   Download COA
@@ -178,9 +178,9 @@ export function RetailProductPage() {
                   </Badge>
                 </Link>
               )}
-              {verifiedBatchId && (
+              {product.latestBatchHasCoaFile && (
                 <a
-                  href={`/api/batches/${verifiedBatchId}/coa-file`}
+                  href={`/api/batches/${product.latestBatchId}/coa-file`}
                   className="text-xs font-mono underline text-muted-foreground hover:text-foreground"
                 >
                   Download COA

@@ -16,4 +16,6 @@ export type RetailProductDetail = RetailProduct & {
   latestBatchPurity?: number | null;
   /** True when the latest batch is seeded sample data (no real COA). */
   latestBatchIsDemo?: boolean | null;
+  /** True only when the latest batch is released, non-demo, AND has a downloadable COA document. Gates the public "Download COA" link. */
+  latestBatchHasCoaFile: boolean;
 };

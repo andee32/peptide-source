@@ -6,6 +6,7 @@ import {
   productVariantsTable,
   batchesTable,
   coaResultsTable,
+  coaDocumentsTable,
   categoryEnum,
 } from "@atlab/db/schema";
 import {
@@ -200,6 +201,15 @@ router.get("/products/:id", async (req, res) => {
       };
     }
 
+    let latestBatchHasCoaFile = false;
+    if (latestBatch && latestBatch.status === "released" && latestBatch.isDemo === false) {
+      const coaDoc = await db.query.coaDocumentsTable.findFirst({
+        where: eq(coaDocumentsTable.batchId, latestBatch.id),
+        columns: { id: true },
+      });
+      latestBatchHasCoaFile = coaDoc !== undefined && coaDoc !== null;
+    }
+
     const startingPriceCents =
       variants.length > 0 ? Math.min(...variants.map((v) => v.priceCents)) : 0;
 
@@ -218,6 +228,7 @@ router.get("/products/:id", async (req, res) => {
       latestBatchStatus: latestBatch?.status ?? null,
       latestBatchPurity: latestBatchPurity ?? null,
       latestBatchIsDemo: latestBatch?.isDemo ?? null,
+      latestBatchHasCoaFile,
       researchUses: product.researchUses,
       variants: variants.map((v) => ({
         id: v.id,

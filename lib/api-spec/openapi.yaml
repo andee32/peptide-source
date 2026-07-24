@@ -2601,10 +2601,14 @@ components:
             latestBatch:
               $ref: "#/components/schemas/BatchDetail"
               nullable: true
+            latestBatchHasCoaFile:
+              type: boolean
+              description: True only when the latest batch is released, non-demo, AND has a downloadable COA document. Gates the public "Download COA" link.
           required:
             - longDescription
             - researchUses
             - variants
+            - latestBatchHasCoaFile
 
     CoaHeavyMetal:
       type: object
@@ -3484,9 +3488,13 @@ components:
               type: boolean
               nullable: true
               description: True when the latest batch is seeded sample data (no real COA).
+            latestBatchHasCoaFile:
+              type: boolean
+              description: True only when the latest batch is released, non-demo, AND has a downloadable COA document. Gates the public "Download COA" link.
           required:
             - longDescription
             - researchUses
+            - latestBatchHasCoaFile
 
     PatchProductRequest:
       type: object

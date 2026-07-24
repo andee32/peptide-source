@@ -414,7 +414,7 @@ function WholesaleProductDetail({ token }: { token: string }) {
                         </Link>
                       </Button>
                     )}
-                    {product.latestBatchId && (
+                    {product.latestBatchHasCoaFile && (
                       <a
                         href={`/api/batches/${product.latestBatchId}/coa-file`}
                         className="text-xs font-mono underline text-muted-foreground hover:text-foreground ml-3"
