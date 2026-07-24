@@ -17,9 +17,11 @@ compliance gate (HARD launch blocker) · **4** B2C revival.
 
 ## Non-negotiables
 
-- **Payments: crypto-first (BTCPay) + ACH/wire only. NEVER Stripe / PayPal / Square /
-  Shopify Payments** — they prohibit this vertical and freeze funds. `card` is being
-  removed from the payment enum in Phase 3.
+- **Payments: crypto-first (BTCPay) + ACH/wire + Zelle only. NEVER Stripe / PayPal /
+  Square / Shopify Payments** — they prohibit this vertical and freeze funds. `card` is
+  being removed from the payment enum in Phase 3. **Zelle is wholesale-only**, rejected
+  server-side on retail orders, re-checks that the account is still `approved` on every
+  request, and stays 503 until `ZELLE_RECIPIENT` + `ZELLE_RECIPIENT_NAME` are provisioned.
 - **Everything is research-use-only (RUO) — not for human or animal consumption.** The
   compliance model is a **server-side RUO attestation per order** (buyer affirms research
   use; stored as the record-of-record), NOT per-SKU blocking. Per owner decision, we do

@@ -8,6 +8,7 @@
 import type { AchInstructionsCurrency } from "./achInstructionsCurrency";
 import type { AchInstructionsStatus } from "./achInstructionsStatus";
 import type { BankInstructions } from "./bankInstructions";
+import type { ZelleInstructions } from "./zelleInstructions";
 
 /**
  * Bank wire / ACH payment instructions for an order, plus a unique reference code the customer must include in the transfer memo.
@@ -23,5 +24,6 @@ export interface AchInstructions {
   currency: AchInstructionsCurrency;
   status: AchInstructionsStatus;
   expiresAt: Date;
-  instructions: BankInstructions;
+  /** Bank details for ach/wire, or a Zelle handle for zelle. Never both. */
+  instructions: BankInstructions | ZelleInstructions;
 }

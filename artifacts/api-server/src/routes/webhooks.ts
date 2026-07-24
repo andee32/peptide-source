@@ -1,9 +1,9 @@
 import { Router, type Request } from "express";
-import { eq } from "drizzle-orm";
-import { timingSafeEqual, createHmac } from "crypto";
+import { eq, and, inArray } from "drizzle-orm";
 import { db } from "@atlab/db";
 import { ordersTable, paymentRecordsTable } from "@atlab/db/schema";
 import { btcpayService } from "../services/btcpay";
+import { SETTLEABLE_ORDER_STATUSES } from "../lib/orderStatus";
 
 const router = Router();
 
@@ -11,22 +11,23 @@ interface RequestWithRawBody extends Request {
   rawBody?: Buffer;
 }
 
-function verifyBtcpaySignature(
-  rawBody: string | Buffer,
-  signatureHeader: string
-): boolean {
-  const verified = btcpayService.verifyWebhookSignature(rawBody, signatureHeader);
-  return verified;
-}
-
 router.post("/webhooks/btcpay", async (req: RequestWithRawBody, res) => {
   const signatureHeader =
     (req.headers["btcpay-sig"] as string | undefined) ?? "";
 
-  const rawBody: Buffer | string =
-    req.rawBody ?? Buffer.from(JSON.stringify(req.body));
+  // A signature is only meaningful over the exact bytes BTCPay signed. app.ts
+  // captures those only for Content-Type: application/json, so when they are
+  // missing there is nothing to verify — reject. Re-serialising req.body here
+  // would verify the signature against bytes we invented, which is a bypass the
+  // moment the middleware order changes (and today it throws on a body that did
+  // not parse).
+  const rawBody = req.rawBody;
+  if (!Buffer.isBuffer(rawBody)) {
+    res.status(400).json({ error: "missing_raw_body" });
+    return;
+  }
 
-  if (!verifyBtcpaySignature(rawBody, signatureHeader)) {
+  if (!btcpayService.verifyWebhookSignature(rawBody, signatureHeader)) {
     res.status(401).json({ error: "invalid_signature" });
     return;
   }
@@ -54,37 +55,165 @@ router.post("/webhooks/btcpay", async (req: RequestWithRawBody, res) => {
     return;
   }
 
-  if (type === "InvoiceSettled" || type === "InvoicePaymentSettled") {
+  // Moves the payment record and its order together, and only from a status the
+  // webhook is allowed to leave. The payment guard makes redelivery a no-op; the
+  // order guard stops a replayed settle from resurrecting a refunded order. Both
+  // writes share a transaction so neither can land alone.
+  async function transition(
+    paymentStatus: "confirmed" | "expired" | "failed",
+    orderStatus: "confirmed" | "expired" | "failed",
+    extra: { txHash?: string | null; confirmedAt?: Date } = {}
+  ): Promise<boolean> {
+    return db.transaction(async (tx) => {
+      const [movedPayment] = await tx
+        .update(paymentRecordsTable)
+        .set({ status: paymentStatus, ...extra })
+        .where(
+          and(
+            eq(paymentRecordsTable.id, payment!.id),
+            eq(paymentRecordsTable.status, "pending")
+          )
+        )
+        .returning();
+
+      // Already in a terminal state — this is a redelivery. Do nothing.
+      if (!movedPayment) return false;
+
+      const [movedOrder] = await tx
+        .update(ordersTable)
+        .set({ status: orderStatus, updatedAt: new Date() })
+        .where(
+          and(
+            eq(ordersTable.id, payment!.orderId),
+            inArray(ordersTable.status, SETTLEABLE_ORDER_STATUSES)
+          )
+        )
+        .returning();
+
+      // The payment moved but the order did not, so the order was already in a
+      // status the webhook may not leave (refunded, or confirmed by another
+      // path). That is a genuine mixed state an operator needs to see — most
+      // importantly it can mean funds arrived against a refunded order.
+      if (!movedOrder) {
+        console.error(
+          `[webhook] payment ${payment!.id} moved to ${paymentStatus} but order ` +
+            `${payment!.orderId} was not in a webhook-mutable status; needs manual review`
+        );
+      }
+
+      return true;
+    });
+  }
+
+  if (type === "InvoiceSettled") {
+    // Never settle on the webhook payload alone. Read the invoice back from
+    // BTCPayServer and require its own verdict to be "Settled" — that is the
+    // only status meaning paid in full, and BTCPay has already done the amount
+    // arithmetic including tolerances.
+    let invoice;
+    try {
+      invoice = await btcpayService.getInvoice(invoiceId);
+    } catch (err) {
+      // Fail closed: settle nothing we could not verify. 503 so BTCPay retries.
+      console.error(
+        `[webhook] could not verify invoice ${invoiceId} before settling:`,
+        err
+      );
+      res.status(503).json({ error: "verification_unavailable" });
+      return;
+    }
+
+    if (invoice.status !== "Settled") {
+      console.warn(
+        `[webhook] refusing to settle ${invoiceId}: BTCPay reports status "${invoice.status}"` +
+          `${invoice.additionalStatus ? ` (${invoice.additionalStatus})` : ""}`
+      );
+      res.status(200).json({ received: true, note: "not_settled" });
+      return;
+    }
+
+    // The invoice must belong to the order we are about to confirm, and must
+    // have been raised for the amount we recorded. This catches a mismatched or
+    // reused invoice id rather than underpayment, which "Settled" already rules
+    // out.
+    const claimedOrderId = invoice.metadata?.orderId;
+    if (claimedOrderId && claimedOrderId !== payment.orderId) {
+      console.error(
+        `[webhook] invoice ${invoiceId} claims order ${claimedOrderId} but the ` +
+          `payment record belongs to ${payment.orderId}; refusing to settle`
+      );
+      res.status(200).json({ received: true, note: "order_mismatch" });
+      return;
+    }
+
+    // amountCents is USD. createRealInvoice always raises invoices in USD, so a
+    // non-USD invoice here means that assumption changed and the comparison
+    // below would silently compare unlike units — fail closed instead.
+    if (invoice.currency !== "USD") {
+      console.error(
+        `[webhook] invoice ${invoiceId} is denominated in ${invoice.currency}, ` +
+          `not USD; refusing to settle`
+      );
+      res.status(200).json({ received: true, note: "currency_mismatch" });
+      return;
+    }
+
+    const invoiceCents = Math.round(Number(invoice.amount) * 100);
+    if (!Number.isFinite(invoiceCents) || invoiceCents < payment.amountCents) {
+      console.error(
+        `[webhook] invoice ${invoiceId} is for ${invoice.amount} ${invoice.currency} ` +
+          `but the order requires ${payment.amountCents} cents; refusing to settle`
+      );
+      res.status(200).json({ received: true, note: "amount_mismatch" });
+      return;
+    }
+
+    // An operator can mark an invoice settled by hand in the BTCPay UI, which
+    // reports Settled/Marked with no payment necessarily received. That is a
+    // legitimate out-of-band settlement path, so it is not blocked — but it must
+    // never pass silently, because it confirms an order for free.
+    if (invoice.additionalStatus === "Marked") {
+      console.warn(
+        `[webhook] invoice ${invoiceId} was MANUALLY marked settled in BTCPay ` +
+          `(no on-chain payment implied); confirming order ${payment.orderId} — verify this was intended`
+      );
+    }
+
     const txHash =
-      event.afterSettlement?.transactionIds?.[0] ??
-      event.payment?.id ??
-      null;
-    await db
-      .update(paymentRecordsTable)
-      .set({ status: "confirmed", txHash, confirmedAt: new Date() })
-      .where(eq(paymentRecordsTable.id, payment.id));
-    await db
-      .update(ordersTable)
-      .set({ status: "confirmed" })
-      .where(eq(ordersTable.id, payment.orderId));
-  } else if (type === "InvoiceExpired") {
-    await db
-      .update(paymentRecordsTable)
-      .set({ status: "expired" })
-      .where(eq(paymentRecordsTable.id, payment.id));
-    await db
-      .update(ordersTable)
-      .set({ status: "expired" })
-      .where(eq(ordersTable.id, payment.orderId));
+      event.afterSettlement?.transactionIds?.[0] ?? event.payment?.id ?? null;
+
+    const moved = await transition("confirmed", "confirmed", {
+      txHash,
+      confirmedAt: new Date(),
+    });
+
+    // BTCPay says this invoice is paid, but our payment record was already in a
+    // terminal state — a redelivery, or a payment that landed after we expired
+    // the invoice. The latter means real funds arrived against a dead order.
+    if (!moved) {
+      console.warn(
+        `[webhook] InvoiceSettled for ${invoiceId} did not move payment ` +
+          `${payment.id} (already ${payment.status}); if this was a late payment ` +
+          `the funds need manual reconciliation`
+      );
+    }
+
+    res.status(200).json({ received: true, settled: moved });
+    return;
+  }
+
+  // A per-payment progress event. It fires as soon as an individual payment
+  // confirms on-chain, INCLUDING a partial one, so it must never settle an
+  // order on its own. InvoiceSettled above is the only settlement trigger.
+  if (type === "InvoicePaymentSettled") {
+    res.status(200).json({ received: true, note: "payment_progress" });
+    return;
+  }
+
+  if (type === "InvoiceExpired") {
+    await transition("expired", "expired");
   } else if (type === "InvoiceInvalid") {
-    await db
-      .update(paymentRecordsTable)
-      .set({ status: "failed" })
-      .where(eq(paymentRecordsTable.id, payment.id));
-    await db
-      .update(ordersTable)
-      .set({ status: "failed" })
-      .where(eq(ordersTable.id, payment.orderId));
+    await transition("failed", "failed");
   }
 
   res.status(200).json({ received: true });

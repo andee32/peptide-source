@@ -391,9 +391,9 @@ export const CreateOrderBody = zod.object({
     )
     .min(1),
   paymentMethod: zod
-    .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
+    .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"])
     .describe(
-      "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
+      "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
     ),
   discountCode: zod
     .string()
@@ -452,9 +452,9 @@ export const QuoteOrderBody = zod
       )
       .min(1),
     paymentMethod: zod
-      .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
+      .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"])
       .describe(
-        "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
+        "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
       ),
     discountCode: zod.string().max(quoteOrderBodyDiscountCodeMax).nullish(),
   })
@@ -512,9 +512,9 @@ export const GetOrderResponse = zod
       .describe("Slot-B (crypto payment incentive) amount."),
     totalCents: zod.number(),
     paymentMethod: zod
-      .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
+      .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"])
       .describe(
-        "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
+        "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
       ),
     status: zod.enum([
       "pending",
@@ -598,8 +598,8 @@ export const GetOrderPaymentQrParams = zod.object({
 });
 
 /**
- * Returns bank wire / ACH instructions and a unique reference code, and creates (or returns an existing) pending payment_records row with method=ach. Only valid for orders whose paymentMethod is ach or wire.
- * @summary Get ACH / wire payment instructions for an order
+ * Returns payment instructions and a unique reference code, and creates (or returns an existing) pending payment_records row. Valid for paymentMethod ach, wire or zelle. zelle additionally requires the order to be on the wholesale channel AND its account to be approved at the time of the request; otherwise 403. Each rail is withheld with 503 until its own details are provisioned.
+ * @summary Get bank-transfer payment instructions for an order
  */
 export const CreateAchInstructionsParams = zod.object({
   id: zod.coerce.string(),
@@ -622,18 +622,47 @@ export const CreateAchInstructionsResponse = zod
     status: zod.enum(["pending"]),
     expiresAt: zod.date(),
     instructions: zod
-      .object({
-        beneficiaryName: zod.string(),
-        bankName: zod.string(),
-        routingNumber: zod.string(),
-        accountNumber: zod.string(),
-        accountType: zod.string(),
-        memo: zod
-          .string()
-          .describe("The referenceCode, restated for the transfer memo field."),
-      })
+      .union([
+        zod
+          .object({
+            beneficiaryName: zod.string(),
+            bankName: zod.string(),
+            routingNumber: zod.string(),
+            accountNumber: zod.string(),
+            accountType: zod.string(),
+            memo: zod
+              .string()
+              .describe(
+                "The referenceCode, restated for the transfer memo field.",
+              ),
+          })
+          .describe(
+            "Beneficiary bank details for ACH \/ wire transfers. PLACEHOLDER values until real banking is provisioned.",
+          ),
+        zod
+          .object({
+            recipient: zod
+              .string()
+              .describe(
+                "Email or US phone registered to the receiving account.",
+              ),
+            recipientName: zod
+              .string()
+              .describe(
+                "Name registered to that handle. Must match what the buyer's bank app displays.",
+              ),
+            memo: zod
+              .string()
+              .describe(
+                "The referenceCode, restated for the transfer memo field.",
+              ),
+          })
+          .describe(
+            "Zelle payment destination. Wholesale-only, and served only while the account is approved. Withheld entirely (503) until ZELLE_RECIPIENT and ZELLE_RECIPIENT_NAME are provisioned — a Zelle transfer is irreversible with no dispute mechanism, so a placeholder handle would lose the buyer's funds.",
+          ),
+      ])
       .describe(
-        "Beneficiary bank details for ACH \/ wire transfers. PLACEHOLDER values until real banking is provisioned.",
+        "Bank details for ach\/wire, or a Zelle handle for zelle. Never both.",
       ),
   })
   .describe(
@@ -1375,9 +1404,9 @@ export const AdminListOrdersResponseItem = zod.object({
   shippingEmail: zod.string(),
   accountId: zod.string().nullable(),
   paymentMethod: zod
-    .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
+    .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"])
     .describe(
-      "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
+      "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
     ),
 });
 export const AdminListOrdersResponse = zod.array(AdminListOrdersResponseItem);
@@ -1425,9 +1454,9 @@ export const AdminGetOrderResponse = zod
       .describe("Slot-B (crypto payment incentive) amount."),
     totalCents: zod.number(),
     paymentMethod: zod
-      .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
+      .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"])
       .describe(
-        "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
+        "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
       ),
     channel: zod.enum(["retail", "wholesale"]),
     accountId: zod.string().nullable(),
@@ -1587,9 +1616,9 @@ export const AdminPatchOrderResponse = zod
       .describe("Slot-B (crypto payment incentive) amount."),
     totalCents: zod.number(),
     paymentMethod: zod
-      .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
+      .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"])
       .describe(
-        "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
+        "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
       ),
     channel: zod.enum(["retail", "wholesale"]),
     accountId: zod.string().nullable(),
@@ -1725,9 +1754,9 @@ export const AdminRefundOrderResponse = zod
       .describe("Slot-B (crypto payment incentive) amount."),
     totalCents: zod.number(),
     paymentMethod: zod
-      .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
+      .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"])
       .describe(
-        "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
+        "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
       ),
     channel: zod.enum(["retail", "wholesale"]),
     accountId: zod.string().nullable(),
@@ -2084,7 +2113,7 @@ export const AdminPatchAdminUserResponse = zod
   .describe("A back-office operator. passwordHash is never serialized.");
 
 /**
- * Supply currentPassword for a self-service change; omit it for an admin-performed reset. Requires x-admin-key header.
+ * Requires the CALLER's own password in currentPassword, for both self-service changes and peer resets — a live session alone is not sufficient, since a stolen one would otherwise grant permanent takeover. Only the ops break-glass key may omit it. Requires x-admin-key header.
  * @summary Admin — set or reset an admin user's password
  */
 export const AdminSetAdminUserPasswordParams = zod.object({
@@ -2107,7 +2136,7 @@ export const AdminSetAdminUserPasswordBody = zod.object({
     .max(adminSetAdminUserPasswordBodyCurrentPasswordMax)
     .optional()
     .describe(
-      "Required only for a self-service change; omit for an admin reset.",
+      "The CALLER's own current password. Required for every caller authenticated as an operator, whether changing their own password or resetting a peer's. Only the ops break-glass key may omit it.",
     ),
 });
 
@@ -2200,9 +2229,9 @@ export const ListCustomerOrdersResponseItem = zod.object({
   ]),
   channel: zod.enum(["retail", "wholesale"]),
   paymentMethod: zod
-    .enum(["crypto_btc", "crypto_usdc", "ach", "wire"])
+    .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"])
     .describe(
-      "Payment rail. Crypto-first (BTCPay) + ACH\/wire only. Card is not supported.",
+      "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
     ),
   subtotalCents: zod.number(),
   discountCents: zod.number(),

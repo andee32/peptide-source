@@ -402,8 +402,8 @@ paths:
     post:
       operationId: createAchInstructions
       tags: [orders]
-      summary: Get ACH / wire payment instructions for an order
-      description: Returns bank wire / ACH instructions and a unique reference code, and creates (or returns an existing) pending payment_records row with method=ach. Only valid for orders whose paymentMethod is ach or wire.
+      summary: Get bank-transfer payment instructions for an order
+      description: "Returns payment instructions and a unique reference code, and creates (or returns an existing) pending payment_records row. Valid for paymentMethod ach, wire or zelle. zelle additionally requires the order to be on the wholesale channel AND its account to be approved at the time of the request; otherwise 403. Each rail is withheld with 503 until its own details are provisioned."
       parameters:
         - name: id
           in: path
@@ -1565,7 +1565,7 @@ paths:
       operationId: adminSetAdminUserPassword
       tags: [adminUsers]
       summary: Admin — set or reset an admin user's password
-      description: Supply currentPassword for a self-service change; omit it for an admin-performed reset. Requires x-admin-key header.
+      description: Requires the CALLER's own password in currentPassword, for both self-service changes and peer resets — a live session alone is not sufficient, since a stolen one would otherwise grant permanent takeover. Only the ops break-glass key may omit it. Requires x-admin-key header.
       parameters:
         - name: id
           in: path
@@ -2780,8 +2780,8 @@ components:
 
     PaymentMethod:
       type: string
-      description: Payment rail. Crypto-first (BTCPay) + ACH/wire only. Card is not supported.
-      enum: [crypto_btc, crypto_usdc, ach, wire]
+      description: "Payment rail. Crypto-first (BTCPay) + ACH/wire/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders."
+      enum: [crypto_btc, crypto_usdc, ach, wire, zelle]
 
     OrderSummary:
       type: object
@@ -2977,7 +2977,10 @@ components:
           type: string
           format: date-time
         instructions:
-          $ref: "#/components/schemas/BankInstructions"
+          description: Bank details for ach/wire, or a Zelle handle for zelle. Never both.
+          oneOf:
+            - $ref: "#/components/schemas/BankInstructions"
+            - $ref: "#/components/schemas/ZelleInstructions"
       required:
         - paymentRecordId
         - orderId
@@ -2988,6 +2991,24 @@ components:
         - status
         - expiresAt
         - instructions
+
+    ZelleInstructions:
+      type: object
+      description: Zelle payment destination. Wholesale-only, and served only while the account is approved. Withheld entirely (503) until ZELLE_RECIPIENT and ZELLE_RECIPIENT_NAME are provisioned — a Zelle transfer is irreversible with no dispute mechanism, so a placeholder handle would lose the buyer's funds.
+      properties:
+        recipient:
+          type: string
+          description: Email or US phone registered to the receiving account.
+        recipientName:
+          type: string
+          description: Name registered to that handle. Must match what the buyer's bank app displays.
+        memo:
+          type: string
+          description: The referenceCode, restated for the transfer memo field.
+      required:
+        - recipient
+        - recipientName
+        - memo
 
     BankInstructions:
       type: object
@@ -3557,7 +3578,7 @@ components:
           type: string
           minLength: 1
           maxLength: 200
-          description: Required only for a self-service change; omit for an admin reset.
+          description: The CALLER's own current password. Required for every caller authenticated as an operator, whether changing their own password or resetting a peer's. Only the ops break-glass key may omit it.
       required:
         - password
 

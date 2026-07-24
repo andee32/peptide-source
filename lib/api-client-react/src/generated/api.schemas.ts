@@ -392,7 +392,7 @@ export interface CreateOrderLineItem {
 }
 
 /**
- * Payment rail. Crypto-first (BTCPay) + ACH/wire only. Card is not supported.
+ * Payment rail. Crypto-first (BTCPay) + ACH/wire/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.
  */
 export type PaymentMethod = (typeof PaymentMethod)[keyof typeof PaymentMethod];
 
@@ -401,6 +401,7 @@ export const PaymentMethod = {
   crypto_usdc: "crypto_usdc",
   ach: "ach",
   wire: "wire",
+  zelle: "zelle",
 } as const;
 
 /**
@@ -801,6 +802,18 @@ export interface BankInstructions {
 }
 
 /**
+ * Zelle payment destination. Wholesale-only, and served only while the account is approved. Withheld entirely (503) until ZELLE_RECIPIENT and ZELLE_RECIPIENT_NAME are provisioned — a Zelle transfer is irreversible with no dispute mechanism, so a placeholder handle would lose the buyer's funds.
+ */
+export interface ZelleInstructions {
+  /** Email or US phone registered to the receiving account. */
+  recipient: string;
+  /** Name registered to that handle. Must match what the buyer's bank app displays. */
+  recipientName: string;
+  /** The referenceCode, restated for the transfer memo field. */
+  memo: string;
+}
+
+/**
  * Bank wire / ACH payment instructions for an order, plus a unique reference code the customer must include in the transfer memo.
  */
 export interface AchInstructions {
@@ -814,7 +827,8 @@ export interface AchInstructions {
   currency: AchInstructionsCurrency;
   status: AchInstructionsStatus;
   expiresAt: string;
-  instructions: BankInstructions;
+  /** Bank details for ach/wire, or a Zelle handle for zelle. Never both. */
+  instructions: BankInstructions | ZelleInstructions;
 }
 
 export interface ConfirmAchRequest {
@@ -1172,7 +1186,7 @@ export interface SetAdminPasswordRequest {
    */
   password: string;
   /**
-   * Required only for a self-service change; omit for an admin reset.
+   * The CALLER's own current password. Required for every caller authenticated as an operator, whether changing their own password or resetting a peer's. Only the ops break-glass key may omit it.
    * @minLength 1
    * @maxLength 200
    */

@@ -13,7 +13,7 @@ export interface SetAdminPasswordRequest {
    */
   password: string;
   /**
-   * Required only for a self-service change; omit for an admin reset.
+   * The CALLER's own current password. Required for every caller authenticated as an operator, whether changing their own password or resetting a peer's. Only the ops break-glass key may omit it.
    * @minLength 1
    * @maxLength 200
    */

@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and, asc, desc, count, sql } from "drizzle-orm";
+import { eq, and, ne, asc, desc, count, inArray, notInArray, sql } from "drizzle-orm";
 import { createHash, timingSafeEqual } from "crypto";
 import { db } from "@atlab/db";
 import {
@@ -23,6 +23,7 @@ import {
   orderChannelEnum,
   complianceStatusEnum,
   sourcingPathEnum,
+  unitTypeEnum,
 } from "@atlab/db/schema";
 import { z } from "zod/v4";
 import { randomUUID } from "crypto";
@@ -33,7 +34,12 @@ import {
   revokeAdminSessions,
   adminActorEmail,
 } from "../lib/adminSession";
-import { loginRateLimit } from "../lib/rateLimit";
+import { loginRateLimit, reauthRateLimit } from "../lib/rateLimit";
+import { ensureBootstrapAdmin } from "../lib/bootstrapAdmin";
+import {
+  SETTLEABLE_ORDER_STATUSES,
+  TERMINAL_ORDER_STATUSES,
+} from "../lib/orderStatus";
 
 const router: IRouter = Router();
 
@@ -49,6 +55,59 @@ async function adminAuth(req: Request, res: Response, next: NextFunction): Promi
   }
   req.adminIdentity = identity;
   next();
+}
+
+/**
+ * Re-authentication gate for operator mutations that grant or revoke durable
+ * console access.
+ *
+ * A live session must not be sufficient on its own: a stolen 12h token would
+ * otherwise be enough to reset a peer's password, provision a new operator, or
+ * deactivate everyone else — each of which outlives the stolen token. The caller
+ * must prove possession of their OWN password.
+ *
+ * Returns true when the request may proceed. Writes the response and returns
+ * false otherwise.
+ */
+async function requireReauth(req: Request, res: Response): Promise<boolean> {
+  const identity = req.adminIdentity;
+
+  // Branch on the explicit flag rather than inferring break-glass from a missing
+  // user — a control must not fail open if middleware ordering ever changes.
+  if (!identity) {
+    res.status(401).json({ error: "unauthorized", message: "Invalid admin key" });
+    return false;
+  }
+
+  if (identity.breakGlass) {
+    // Break-glass has no admin_users row to re-authenticate against, and it is
+    // the documented recovery path when the table is unusable. Permitted, but
+    // never silent.
+    console.warn(
+      `[admin] privileged operator mutation via BREAK-GLASS key on ${req.method} ${req.originalUrl} — no operator re-authentication`
+    );
+    return true;
+  }
+
+  const currentPassword = (req.body as { currentPassword?: unknown })
+    ?.currentPassword;
+  if (typeof currentPassword !== "string" || currentPassword.length === 0) {
+    res.status(400).json({
+      error: "bad_request",
+      message: "currentPassword is required for this operation",
+    });
+    return false;
+  }
+
+  if (!(await verifyPassword(currentPassword, identity.user!.passwordHash))) {
+    res.status(401).json({
+      error: "unauthorized",
+      message: "Current password is incorrect",
+    });
+    return false;
+  }
+
+  return true;
 }
 
 const LoginSchema = z.object({
@@ -87,11 +146,34 @@ router.post("/admin/login", loginRateLimit, async (req: Request, res: Response):
 
   // Primary path: the admin_users table. Success mints an opaque session token
   // bound to this operator — NOT the shared ADMIN_SECRET.
+  let user;
+  let tableEmpty = false;
   try {
-    const user = await db.query.adminUsersTable.findFirst({
+    user = await db.query.adminUsersTable.findFirst({
       where: eq(adminUsersTable.email, email),
     });
+    if (!user) {
+      const [{ total }] = await db.select({ total: count() }).from(adminUsersTable);
+      tableEmpty = total === 0;
+    }
+  } catch (err) {
+    // A DB failure must NOT downgrade to the env-credential path. It used to:
+    // the whole lookup sat in a try whose catch only logged, so one transient
+    // blip handed the browser a non-expiring shared secret that no session
+    // revocation could reach. Fail closed instead.
+    console.error("adminLogin lookup failed:", err);
+    res.status(503).json({
+      error: "unavailable",
+      message: "Login is temporarily unavailable. Please try again.",
+    });
+    return;
+  }
 
+  // Everything below can also touch the DB, so it shares the same fail-closed
+  // contract: a pool failure a millisecond after the lookup succeeded must not
+  // escape to Express's default handler (which echoes err.stack outside
+  // production) and must never degrade to a different credential.
+  try {
     if (user) {
       // Verify before branching on isActive so both failures cost the same.
       const passwordOk = await verifyPassword(password, user.passwordHash);
@@ -104,32 +186,57 @@ router.post("/admin/login", loginRateLimit, async (req: Request, res: Response):
       return;
     }
 
-    const [{ total }] = await db.select({ total: count() }).from(adminUsersTable);
-    if (total > 0) {
+    if (!tableEmpty) {
       // Unknown operator: burn the same CPU a real verify would, so response
       // time does not disclose which emails are provisioned.
       await verifyDummyPassword(password);
       res.status(401).json({ error: "unauthorized", message: "Invalid credentials" });
       return;
     }
+
+    // admin_users is genuinely empty (fresh DB, or the bootstrap insert failed).
+    // Accept the env credential to recover, then seed the row and bind a REAL
+    // session to it. ADMIN_SECRET is never issued by this endpoint: it stays an
+    // ops break-glass header an operator reads from the secret store, so that
+    // deactivation and password change always revoke every issued credential.
+    if (!(await envCredentialMatches(email, password))) {
+      // envCredentialMatches returns early on an email mismatch, before any
+      // PBKDF2. Without this the empty-table path would answer a wrong email in
+      // ~0ms and the right one in ~100ms, disclosing ADMIN_EMAIL — and, by
+      // contrast with the populated path above, disclosing that the bootstrap
+      // window is currently open.
+      await verifyDummyPassword(password);
+      res.status(401).json({ error: "unauthorized", message: "Invalid credentials" });
+      return;
+    }
+
+    await ensureBootstrapAdmin();
+    const seeded = await db.query.adminUsersTable.findFirst({
+      where: eq(adminUsersTable.email, email),
+    });
+    if (!seeded) {
+      // The seed did not take — most likely ADMIN_PASSWORD_HASH is not a valid
+      // PBKDF2 digest, which ensureBootstrapAdmin refuses to persist.
+      console.error(
+        "[adminLogin] env credential matched but no admin_users row could be seeded; " +
+          "check ADMIN_PASSWORD_HASH is a 'salt:hash' PBKDF2 digest"
+      );
+      res.status(503).json({
+        error: "not_configured",
+        message: "Admin account could not be provisioned",
+      });
+      return;
+    }
+
+    const session = await createAdminSession(seeded.id);
+    res.json({ token: session.token, expiresAt: session.expiresAt.toISOString() });
   } catch (err) {
-    console.error("adminLogin lookup error (falling back to env credential):", err);
+    console.error("adminLogin failed after lookup:", err);
+    res.status(503).json({
+      error: "unavailable",
+      message: "Login is temporarily unavailable. Please try again.",
+    });
   }
-
-  // Fallback: table empty (or unreachable) — accept the env credential. There
-  // is no admin_users row to bind a session to here, so this path (and only
-  // this path) hands back the ops break-glass secret.
-  if (!(await envCredentialMatches(email, password))) {
-    res.status(401).json({ error: "unauthorized", message: "Invalid credentials" });
-    return;
-  }
-
-  const adminSecret = process.env.ADMIN_SECRET;
-  if (!adminSecret) {
-    res.status(503).json({ error: "not_configured", message: "Admin credentials not configured" });
-    return;
-  }
-  res.json({ token: adminSecret });
 });
 
 router.use("/admin", adminAuth);
@@ -168,7 +275,7 @@ const CreateAdminUserSchema = z.object({
   name: z.string().min(1).max(200).optional(),
 });
 
-router.post("/admin/users", async (req, res) => {
+router.post("/admin/users", reauthRateLimit, async (req, res) => {
   const parsed = CreateAdminUserSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
@@ -179,6 +286,10 @@ router.post("/admin/users", async (req, res) => {
   }
 
   const email = parsed.data.email.trim().toLowerCase();
+
+  // Provisioning an operator outlives the session that did it, so a stolen
+  // token must not be enough on its own.
+  if (!(await requireReauth(req, res))) return;
 
   try {
     const existing = await db.query.adminUsersTable.findFirst({
@@ -214,7 +325,7 @@ const PatchAdminUserSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-router.patch("/admin/users/:id", async (req, res) => {
+router.patch("/admin/users/:id", reauthRateLimit, async (req, res) => {
   const parsed = PatchAdminUserSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "bad_request", message: parsed.error.message });
@@ -223,11 +334,18 @@ router.patch("/admin/users/:id", async (req, res) => {
 
   try {
     const user = await db.query.adminUsersTable.findFirst({
-      where: eq(adminUsersTable.id, req.params.id),
+      where: eq(adminUsersTable.id, String(req.params.id)),
     });
     if (!user) {
       res.status(404).json({ error: "not_found", message: "Admin user not found" });
       return;
+    }
+
+    // Deactivating an operator strips their access and, combined with creating
+    // one, is a complete takeover — so it needs the same re-authentication as a
+    // password change. Renames are harmless and stay ungated.
+    if (parsed.data.isActive === false && user.isActive) {
+      if (!(await requireReauth(req, res))) return;
     }
 
     // Never let the last active operator be deactivated — that would leave the
@@ -258,7 +376,7 @@ router.patch("/admin/users/:id", async (req, res) => {
     const [updated] = await db
       .update(adminUsersTable)
       .set(updates)
-      .where(eq(adminUsersTable.id, req.params.id))
+      .where(eq(adminUsersTable.id, String(req.params.id)))
       .returning();
 
     // Deactivation must take effect now, not at session expiry.
@@ -278,7 +396,7 @@ const SetAdminPasswordSchema = z.object({
   currentPassword: z.string().min(1).max(200).optional(),
 });
 
-router.post("/admin/users/:id/password", async (req, res) => {
+router.post("/admin/users/:id/password", reauthRateLimit, async (req, res) => {
   const parsed = SetAdminPasswordSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({
@@ -290,31 +408,39 @@ router.post("/admin/users/:id/password", async (req, res) => {
 
   try {
     const user = await db.query.adminUsersTable.findFirst({
-      where: eq(adminUsersTable.id, req.params.id),
+      where: eq(adminUsersTable.id, String(req.params.id)),
     });
     if (!user) {
       res.status(404).json({ error: "not_found", message: "Admin user not found" });
       return;
     }
 
-    // currentPassword is optional (an admin can reset a peer), but when supplied
-    // it must be correct — that is the self-service change-password path.
-    if (
-      parsed.data.currentPassword !== undefined &&
-      !(await verifyPassword(parsed.data.currentPassword, user.passwordHash))
-    ) {
-      res.status(401).json({ error: "unauthorized", message: "Current password is incorrect" });
-      return;
-    }
+    // currentPassword used to be optional, and when supplied was checked against
+    // the TARGET's hash — which a peer resetter would not know, so the attack
+    // was simply to omit it. A stolen session could then reset the owner's
+    // password and, via revokeAdminSessions below, lock them out permanently.
+    if (!(await requireReauth(req, res))) return;
 
-    await db
-      .update(adminUsersTable)
-      .set({ passwordHash: await hashPassword(parsed.data.password) })
-      .where(eq(adminUsersTable.id, req.params.id));
+    const actor = req.adminIdentity?.user ?? null;
 
-    // A password change must invalidate every session opened under the old
-    // one — otherwise "reset their password" locks nobody out.
-    await revokeAdminSessions(user.id);
+    // The hash write and the session revocation must land together: if the
+    // revoke failed after the write, sessions opened under the OLD password
+    // would stay live against the new one.
+    await db.transaction(async (tx) => {
+      await tx
+        .update(adminUsersTable)
+        .set({ passwordHash: await hashPassword(parsed.data.password) })
+        .where(eq(adminUsersTable.id, String(req.params.id)));
+
+      await revokeAdminSessions(user.id, tx);
+    });
+
+    // No audit table exists yet, so the actor trail is the log. Self-service and
+    // peer resets are distinguished because they carry very different weight.
+    console.log(
+      `[admin] password changed for ${user.email} by ${adminActorEmail(req)}` +
+        (actor && actor.id === user.id ? " (self)" : " (peer reset)")
+    );
 
     res.json({ ok: true });
   } catch (err) {
@@ -560,19 +686,34 @@ router.delete("/admin/coa/:coaId", async (req, res) => {
 
 const CATEGORY_VALUES = categoryEnum.enumValues;
 
-const CreateProductSchema = z.object({
+// No .default() on the shared shape. A default survives .partial(), so on an
+// UPDATE Zod fills every absent key and .set() writes the injected value: a PUT
+// carrying only {name} silently emptied longDescription and reset featured to
+// false. Defaults are applied on create only, below.
+const ProductFieldsSchema = z.object({
   name: z.string().min(1).max(200),
   slug: z.string().min(1).max(200).regex(/^[a-z0-9-]+$/),
   category: z.enum(CATEGORY_VALUES),
+  // Provenance shown to buyers. Editable because it is a factual claim about the
+  // product, and correcting it previously required SQL.
+  sourcingPath: z.enum(sourcingPathEnum.enumValues).nullable().optional(),
   shortDescription: z.string().min(1).max(500),
+  longDescription: z.string(),
+  featured: z.boolean(),
+  published: z.boolean(),
+  imageUrl: z.string().url().nullable().optional(),
+  researchUses: z.array(z.string()),
+});
+
+const CreateProductSchema = ProductFieldsSchema.extend({
   longDescription: z.string().default(""),
   featured: z.boolean().default(false),
   published: z.boolean().default(true),
-  imageUrl: z.string().url().nullable().optional(),
   researchUses: z.array(z.string()).default([]),
 });
 
-const UpdateProductSchema = CreateProductSchema.partial();
+// Absent key means "leave it alone", never "reset to default".
+const UpdateProductSchema = ProductFieldsSchema.partial();
 
 router.post("/admin/products", async (req, res) => {
   const parsed = CreateProductSchema.safeParse(req.body);
@@ -684,7 +825,18 @@ function kitPricingViolation(
   return `A kit's retail price ($${(retailPriceCents / 100).toFixed(2)}) must be above its wholesale list price ($${(priceCents / 100).toFixed(2)}).`;
 }
 
-const CreateVariantSchema = z.object({
+// unitType is load-bearing: the wholesale rules (kit-only, 5-kit MOQ) are
+// enforced against it at checkout, so a wrong value makes a variant either
+// unsellable to wholesale or wrongly sellable. It had no admin control at all.
+//
+// vialsPerUnit backs the "10-vial kit" claim in every product description. The
+// refine keeps the two coherent: a single vial is one vial by definition, and a
+// kit of one is not a kit. Without it the copy and the data can drift silently.
+// No .default() here, deliberately. A default survives .partial(), so Zod fills
+// absent keys on an UPDATE and .set() then writes the injected value — a PUT
+// carrying only vialsPerUnit would silently rewrite unitType to "vial" and
+// convert a wholesale kit into a single vial. Defaults belong on create only.
+const VariantFieldsSchema = z.object({
   name: z.string().min(1).max(200),
   concentration: z.string().min(1).max(100),
   sizeml: z.number().positive(),
@@ -693,10 +845,33 @@ const CreateVariantSchema = z.object({
   // wholesale-only (hidden from the retail store).
   retailPriceCents: z.number().int().positive().nullish(),
   sku: z.string().min(1).max(100),
-  inStock: z.boolean().default(true),
+  unitType: z.enum(unitTypeEnum.enumValues),
+  vialsPerUnit: z.number().int().positive().max(1000),
+  inStock: z.boolean(),
 });
 
-const UpdateVariantSchema = CreateVariantSchema.partial();
+function vialsMatchUnitType(v: {
+  unitType?: "vial" | "kit";
+  vialsPerUnit?: number;
+}): boolean {
+  if (v.unitType === undefined || v.vialsPerUnit === undefined) return true;
+  return v.unitType === "vial" ? v.vialsPerUnit === 1 : v.vialsPerUnit > 1;
+}
+
+const UNIT_MISMATCH =
+  "A vial must have vialsPerUnit 1; a kit must have more than 1.";
+
+const CreateVariantSchema = VariantFieldsSchema.extend({
+  unitType: z.enum(unitTypeEnum.enumValues).default("vial"),
+  vialsPerUnit: z.number().int().positive().max(1000).default(1),
+  inStock: z.boolean().default(true),
+}).refine(vialsMatchUnitType, { message: UNIT_MISMATCH });
+
+// Partial with no defaults: an absent key means "leave it alone", never "reset".
+const UpdateVariantSchema = VariantFieldsSchema.partial().refine(
+  vialsMatchUnitType,
+  { message: UNIT_MISMATCH }
+);
 
 router.post("/admin/products/:id/variants", async (req, res) => {
   const productId = Number(req.params.id);
@@ -779,8 +954,22 @@ router.put("/admin/variants/:id", async (req, res) => {
         return;
       }
     }
+    // Validate the MERGED row, not just the patch: sending unitType alone would
+    // otherwise pass the schema refine and leave a stale vialsPerUnit behind —
+    // e.g. a "kit" still recorded as holding one vial.
+    if (
+      !vialsMatchUnitType({
+        unitType: parsed.data.unitType ?? existing.unitType,
+        vialsPerUnit: parsed.data.vialsPerUnit ?? existing.vialsPerUnit,
+      })
+    ) {
+      res.status(400).json({ error: "bad_request", message: UNIT_MISMATCH });
+      return;
+    }
+
+    // Also enforce the dual-price invariant on the merged row (retail > list).
     const putViolation = kitPricingViolation(
-      existing.unitType,
+      parsed.data.unitType ?? existing.unitType,
       parsed.data.priceCents ?? existing.priceCents,
       parsed.data.retailPriceCents !== undefined
         ? parsed.data.retailPriceCents
@@ -977,18 +1166,53 @@ router.post("/admin/orders/:id/confirm-ach", async (req, res) => {
     };
     if (parsed.data.bankLast4 != null) paymentUpdates.bankLast4 = parsed.data.bankLast4;
 
-    // Settle the payment record and confirm the order atomically — mirrors the
-    // BTCPay webhook settle path; neither write should land without the other.
-    await db.transaction(async (tx) => {
-      await tx
+    // Settle the payment record and confirm the order atomically — same shape as
+    // the BTCPay webhook settle path. Both updates carry their own status
+    // predicate rather than trusting the SELECT above: without them two
+    // concurrent confirmations both succeed, and an order an admin has already
+    // refunded is confirmed a second time.
+    const settled = await db.transaction(async (tx) => {
+      const [movedPayment] = await tx
         .update(paymentRecordsTable)
         .set(paymentUpdates)
-        .where(eq(paymentRecordsTable.id, payment.id));
-      await tx
+        .where(
+          and(
+            eq(paymentRecordsTable.id, payment.id),
+            eq(paymentRecordsTable.status, "pending")
+          )
+        )
+        .returning();
+
+      if (!movedPayment) return false;
+
+      const [movedOrder] = await tx
         .update(ordersTable)
-        .set({ status: "confirmed" })
-        .where(eq(ordersTable.id, order.id));
+        .set({ status: "confirmed", updatedAt: new Date() })
+        .where(
+          and(
+            eq(ordersTable.id, order.id),
+            inArray(ordersTable.status, SETTLEABLE_ORDER_STATUSES)
+          )
+        )
+        .returning();
+
+      if (!movedOrder) {
+        console.error(
+          `[admin] ACH payment ${payment.id} was confirmed but order ${order.id} ` +
+            `was not in a settleable status; needs manual review`
+        );
+      }
+
+      return true;
     });
+
+    if (!settled) {
+      res.status(409).json({
+        error: "conflict",
+        message: "This payment has already been settled",
+      });
+      return;
+    }
 
     res.json({
       orderId: order.id,
@@ -1139,8 +1363,6 @@ router.get("/admin/orders/:id", async (req, res) => {
 });
 
 // Terminal states cannot transition to a different status.
-const TERMINAL_ORDER_STATUSES: readonly string[] = ["refunded"];
-
 const PatchOrderSchema = z
   .object({
     status: z.enum(orderStatusEnum.enumValues).optional(),
@@ -1183,9 +1405,27 @@ router.patch("/admin/orders/:id", async (req, res) => {
     if (parsed.data.trackingNumber !== undefined) updates.trackingNumber = parsed.data.trackingNumber;
     if (parsed.data.carrier !== undefined) updates.carrier = parsed.data.carrier;
 
-    const [updated] = await db.transaction(async (tx) =>
-      tx.update(ordersTable).set(updates).where(eq(ordersTable.id, order.id)).returning()
+    // The terminal check above reads the SELECTed row, which is already stale.
+    // When this request changes status, re-assert non-terminality on the UPDATE
+    // so a refund committed in between cannot be silently overwritten.
+    const guard = and(
+      eq(ordersTable.id, order.id),
+      parsed.data.status !== undefined
+        ? notInArray(ordersTable.status, [...TERMINAL_ORDER_STATUSES])
+        : undefined
     );
+
+    const [updated] = await db.transaction(async (tx) =>
+      tx.update(ordersTable).set(updates).where(guard).returning()
+    );
+
+    if (!updated) {
+      res.status(409).json({
+        error: "conflict",
+        message: "Order reached a terminal status before this change was applied",
+      });
+      return;
+    }
 
     res.json(updated);
   } catch (err) {
@@ -1210,11 +1450,21 @@ router.post("/admin/orders/:id/refund", async (req, res) => {
       return;
     }
 
+    // The status predicate lives on the UPDATE, not just the check above: two
+    // concurrent refund clicks would otherwise both pass the SELECT and both
+    // write, recording the refund twice.
     const [updated] = await db
       .update(ordersTable)
       .set({ status: "refunded", updatedAt: new Date() })
-      .where(eq(ordersTable.id, order.id))
+      .where(
+        and(eq(ordersTable.id, order.id), ne(ordersTable.status, "refunded"))
+      )
       .returning();
+
+    if (!updated) {
+      res.status(409).json({ error: "conflict", message: "Order is already refunded" });
+      return;
+    }
 
     res.json(updated);
   } catch (err) {

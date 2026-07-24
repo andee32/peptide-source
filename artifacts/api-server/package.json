@@ -6,8 +6,11 @@
   "scripts": {
     "dev": "NODE_ENV=development node --env-file-if-exists=../../.env --import tsx ./src/index.ts",
     "build": "tsx ./build.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test:unit": "vitest run",
+    "test:db": "node --import tsx ./test/setup/createTestDb.ts",
+    "test:integration": "pnpm run test:db && node --import tsx --import ./test/setup/env.ts --test --test-concurrency=1 \"test/**/*.test.ts\"",
+    "test": "pnpm run test:unit && pnpm run test:integration"
   },
   "dependencies": {
     "@atlab/api-zod": "workspace:*",
@@ -27,8 +30,10 @@
     "@types/express": "^5.0.6",
     "@types/node": "catalog:",
     "@types/nodemailer": "^7.0.11",
+    "@types/pg": "^8.18.0",
     "@types/qrcode": "^1.5.6",
     "esbuild": "^0.27.3",
+    "pg": "^8.20.0",
     "tsx": "catalog:",
     "vitest": "^4.1.10"
   }

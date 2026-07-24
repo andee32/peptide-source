@@ -140,3 +140,4 @@ export * from "./subscriptionDetailStatus";
 export * from "./subscriptionPlan";
 export * from "./subscriptionPlanProductBundleItem";
 export * from "./subscriptionSkipped";
+export * from "./zelleInstructions";

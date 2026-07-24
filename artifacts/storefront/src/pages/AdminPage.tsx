@@ -101,6 +101,8 @@ type AdminVariant = {
   sizeml: number;
   priceCents: number;
   sku: string;
+  unitType: "vial" | "kit";
+  vialsPerUnit: number;
   inStock: boolean;
 };
 
@@ -109,6 +111,7 @@ type AdminProduct = {
   name: string;
   slug: string;
   category: CategoryValue;
+  sourcingPath: "usa_domestic" | "asia_warehouse" | null;
   shortDescription: string;
   longDescription: string;
   featured: boolean;
@@ -1428,6 +1431,7 @@ function ProductDialog({
   const [name, setName] = useState(product?.name ?? "");
   const [slug, setSlug] = useState(product?.slug ?? "");
   const [category, setCategory] = useState<CategoryValue>(product?.category ?? "other");
+  const [sourcingPath, setSourcingPath] = useState<string>(product?.sourcingPath ?? "");
   const [shortDesc, setShortDesc] = useState(product?.shortDescription ?? "");
   const [longDesc, setLongDesc] = useState(product?.longDescription ?? "");
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? "");
@@ -1442,6 +1446,7 @@ function ProductDialog({
       setName(product?.name ?? "");
       setSlug(product?.slug ?? "");
       setCategory(product?.category ?? "other");
+      setSourcingPath(product?.sourcingPath ?? "");
       setShortDesc(product?.shortDescription ?? "");
       setLongDesc(product?.longDescription ?? "");
       setImageUrl(product?.imageUrl ?? "");
@@ -1463,7 +1468,8 @@ function ProductDialog({
     setError("");
     const uses = researchUses.split(",").map(s => s.trim()).filter(Boolean);
     const body = {
-      name, slug, category, shortDescription: shortDesc, longDescription: longDesc,
+      name, slug, category, sourcingPath: sourcingPath || null,
+      shortDescription: shortDesc, longDescription: longDesc,
       imageUrl: imageUrl || null, researchUses: uses, featured, published,
     };
     try {
@@ -1511,6 +1517,20 @@ function ProductDialog({
                   {CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="col-span-2">
+              <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Sourcing Path</Label>
+              <Select value={sourcingPath || "unset"} onValueChange={v => setSourcingPath(v === "unset" ? "" : v)}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unset">Not specified</SelectItem>
+                  <SelectItem value="usa_domestic">USA Domestic</SelectItem>
+                  <SelectItem value="asia_warehouse">Asia Warehouse</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Provenance claim shown to buyers — keep it truthful</p>
             </div>
             <div className="col-span-2">
               <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Short Description *</Label>
@@ -1572,6 +1592,8 @@ function VariantDialog({
   const [sizeml, setSizeml] = useState(variant?.sizeml?.toString() ?? "");
   const [priceDollars, setPriceDollars] = useState(variant ? (variant.priceCents / 100).toFixed(2) : "");
   const [sku, setSku] = useState(variant?.sku ?? "");
+  const [unitType, setUnitType] = useState<"vial" | "kit">(variant?.unitType ?? "vial");
+  const [vialsPerUnit, setVialsPerUnit] = useState(String(variant?.vialsPerUnit ?? 1));
   const [inStock, setInStock] = useState(variant?.inStock ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -1583,6 +1605,8 @@ function VariantDialog({
       setSizeml(variant?.sizeml?.toString() ?? "");
       setPriceDollars(variant ? (variant.priceCents / 100).toFixed(2) : "");
       setSku(variant?.sku ?? "");
+      setUnitType(variant?.unitType ?? "vial");
+      setVialsPerUnit(String(variant?.vialsPerUnit ?? 1));
       setInStock(variant?.inStock ?? true);
       setError("");
     }
@@ -1597,6 +1621,8 @@ function VariantDialog({
       sizeml: parseFloat(sizeml),
       priceCents: Math.round(parseFloat(priceDollars) * 100),
       sku, inStock,
+      unitType,
+      vialsPerUnit: parseInt(vialsPerUnit, 10),
     };
     try {
       await adminFetch(
@@ -1643,6 +1669,44 @@ function VariantDialog({
             <div>
               <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">SKU *</Label>
               <Input value={sku} onChange={e => setSku(e.target.value)} placeholder="SEM-5MG-2ML" className="mt-1 font-mono text-sm" required />
+            </div>
+            <div>
+              <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Unit Type *</Label>
+              <Select
+                value={unitType}
+                onValueChange={v => {
+                  const next = v as "vial" | "kit";
+                  setUnitType(next);
+                  // Keep the two coherent by default; the server rejects a vial
+                  // with more than one, or a "kit" of one.
+                  setVialsPerUnit(next === "vial" ? "1" : (parseInt(vialsPerUnit, 10) > 1 ? vialsPerUnit : "10"));
+                }}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="vial">Single Vial (retail)</SelectItem>
+                  <SelectItem value="kit">Kit (wholesale)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Wholesale accounts may only buy kits</p>
+            </div>
+            <div>
+              <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Vials Per Unit *</Label>
+              <Input
+                value={vialsPerUnit}
+                onChange={e => setVialsPerUnit(e.target.value)}
+                className="mt-1"
+                type="number"
+                min="1"
+                step="1"
+                required
+                disabled={unitType === "vial"}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {unitType === "vial" ? "Always 1 for a single vial" : "Must match the product description (e.g. 10-vial kit)"}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">

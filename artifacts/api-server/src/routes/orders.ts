@@ -1,6 +1,6 @@
 import { Router, type Request } from "express";
 import { z } from "zod/v4";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, inArray, sql, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import QRCode from "qrcode";
 import { db } from "@atlab/db";
@@ -28,13 +28,17 @@ import {
   generateAchReferenceCode,
   buildBankInstructions,
   isAchProvisioned,
+  isZelleProvisioned,
+  buildZelleInstructions,
   ACH_EXPIRY_DAYS,
 } from "../services/ach";
+import { PAYABLE_ORDER_STATUSES } from "../lib/orderStatus";
 
 const router = Router();
 
 // Retail crypto discount is admin-configured (store_settings.crypto_discount_bps);
-// this default only covers a missing settings row.
+// this default only covers a missing settings row. Supersedes the old hardcoded
+// CRYPTO_DISCOUNT_RATE — the discount now flows through resolveDiscounts().
 const DEFAULT_CRYPTO_DISCOUNT_BPS = 1000;
 
 async function getCryptoDiscountBps(): Promise<number> {
@@ -43,6 +47,20 @@ async function getCryptoDiscountBps(): Promise<number> {
     columns: { cryptoDiscountBps: true },
   });
   return row?.cryptoDiscountBps ?? DEFAULT_CRYPTO_DISCOUNT_BPS;
+}
+
+type OrderStatus = (typeof ordersTable.$inferSelect)["status"];
+
+function rejectIfNotPayable(
+  status: OrderStatus,
+  res: import("express").Response
+): boolean {
+  if (PAYABLE_ORDER_STATUSES.includes(status)) return false;
+  res.status(409).json({
+    error: "conflict",
+    message: `Order is ${status} and cannot accept a new payment`,
+  });
+  return true;
 }
 
 /**
@@ -119,7 +137,7 @@ const createOrderSchema = z.object({
   lineItems: z.array(lineItemInputSchema).min(1).max(50),
   ruoAffirmed: z.boolean(),
   signerName: z.string().min(1).max(200),
-  paymentMethod: z.enum(["crypto_btc", "crypto_usdc", "ach", "wire"]),
+  paymentMethod: z.enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"]),
   discountCode: z.string().max(64).nullish(),
   shippingName: z.string().min(1).max(200),
   shippingEmail: z.string().email(),
@@ -137,7 +155,7 @@ const quoteOrderSchema = z.object({
   accountId: z.string().nullish(),
   token: z.string().nullish(),
   lineItems: z.array(lineItemInputSchema).min(1).max(50),
-  paymentMethod: z.enum(["crypto_btc", "crypto_usdc", "ach", "wire"]),
+  paymentMethod: z.enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"]),
   discountCode: z.string().max(64).nullish(),
 });
 
@@ -178,7 +196,7 @@ async function priceOrderRequest(input: {
   accountId?: string | null;
   token?: string | null;
   lineItems: Array<{ variantId: number; quantity: number }>;
-  paymentMethod: "crypto_btc" | "crypto_usdc" | "ach" | "wire";
+  paymentMethod: "crypto_btc" | "crypto_usdc" | "ach" | "wire" | "zelle";
   discountCode?: string | null;
 }): Promise<PricedOrder | PricingError> {
   const variantIds = input.lineItems.map((li) => li.variantId);
@@ -250,6 +268,23 @@ async function priceOrderRequest(input: {
   // ── Wholesale path: authenticate account, enforce kit-only + MOQ, resolve
   // tier pricing. Retail path (no accountId) is unchanged.
   const isWholesale = !!input.accountId;
+
+  // Zelle is wholesale-only, enforced here rather than by hiding the option in
+  // the UI. It identifies the recipient by phone/email rather than an account
+  // number, so exposing it publicly would publish a direct line to the operating
+  // bank account — and it has no dispute mechanism in either direction. Limiting
+  // it to approved B2B accounts keeps it to counterparties already known.
+  if (input.paymentMethod === "zelle" && !isWholesale) {
+    return {
+      ok: false,
+      status: 422,
+      body: {
+        error: "unprocessable_entity",
+        code: "ZELLE_WHOLESALE_ONLY",
+        message: "Zelle is available to approved wholesale accounts only.",
+      },
+    };
+  }
   const priceOverrides = new Map<number, number>();
 
   // Retail kit pricing: kits sell retail only at their admin-set
@@ -592,6 +627,7 @@ router.get("/orders/:id", async (req, res) => {
   }
   const payment = await db.query.paymentRecordsTable.findFirst({
     where: eq(paymentRecordsTable.orderId, order.id),
+    orderBy: [desc(paymentRecordsTable.createdAt)],
   });
   res.json({ ...order, payment: payment ?? null });
 });
@@ -615,9 +651,11 @@ router.post("/orders/:id/crypto-invoice", async (req, res) => {
     });
     return;
   }
+  if (rejectIfNotPayable(order.status, res)) return;
 
   const existingPending = await db.query.paymentRecordsTable.findFirst({
     where: eq(paymentRecordsTable.orderId, order.id),
+    orderBy: [desc(paymentRecordsTable.createdAt)],
   });
   if (existingPending && existingPending.status === "pending") {
     const qrPaymentUri =
@@ -659,23 +697,56 @@ router.post("/orders/:id/crypto-invoice", async (req, res) => {
   }
 
   const recordId = randomUUID();
-  await db.insert(paymentRecordsTable).values({
-    id: recordId,
-    orderId: order.id,
-    btcpayInvoiceId: invoice.invoiceId,
-    currency: invoice.currency,
-    amount: invoice.amount,
-    amountCents: invoice.amountCents,
-    paymentAddress: invoice.paymentAddress,
-    paymentUrl: invoice.paymentUrl,
-    expiresAt: invoice.expiresAt,
-    status: "pending",
+
+  // The BTCPay round trip above takes seconds, so the status read at the top of
+  // this handler is stale by now — an admin could have refunded the order in the
+  // meantime. Re-assert payability on the UPDATE itself, and keep the record
+  // insert in the same transaction so a crash cannot leave a live invoice
+  // attached to an order that never advanced.
+  const minted = await db.transaction(async (tx) => {
+    const [movedOrder] = await tx
+      .update(ordersTable)
+      .set({ status: "awaiting_payment", updatedAt: new Date() })
+      .where(
+        and(
+          eq(ordersTable.id, order.id),
+          inArray(ordersTable.status, PAYABLE_ORDER_STATUSES)
+        )
+      )
+      .returning();
+
+    if (!movedOrder) return false;
+
+    await tx.insert(paymentRecordsTable).values({
+      id: recordId,
+      orderId: order.id,
+      btcpayInvoiceId: invoice.invoiceId,
+      currency: invoice.currency,
+      amount: invoice.amount,
+      amountCents: invoice.amountCents,
+      paymentAddress: invoice.paymentAddress,
+      paymentUrl: invoice.paymentUrl,
+      expiresAt: invoice.expiresAt,
+      status: "pending",
+    });
+
+    return true;
   });
 
-  await db
-    .update(ordersTable)
-    .set({ status: "awaiting_payment" })
-    .where(eq(ordersTable.id, order.id));
+  if (!minted) {
+    // The order moved out of a payable status while BTCPay was minting. The
+    // invoice exists upstream but is deliberately not recorded against the
+    // order, so nothing here can be paid into a settled or refunded order.
+    console.warn(
+      `[orders] discarded BTCPay invoice ${invoice.invoiceId}: order ${order.id} ` +
+        `left a payable status during minting`
+    );
+    res.status(409).json({
+      error: "conflict",
+      message: "Order status changed while creating the invoice; please retry",
+    });
+    return;
+  }
 
   res.status(201).json({
     paymentRecordId: recordId,
@@ -702,26 +773,70 @@ router.post("/orders/:id/ach-instructions", async (req, res) => {
     res.status(403).json(FORBIDDEN);
     return;
   }
-  if (order.paymentMethod !== "ach" && order.paymentMethod !== "wire") {
+  const BANK_METHODS = ["ach", "wire", "zelle"] as const;
+  if (!(BANK_METHODS as readonly string[]).includes(order.paymentMethod)) {
     res.status(400).json({
       error: "invalid_payment_method",
-      message: "This order does not use the ACH/wire payment rail",
+      message: "This order does not use a bank-transfer payment rail",
+    });
+    return;
+  }
+  const isZelle = order.paymentMethod === "zelle";
+
+  // Zelle is wholesale-only. The check at order creation is the primary gate;
+  // this one stops a retail order that somehow carries the method from ever
+  // being handed a Zelle destination.
+  if (isZelle && order.channel !== "wholesale") {
+    res.status(422).json({
+      error: "unprocessable_entity",
+      code: "ZELLE_WHOLESALE_ONLY",
+      message: "Zelle is available to approved wholesale accounts only.",
     });
     return;
   }
 
-  // Fail closed: never hand a buyer placeholder bank details. Until the real
-  // beneficiary banking info is provisioned via env, the ACH rail is unavailable.
-  if (!isAchProvisioned()) {
-    res.status(503).json({ error: "ach_unavailable" });
+  // Approval must hold NOW, not merely at order time. The access token is minted
+  // at application and never rotated, so without this a buyer whose KYB later
+  // failed keeps re-fetching the live operating-bank handle from the idempotent
+  // path below — which defeats the entire reason the rail is limited to
+  // already-approved counterparties.
+  if (isZelle) {
+    const account = order.accountId
+      ? await db.query.customerAccountsTable.findFirst({
+          where: eq(customerAccountsTable.id, order.accountId),
+        })
+      : null;
+    if (account?.status !== "approved") {
+      res.status(403).json({
+        error: "forbidden",
+        code: "ZELLE_WHOLESALE_ONLY",
+        message: "Zelle is available to approved wholesale accounts only.",
+      });
+      return;
+    }
+  }
+
+  // Fail closed: never hand a buyer a payment destination we have not verified.
+  // Until the real details are provisioned via env, the rail is unavailable.
+  // A Zelle transfer is irreversible with no dispute path, so a wrong handle
+  // means the buyer's funds are simply gone.
+  if (isZelle ? !isZelleProvisioned() : !isAchProvisioned()) {
+    res.status(503).json({ error: isZelle ? "zelle_unavailable" : "ach_unavailable" });
     return;
   }
+  if (rejectIfNotPayable(order.status, res)) return;
 
   // Idempotent: return the existing pending ACH record if one already exists.
   const existing = await db.query.paymentRecordsTable.findFirst({
     where: eq(paymentRecordsTable.orderId, order.id),
+    orderBy: [desc(paymentRecordsTable.createdAt)],
   });
-  if (existing && existing.status === "pending" && existing.referenceCode) {
+  if (
+    existing &&
+    existing.status === "pending" &&
+    existing.referenceCode &&
+    existing.method === (isZelle ? "zelle" : "ach")
+  ) {
     res.status(200).json({
       paymentRecordId: existing.id,
       orderId: order.id,
@@ -731,7 +846,9 @@ router.post("/orders/:id/ach-instructions", async (req, res) => {
       currency: existing.currency,
       status: existing.status,
       expiresAt: existing.expiresAt.toISOString(),
-      instructions: buildBankInstructions(existing.referenceCode),
+      instructions: isZelle
+        ? buildZelleInstructions(existing.referenceCode)
+        : buildBankInstructions(existing.referenceCode),
     });
     return;
   }
@@ -742,25 +859,45 @@ router.post("/orders/:id/ach-instructions", async (req, res) => {
   const expiresAt = new Date(Date.now() + ACH_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
 
   // Create the pending payment record and advance the order status atomically —
-  // neither write should land without the other.
-  await db.transaction(async (tx) => {
+  // neither write should land without the other. The status predicate sits on
+  // the UPDATE, not just the check above, so a concurrent refund cannot be
+  // overwritten between the two.
+  const minted = await db.transaction(async (tx) => {
+    const [movedOrder] = await tx
+      .update(ordersTable)
+      .set({ status: "awaiting_payment", updatedAt: new Date() })
+      .where(
+        and(
+          eq(ordersTable.id, order.id),
+          inArray(ordersTable.status, PAYABLE_ORDER_STATUSES)
+        )
+      )
+      .returning();
+
+    if (!movedOrder) return false;
+
     await tx.insert(paymentRecordsTable).values({
       id: recordId,
       orderId: order.id,
       currency: "USD",
       amount,
       amountCents: order.totalCents,
-      method: "ach",
+      method: isZelle ? "zelle" : "ach",
       referenceCode,
       expiresAt,
       status: "pending",
     });
 
-    await tx
-      .update(ordersTable)
-      .set({ status: "awaiting_payment" })
-      .where(eq(ordersTable.id, order.id));
+    return true;
   });
+
+  if (!minted) {
+    res.status(409).json({
+      error: "conflict",
+      message: "Order status changed while creating the instructions; please retry",
+    });
+    return;
+  }
 
   res.status(201).json({
     paymentRecordId: recordId,
@@ -771,14 +908,16 @@ router.post("/orders/:id/ach-instructions", async (req, res) => {
     currency: "USD",
     status: "pending",
     expiresAt: expiresAt.toISOString(),
-    instructions: buildBankInstructions(referenceCode),
+    instructions: isZelle
+      ? buildZelleInstructions(referenceCode)
+      : buildBankInstructions(referenceCode),
   });
 });
 
 router.get("/orders/:id/payment-qr", async (req, res) => {
-  // Same authorization as every other per-order endpoint: the QR encodes the
-  // pay-to address and the exact amount, which for a wholesale order discloses
-  // the tier-priced total.
+  // Every sibling handler gates on canReadOrder; this one did not, so an order
+  // id alone yielded the pay-to address and the exact amount — which for a
+  // wholesale order discloses the tier-priced total.
   const order = await db.query.ordersTable.findFirst({
     where: eq(ordersTable.id, req.params.id),
   });
@@ -792,10 +931,16 @@ router.get("/orders/:id/payment-qr", async (req, res) => {
   }
 
   const payment = await db.query.paymentRecordsTable.findFirst({
-    where: eq(paymentRecordsTable.orderId, req.params.id),
+    where: and(
+      eq(paymentRecordsTable.orderId, req.params.id),
+      eq(paymentRecordsTable.status, "pending")
+    ),
+    orderBy: [desc(paymentRecordsTable.createdAt)],
   });
-  if (!payment?.paymentAddress) {
-    res.status(404).json({ error: "not_found", message: "Payment record not found" });
+  // Only a live, unexpired invoice gets a scannable code — rendering one for a
+  // settled or expired invoice invites a payment that can no longer be credited.
+  if (!payment?.paymentAddress || payment.expiresAt.getTime() <= Date.now()) {
+    res.status(404).json({ error: "not_found", message: "No live payment record for this order" });
     return;
   }
   const qrUri =

@@ -24,7 +24,7 @@ import {
 
 const WHOLESALE_MOQ_KITS = 5;
 
-type PaymentMethod = "crypto_btc" | "crypto_usdc" | "ach";
+type PaymentMethod = "crypto_btc" | "crypto_usdc" | "ach" | "zelle";
 
 // RUO attestation snapshot shown to the buyer. The server persists its own
 // authoritative copy per order (see api-server routes/orders.ts).
@@ -62,14 +62,16 @@ interface AchInstructions {
   currency: string;
   status: string;
   expiresAt: string;
-  instructions: {
-    beneficiaryName: string;
-    bankName: string;
-    routingNumber: string;
-    accountNumber: string;
-    accountType: string;
-    memo: string;
-  };
+  instructions:
+    | {
+        beneficiaryName: string;
+        bankName: string;
+        routingNumber: string;
+        accountNumber: string;
+        accountType: string;
+        memo: string;
+      }
+    | { recipient: string; recipientName: string; memo: string };
 }
 
 type CheckoutStep =
@@ -88,6 +90,11 @@ const POLL_INTERVAL_MS = 6000;
 // it once real bank details are provisioned (backend gates the same way). Buyers
 // must never see placeholder bank details.
 const ACH_ENABLED = import.meta.env.VITE_ACH_ENABLED === "true";
+
+// Zelle is wholesale-only and gated the same way. This flag only controls
+// whether the option is OFFERED — the server rejects zelle on any retail order
+// regardless, so hiding it here is convenience, not the control.
+const ZELLE_ENABLED = import.meta.env.VITE_ZELLE_ENABLED === "true";
 
 function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -822,13 +829,19 @@ export function CheckoutPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              {[
-                ["Beneficiary", ach.instructions.beneficiaryName],
-                ["Bank", ach.instructions.bankName],
-                ["Routing Number", ach.instructions.routingNumber],
-                ["Account Number", ach.instructions.accountNumber],
-                ["Account Type", ach.instructions.accountType],
-              ].map(([label, value]) => (
+              {("recipient" in ach.instructions
+                ? [
+                    ["Send Zelle to", ach.instructions.recipient],
+                    ["Recipient Name", ach.instructions.recipientName],
+                  ]
+                : [
+                    ["Beneficiary", ach.instructions.beneficiaryName],
+                    ["Bank", ach.instructions.bankName],
+                    ["Routing Number", ach.instructions.routingNumber],
+                    ["Account Number", ach.instructions.accountNumber],
+                    ["Account Type", ach.instructions.accountType],
+                  ]
+              ).map(([label, value]) => (
                 <div key={label} className="bg-muted border border-border rounded-lg p-3">
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                     {label}
@@ -1157,7 +1170,22 @@ export function CheckoutPage() {
                         icon: <Landmark className="w-5 h-5" />,
                         available: ACH_ENABLED,
                       },
-                    ] as const
+                      // Wholesale accounts only. Never offered on a retail
+                      // checkout — the server enforces the same rule.
+                      ...(isWholesale
+                        ? [
+                            {
+                              value: "zelle" as PaymentMethod,
+                              label: "Zelle",
+                              sub: ZELLE_ENABLED
+                                ? "Wholesale only"
+                                : "Unavailable",
+                              icon: <Landmark className="w-5 h-5" />,
+                              available: ZELLE_ENABLED,
+                            },
+                          ]
+                        : []),
+                    ]
                   ).map((method) => {
                     const selected = paymentMethod === method.value;
                     return (
