@@ -71,6 +71,21 @@ type BatchStatus = "pending" | "released" | "quarantined";
 type TestType = "purity" | "endotoxin" | "sterility" | "heavyMetals";
 type AdminTab = "dashboard" | "orders" | "catalog" | "batches" | "subscriptions" | "products" | "accounts" | "tiers" | "payments" | "discounts" | "users" | "settings";
 
+const ADMIN_TABS: { key: AdminTab; label: string }[] = [
+  { key: "dashboard", label: "Dashboard" },
+  { key: "orders", label: "Orders" },
+  { key: "catalog", label: "Catalog" },
+  { key: "batches", label: "Batch Management" },
+  { key: "subscriptions", label: "Subscriptions" },
+  { key: "accounts", label: "Customers" },
+  { key: "tiers", label: "Price Tiers" },
+  { key: "payments", label: "Payments" },
+  { key: "discounts", label: "Discounts" },
+  { key: "products", label: "Products" },
+  { key: "users", label: "Users" },
+  { key: "settings", label: "Settings" },
+];
+
 type AdminCoaResult = {
   id: string;
   testType: TestType;
@@ -975,7 +990,9 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
               alt="AT Lab Sourcing"
               className="h-7 w-7 object-contain shrink-0"
             />
-            <span className="font-display text-sm sm:text-base font-extrabold tracking-tight truncate">AT Lab Sourcing</span>
+            <span className="font-display text-sm sm:text-base font-extrabold tracking-tight truncate">
+              AT <span className="text-[var(--atl-blue)]">Lab</span> Sourcing
+            </span>
             <span className="text-muted-foreground/60 text-sm font-mono hidden sm:inline">/</span>
             <span className="text-muted-foreground text-sm font-mono hidden sm:inline">Admin</span>
           </div>
@@ -992,35 +1009,43 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
         </div>
       </header>
 
-      {/* Tab bar */}
+      {/* Tab bar — dropdown on small screens, wrapping tabs on desktop (no scroll) */}
       <div className="border-b border-border/50 bg-card/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex gap-0 overflow-x-auto whitespace-nowrap scrollbar-none">
-          {([
-            { key: "dashboard", label: "Dashboard" },
-            { key: "orders", label: "Orders" },
-            { key: "catalog", label: "Catalog" },
-            { key: "batches", label: "Batch Management" },
-            { key: "subscriptions", label: "Subscriptions" },
-            { key: "accounts", label: "Customers" },
-            { key: "tiers", label: "Price Tiers" },
-            { key: "payments", label: "Payments" },
-            { key: "discounts", label: "Discounts" },
-            { key: "products", label: "Products" },
-            { key: "users", label: "Users" },
-            { key: "settings", label: "Settings" },
-          ] as { key: AdminTab; label: string }[]).map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => { setActiveTab(tab.key); setSelectedBatch(null); }}
-              className={`shrink-0 px-4 sm:px-5 py-3 text-sm font-mono font-medium border-b-2 transition-colors ${
-                activeTab === tab.key
-                  ? "border-primary text-teal-ink"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          {/* Small screens: a menu instead of a long horizontal scroll */}
+          <div className="md:hidden py-2">
+            <Select
+              value={activeTab}
+              onValueChange={(v) => { setActiveTab(v as AdminTab); setSelectedBatch(null); }}
             >
-              {tab.label}
-            </button>
-          ))}
+              <SelectTrigger className="w-full font-mono">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {ADMIN_TABS.map((tab) => (
+                  <SelectItem key={tab.key} value={tab.key} className="font-mono">
+                    {tab.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Desktop: tabs wrap to a second row rather than scrolling */}
+          <div className="hidden md:flex flex-wrap">
+            {ADMIN_TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => { setActiveTab(tab.key); setSelectedBatch(null); }}
+                className={`px-4 lg:px-5 py-3 text-sm font-mono font-medium border-b-2 transition-colors ${
+                  activeTab === tab.key
+                    ? "border-primary text-teal-ink"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
