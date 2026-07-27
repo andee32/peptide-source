@@ -96,13 +96,16 @@ Deep-navy `#0a1628` is a section treatment, not the app default. Phase 2 rewrite
   guards unchanged). Zelle's retail toggle is permanently locked off.
 - **Order lifecycle gained a `shipped` stage** (confirmed → shipped, `shippedAt` +
   tracking; revenue counts confirmed+shipped).
-- **Emails wired** via SMTP/nodemailer, placeholder-guarded (log until SMTP set): order
-  confirmation (buyer) + shipper/fulfillment notice on confirm, shipment on ship, password
-  reset/invite. Shipper address = `store_settings.fulfillmentEmail` (admin-only, set in
-  Settings). SMTP currently points at **Resend on the `aletheahealth.ai` domain — INTERIM**;
-  move to an AT Lab domain before launch (see memory). Still MISSING: "how to pay" /
-  payment-instructions, payment-failed, wholesale approved/rejected, ops order-received,
-  unpaid-order recovery.
+- **Emails wired** via SMTP/nodemailer, placeholder-guarded (log until SMTP set). On
+  placement: buyer rail-aware "how to pay" (links to the order page, never embeds live
+  bank/crypto/Zelle detail) + ops "order received". On confirm: buyer order-confirmation +
+  shipper/fulfillment notice. On ship: shipment. On payment expiry/invalid (BTCPay webhook):
+  buyer payment-failed. On wholesale approve/reject: buyer decision email. Daily sweep:
+  one-time unpaid-order recovery reminder (72h–14d old; idempotent via
+  `orders.recoveryEmailedAt`). Plus password reset/invite. Shipper/ops address =
+  `store_settings.fulfillmentEmail` (admin-only, set in Settings). SMTP currently points at
+  **Resend on the `aletheahealth.ai` domain — INTERIM**; move to an AT Lab domain before
+  launch (see memory).
 - **RUO entry gates** for both retail and wholesale (shared `RuoGate`). Admin nav is
   Customers (identity-centric) + Price Tiers + Payments, responsive.
 - Backend is now covered by integration tests (`test/**` via node:test) + vitest units.
@@ -114,6 +117,6 @@ Deep-navy `#0a1628` is a section treatment, not the app default. Phase 2 rewrite
 - Server derives all prices; the client never sends a price. Wholesale prices resolve
   from the account's assigned tier (`discountBps` % off list).
 - Original LSI blockers still to clear beyond Phase 0: batch↔order linkage, subscription
-  reactivation, placeholder Janoshik integration, and the remaining order emails (above).
+  reactivation, and placeholder Janoshik integration. (The order-email set is now complete.)
 - LSI reference docs copied in (SPRINT-PLAN-CRITICAL-BLOCKERS.md, PRODUCT-GAP-AUDIT.md,
   etc.) describe the donor's pre-fork state — read as history, not current truth.
