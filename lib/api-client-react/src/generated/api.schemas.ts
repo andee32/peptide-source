@@ -905,6 +905,16 @@ export interface ConfirmAchResponse {
   paymentStatus: ConfirmAchResponsePaymentStatus;
 }
 
+/**
+ * One required config key for a rail and whether it is set. Never carries the value.
+ */
+export interface PaymentConfigItem {
+  label: string;
+  /** The environment variable that supplies this value (set in .env, never editable via API). */
+  envVar: string;
+  set: boolean;
+}
+
 export type PaymentMethodStateMethod =
   (typeof PaymentMethodStateMethod)[keyof typeof PaymentMethodStateMethod];
 
@@ -926,6 +936,8 @@ export interface PaymentMethodState {
   configLabel: string;
   /** True when the rail's backend config/secrets are provisioned. */
   configured: boolean;
+  /** Per-key readiness — which config each rail needs and whether it is set. Never includes the secret values. */
+  configItems: PaymentConfigItem[];
   /** False for wholesale-only rails (Zelle) — their retail toggle can never be on. */
   retailAllowed: boolean;
   enabledRetail: boolean;

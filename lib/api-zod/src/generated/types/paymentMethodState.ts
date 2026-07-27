@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PaymentConfigItem } from "./paymentConfigItem";
 import type { PaymentMethodStateMethod } from "./paymentMethodStateMethod";
 
 /**
@@ -17,6 +18,8 @@ export interface PaymentMethodState {
   configLabel: string;
   /** True when the rail's backend config/secrets are provisioned. */
   configured: boolean;
+  /** Per-key readiness — which config each rail needs and whether it is set. Never includes the secret values. */
+  configItems: PaymentConfigItem[];
   /** False for wholesale-only rails (Zelle) — their retail toggle can never be on. */
   retailAllowed: boolean;
   enabledRetail: boolean;

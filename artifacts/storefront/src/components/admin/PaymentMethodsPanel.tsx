@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw, Check, X } from "lucide-react";
 import {
   useAdminListPaymentMethods,
   useAdminPatchPaymentMethod,
@@ -23,6 +23,45 @@ function ConfigBadge({ method }: { method: PaymentMethodState }) {
     <Badge variant="secondary" className="text-[10px] font-mono uppercase tracking-wider">
       {method.configLabel} not provisioned
     </Badge>
+  );
+}
+
+function ConfigBreakdown({ method }: { method: PaymentMethodState }) {
+  const items = method.configItems;
+  if (items.length === 0) return null;
+  const setCount = items.filter((item) => item.set).length;
+
+  return (
+    <div className="mt-3 pt-3 border-t border-border/30 space-y-1.5">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+          Configuration
+        </span>
+        <span className="text-[10px] font-mono text-muted-foreground">
+          {setCount}/{items.length} set
+        </span>
+      </div>
+      <ul className="space-y-1">
+        {items.map((item) => (
+          <li key={item.envVar} className="flex items-center gap-1.5 text-xs font-mono">
+            {item.set ? (
+              <Check className="h-3 w-3 text-teal-ink shrink-0" />
+            ) : (
+              <X className="h-3 w-3 text-warn shrink-0" />
+            )}
+            <span className={item.set ? "text-foreground" : "text-muted-foreground"}>
+              {item.label}
+            </span>
+            {!item.set && (
+              <span className="text-warn text-[10px]">missing</span>
+            )}
+          </li>
+        ))}
+      </ul>
+      <p className="text-[10px] text-muted-foreground font-mono">
+        Values are set in .env — this shows what's provisioned, not the values.
+      </p>
+    </div>
   );
 }
 
@@ -109,6 +148,7 @@ function PaymentMethodRow({
           </div>
         </div>
         {error && <p className="text-destructive text-xs font-mono mt-3">{error}</p>}
+        <ConfigBreakdown method={method} />
       </CardContent>
     </Card>
   );

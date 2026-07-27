@@ -7,12 +7,45 @@ import { isAchProvisioned, isZelleProvisioned } from "../services/ach";
 export type PaymentMethodId = "crypto_btc" | "crypto_usdc" | "ach" | "wire" | "zelle";
 export type OrderChannel = "retail" | "wholesale";
 
+/** A single required config key and whether it is set — NEVER its value. */
+export interface ConfigItem {
+  label: string;
+  envVar: string;
+  set: boolean;
+}
+
+const isSet = (v: string | undefined): boolean => !!(v && v.trim());
+const item = (label: string, envVar: string): ConfigItem => ({
+  label,
+  envVar,
+  set: isSet(process.env[envVar]),
+});
+
+// Readiness breakdown per config group — labels + set/missing only, no values.
+const BTCPAY_ITEMS = (): ConfigItem[] => [
+  item("Server URL", "BTCPAYSERVER_URL"),
+  item("API key", "BTCPAYSERVER_API_KEY"),
+  item("Store ID", "BTCPAYSERVER_STORE_ID"),
+  item("Webhook secret", "BTCPAYSERVER_WEBHOOK_SECRET"),
+];
+const BANK_ITEMS = (): ConfigItem[] => [
+  item("Bank name", "ACH_BANK_NAME"),
+  item("Routing number", "ACH_ROUTING_NUMBER"),
+  item("Account number", "ACH_ACCOUNT_NUMBER"),
+];
+const ZELLE_ITEMS = (): ConfigItem[] => [
+  item("Recipient handle", "ZELLE_RECIPIENT"),
+  item("Recipient name", "ZELLE_RECIPIENT_NAME"),
+];
+
 interface CatalogEntry {
   method: PaymentMethodId;
   label: string;
   /** Which backend config gates this rail (shown as readiness, no secrets). */
   configLabel: string;
   configured: () => boolean;
+  /** Required config keys and whether each is set (never the values). */
+  configItems: () => ConfigItem[];
   /** Zelle is wholesale-only by invariant — its retail toggle can never be on. */
   retailAllowed: boolean;
 }
@@ -20,11 +53,11 @@ interface CatalogEntry {
 // The FIXED set of allowed rails. New processors (Stripe/PayPal/etc.) are never
 // added here — that is the payment-rails invariant.
 export const PAYMENT_METHOD_CATALOG: CatalogEntry[] = [
-  { method: "crypto_btc", label: "Bitcoin (BTC)", configLabel: "BTCPay", configured: () => btcpayService.configured, retailAllowed: true },
-  { method: "crypto_usdc", label: "USDC", configLabel: "BTCPay", configured: () => btcpayService.configured, retailAllowed: true },
-  { method: "ach", label: "ACH transfer", configLabel: "Bank details", configured: isAchProvisioned, retailAllowed: true },
-  { method: "wire", label: "Wire transfer", configLabel: "Bank details", configured: isAchProvisioned, retailAllowed: true },
-  { method: "zelle", label: "Zelle", configLabel: "Zelle recipient", configured: isZelleProvisioned, retailAllowed: false },
+  { method: "crypto_btc", label: "Bitcoin (BTC)", configLabel: "BTCPay", configured: () => btcpayService.configured, configItems: BTCPAY_ITEMS, retailAllowed: true },
+  { method: "crypto_usdc", label: "USDC", configLabel: "BTCPay", configured: () => btcpayService.configured, configItems: BTCPAY_ITEMS, retailAllowed: true },
+  { method: "ach", label: "ACH transfer", configLabel: "Bank details", configured: isAchProvisioned, configItems: BANK_ITEMS, retailAllowed: true },
+  { method: "wire", label: "Wire transfer", configLabel: "Bank details", configured: isAchProvisioned, configItems: BANK_ITEMS, retailAllowed: true },
+  { method: "zelle", label: "Zelle", configLabel: "Zelle recipient", configured: isZelleProvisioned, configItems: ZELLE_ITEMS, retailAllowed: false },
 ];
 
 const CATALOG_BY_METHOD = new Map(PAYMENT_METHOD_CATALOG.map((c) => [c.method, c]));
@@ -34,6 +67,7 @@ export interface PaymentMethodState {
   label: string;
   configLabel: string;
   configured: boolean;
+  configItems: ConfigItem[];
   retailAllowed: boolean;
   enabledRetail: boolean;
   enabledWholesale: boolean;
@@ -56,6 +90,7 @@ export async function getPaymentMethodStates(): Promise<PaymentMethodState[]> {
       label: c.label,
       configLabel: c.configLabel,
       configured,
+      configItems: c.configItems(),
       retailAllowed: c.retailAllowed,
       enabledRetail,
       enabledWholesale,

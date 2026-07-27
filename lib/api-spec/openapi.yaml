@@ -3310,6 +3310,22 @@ components:
         - orderStatus
         - paymentStatus
 
+    PaymentConfigItem:
+      type: object
+      description: One required config key for a rail and whether it is set. Never carries the value.
+      properties:
+        label:
+          type: string
+        envVar:
+          type: string
+          description: The environment variable that supplies this value (set in .env, never editable via API).
+        set:
+          type: boolean
+      required:
+        - label
+        - envVar
+        - set
+
     PaymentMethodState:
       type: object
       description: A fixed payment rail with its per-channel toggle and config readiness.
@@ -3325,6 +3341,11 @@ components:
         configured:
           type: boolean
           description: True when the rail's backend config/secrets are provisioned.
+        configItems:
+          type: array
+          description: Per-key readiness — which config each rail needs and whether it is set. Never includes the secret values.
+          items:
+            $ref: "#/components/schemas/PaymentConfigItem"
         retailAllowed:
           type: boolean
           description: False for wholesale-only rails (Zelle) — their retail toggle can never be on.
@@ -3343,6 +3364,7 @@ components:
         - label
         - configLabel
         - configured
+        - configItems
         - retailAllowed
         - enabledRetail
         - enabledWholesale

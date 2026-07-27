@@ -113,6 +113,7 @@ export * from "./patchReviewerSubmissionRequest";
 export * from "./patchReviewerSubmissionRequestStatus";
 export * from "./patchStoreSettingsRequest";
 export * from "./patchVariantRequest";
+export * from "./paymentConfigItem";
 export * from "./paymentMethod";
 export * from "./paymentMethodState";
 export * from "./paymentMethodStateMethod";

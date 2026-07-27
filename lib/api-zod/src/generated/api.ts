@@ -1541,6 +1541,25 @@ export const AdminListPaymentMethodsResponseItem = zod
       .describe(
         "True when the rail's backend config\/secrets are provisioned.",
       ),
+    configItems: zod
+      .array(
+        zod
+          .object({
+            label: zod.string(),
+            envVar: zod
+              .string()
+              .describe(
+                "The environment variable that supplies this value (set in .env, never editable via API).",
+              ),
+            set: zod.boolean(),
+          })
+          .describe(
+            "One required config key for a rail and whether it is set. Never carries the value.",
+          ),
+      )
+      .describe(
+        "Per-key readiness — which config each rail needs and whether it is set. Never includes the secret values.",
+      ),
     retailAllowed: zod
       .boolean()
       .describe(
@@ -1588,6 +1607,25 @@ export const AdminPatchPaymentMethodResponse = zod
       .boolean()
       .describe(
         "True when the rail's backend config\/secrets are provisioned.",
+      ),
+    configItems: zod
+      .array(
+        zod
+          .object({
+            label: zod.string(),
+            envVar: zod
+              .string()
+              .describe(
+                "The environment variable that supplies this value (set in .env, never editable via API).",
+              ),
+            set: zod.boolean(),
+          })
+          .describe(
+            "One required config key for a rail and whether it is set. Never carries the value.",
+          ),
+      )
+      .describe(
+        "Per-key readiness — which config each rail needs and whether it is set. Never includes the secret values.",
       ),
     retailAllowed: zod
       .boolean()
