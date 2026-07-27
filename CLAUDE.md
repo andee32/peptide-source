@@ -82,13 +82,38 @@ Source of truth: `design-system/tokens.css` + `design-system/theme.tailwind.css`
 Deep-navy `#0a1628` is a section treatment, not the app default. Phase 2 rewrites
 `artifacts/storefront/src/index.css` from these tokens and self-hosts Syne/Lato/DM Mono.
 
+## Built so far (through 2026-07-27) — Phase 1 largely complete
+
+- **Unified accounts.** One identity = `customer_users` (email + password + session);
+  the wholesale profile (`customer_accounts`) is an admin-approved add-on linked via
+  `customerUserId` — no access tokens. **Guest checkout stays the default**; optional
+  account creation added at checkout + post-purchase (`POST /orders/:id/claim`, email-gated).
+- **Wholesale tiers = editable % off list** (`price_tiers.discountBps`, DB CHECK 0..9000),
+  managed in **Admin → Price Tiers**. Server derives every wholesale price.
+- **Payment methods = admin on/off per channel** (`payment_methods` table; **Admin →
+  Payments**) with per-key config readiness — replaces the `VITE_*_ENABLED` build flags.
+  A rail is live only when enabled AND its backend config is provisioned (fail-closed
+  guards unchanged). Zelle's retail toggle is permanently locked off.
+- **Order lifecycle gained a `shipped` stage** (confirmed → shipped, `shippedAt` +
+  tracking; revenue counts confirmed+shipped).
+- **Emails wired** via SMTP/nodemailer, placeholder-guarded (log until SMTP set): order
+  confirmation (buyer) + shipper/fulfillment notice on confirm, shipment on ship, password
+  reset/invite. Shipper address = `store_settings.fulfillmentEmail` (admin-only, set in
+  Settings). SMTP currently points at **Resend on the `aletheahealth.ai` domain — INTERIM**;
+  move to an AT Lab domain before launch (see memory). Still MISSING: "how to pay" /
+  payment-instructions, payment-failed, wholesale approved/rejected, ops order-received,
+  unpaid-order recovery.
+- **RUO entry gates** for both retail and wholesale (shared `RuoGate`). Admin nav is
+  Customers (identity-centric) + Price Tiers + Payments, responsive.
+- Backend is now covered by integration tests (`test/**` via node:test) + vitest units.
+
 ## Fork notes / gotchas
 
 - Trust model is first-party COAs + direct owner relationship — the LSI public
   "reviewer ledger" and any hardcoded purity stat are dropped (Phase 2), not kept.
 - Server derives all prices; the client never sends a price. Wholesale prices resolve
-  from the account's assigned tier (Phase 1).
-- Original LSI blockers still to clear beyond Phase 0: batch↔order linkage, missing
-  order/failed-payment emails, subscription reactivation, placeholder Janoshik integration.
+  from the account's assigned tier (`discountBps` % off list).
+- Original LSI blockers still to clear beyond Phase 0: batch↔order linkage, subscription
+  reactivation, placeholder Janoshik integration, and the remaining order emails (above).
 - LSI reference docs copied in (SPRINT-PLAN-CRITICAL-BLOCKERS.md, PRODUCT-GAP-AUDIT.md,
   etc.) describe the donor's pre-fork state — read as history, not current truth.
