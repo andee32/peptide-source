@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useCart } from "@/contexts/cart";
 import { useWholesaleSession } from "@/hooks/useWholesaleSession";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
+import { useGetPaymentMethods } from "@atlab/api-client-react";
 import { bearerHeaders, useCustomerSession } from "@/hooks/useCustomerAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,16 +86,6 @@ type CheckoutStep =
 // Crypto discount rate comes from admin settings (GET /settings, basis points);
 // the server recomputes it authoritatively at order creation.
 const POLL_INTERVAL_MS = 6000;
-
-// ACH / wire is off by default — crypto is the primary, working rail. Only expose
-// it once real bank details are provisioned (backend gates the same way). Buyers
-// must never see placeholder bank details.
-const ACH_ENABLED = import.meta.env.VITE_ACH_ENABLED === "true";
-
-// Zelle is wholesale-only and gated the same way. This flag only controls
-// whether the option is OFFERED — the server rejects zelle on any retail order
-// regardless, so hiding it here is convenience, not the control.
-const ZELLE_ENABLED = import.meta.env.VITE_ZELLE_ENABLED === "true";
 
 function formatCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
@@ -279,10 +270,34 @@ export function CheckoutPage() {
   const discountPctLabel =
     !isWholesale && cryptoDiscountBps > 0 ? formatBpsPct(cryptoDiscountBps) : "";
 
+  // Which rails to offer — server-driven (admin per-channel toggle AND backend
+  // config). The server is the authority; this only decides what's shown.
+  const paymentMethodsQuery = useGetPaymentMethods({
+    channel: isWholesale ? "wholesale" : "retail",
+  });
+  const methodAvailable = (m: PaymentMethod): boolean => {
+    const list = paymentMethodsQuery.data?.methods;
+    // While loading, assume crypto (the primary rail) so there's no flash.
+    if (!list) return m === "crypto_btc" || m === "crypto_usdc";
+    return list.find((x) => x.method === m)?.available ?? false;
+  };
+
 
   const [step, setStep] = useState<CheckoutStep>("form");
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>("crypto_btc");
+
+  // If the selected rail isn't live for this channel (admin disabled it), fall
+  // back to the first available one so checkout is never stuck on a dead option.
+  useEffect(() => {
+    const list = paymentMethodsQuery.data?.methods;
+    if (!list) return;
+    if (list.find((x) => x.method === paymentMethod)?.available) return;
+    const firstLive = (["crypto_btc", "crypto_usdc", "ach", "zelle"] as const)
+      .map((m) => list.find((x) => x.method === m))
+      .find((x) => x?.available);
+    if (firstLive) setPaymentMethod(firstLive.method as PaymentMethod);
+  }, [paymentMethodsQuery.data, paymentMethod]);
   const [shipping, setShipping] = useState<ShippingForm>({
     name: "",
     email: "",
@@ -1152,7 +1167,7 @@ export function CheckoutPage() {
                         label: "Bitcoin",
                         sub: discountPctLabel ? `BTC · ${discountPctLabel}% off` : "BTC",
                         icon: <Bitcoin className="w-5 h-5" />,
-                        available: true,
+                        available: methodAvailable("crypto_btc"),
                       },
                       {
                         value: "crypto_usdc" as PaymentMethod,
@@ -1163,14 +1178,14 @@ export function CheckoutPage() {
                             $
                           </span>
                         ),
-                        available: true,
+                        available: methodAvailable("crypto_usdc"),
                       },
                       {
                         value: "ach" as PaymentMethod,
                         label: "ACH / Wire",
-                        sub: ACH_ENABLED ? "Bank transfer" : "Unavailable",
+                        sub: methodAvailable("ach") ? "Bank transfer" : "Unavailable",
                         icon: <Landmark className="w-5 h-5" />,
-                        available: ACH_ENABLED,
+                        available: methodAvailable("ach"),
                       },
                       // Wholesale accounts only. Never offered on a retail
                       // checkout — the server enforces the same rule.
@@ -1179,11 +1194,11 @@ export function CheckoutPage() {
                             {
                               value: "zelle" as PaymentMethod,
                               label: "Zelle",
-                              sub: ZELLE_ENABLED
+                              sub: methodAvailable("zelle")
                                 ? "Wholesale only"
                                 : "Unavailable",
                               icon: <Landmark className="w-5 h-5" />,
-                              available: ZELLE_ENABLED,
+                              available: methodAvailable("zelle"),
                             },
                           ]
                         : []),

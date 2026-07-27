@@ -23,6 +23,7 @@ import {
   type WholesaleAccount,
 } from "../lib/wholesaleSession";
 import { quoteRateLimit, createOrderRateLimit } from "../lib/rateLimit";
+import { isPaymentMethodEnabled } from "../lib/paymentMethods";
 import {
   resolveDiscounts,
   normalizeCode,
@@ -289,6 +290,25 @@ async function priceOrderRequest(input: {
         error: "unprocessable_entity",
         code: "ZELLE_WHOLESALE_ONLY",
         message: "Zelle is available to approved wholesale accounts only.",
+      },
+    };
+  }
+
+  // Admin on/off per channel — enforced server-side, not just hidden in the UI.
+  // (Config fail-closed guards in services/* still apply on top of this.)
+  if (
+    !(await isPaymentMethodEnabled(
+      input.paymentMethod,
+      isWholesale ? "wholesale" : "retail",
+    ))
+  ) {
+    return {
+      ok: false,
+      status: 422,
+      body: {
+        error: "unprocessable_entity",
+        code: "PAYMENT_METHOD_UNAVAILABLE",
+        message: "That payment method is not available for this order.",
       },
     };
   }

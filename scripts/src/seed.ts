@@ -6,6 +6,7 @@ import {
   coaResultsTable,
   priceTiersTable,
   storeSettingsTable,
+  paymentMethodsTable,
 } from "@atlab/db/schema";
 import { sql } from "drizzle-orm";
 
@@ -704,6 +705,22 @@ async function seed() {
     .values({ id: "default", showVialImages: true })
     .onConflictDoNothing({ target: storeSettingsTable.id });
   console.log("Ensured store settings row (id='default')");
+
+  // --- Payment methods (fixed rail catalog; per-channel on/off) ---
+  // Crypto is the primary rail (on both channels). ACH/wire start off until the
+  // admin provisions bank details and enables them. Zelle is wholesale-only.
+  // Availability is still gated by backend config regardless of these flags.
+  await db
+    .insert(paymentMethodsTable)
+    .values([
+      { method: "crypto_btc", enabledRetail: true, enabledWholesale: true, sortOrder: 1 },
+      { method: "crypto_usdc", enabledRetail: true, enabledWholesale: true, sortOrder: 2 },
+      { method: "ach", enabledRetail: false, enabledWholesale: false, sortOrder: 3 },
+      { method: "wire", enabledRetail: false, enabledWholesale: false, sortOrder: 4 },
+      { method: "zelle", enabledRetail: false, enabledWholesale: true, sortOrder: 5 },
+    ])
+    .onConflictDoNothing({ target: paymentMethodsTable.method });
+  console.log("Ensured payment method rows");
 
   console.log("Seed complete!");
   process.exit(0);

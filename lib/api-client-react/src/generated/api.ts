@@ -53,6 +53,7 @@ import type {
   DiscountCodeReport,
   DispatchSubscriptionReminders200,
   ForgotPasswordRequest,
+  GetPaymentMethodsParams,
   GetSubscriptionParams,
   HandleBtcpayWebhook200,
   HealthStatus,
@@ -71,15 +72,18 @@ import type {
   PatchAdminUserRequest,
   PatchDiscountCodeRequest,
   PatchOrderRequest,
+  PatchPaymentMethodRequest,
   PatchPriceTierRequest,
   PatchProductRequest,
   PatchReviewerSubmissionRequest,
   PatchStoreSettingsRequest,
   PatchVariantRequest,
+  PaymentMethodState,
   PriceTier,
   Product,
   ProductDetail,
   ProductVariant,
+  PublicPaymentMethods,
   QuoteOrderRequest,
   RegisterCustomerRequest,
   ReorderPayload,
@@ -1510,6 +1514,105 @@ export function useGetSettings<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Public — the payment methods the storefront should offer for the given channel. `available` already folds in admin-enabled AND backend-configured; no config detail is exposed.
+
+ * @summary Payment methods available for a channel
+ */
+export const getGetPaymentMethodsUrl = (params?: GetPaymentMethodsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/payment-methods?${stringifiedParams}`
+    : `/api/payment-methods`;
+};
+
+export const getPaymentMethods = async (
+  params?: GetPaymentMethodsParams,
+  options?: RequestInit,
+): Promise<PublicPaymentMethods> => {
+  return customFetch<PublicPaymentMethods>(getGetPaymentMethodsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPaymentMethodsQueryKey = (
+  params?: GetPaymentMethodsParams,
+) => {
+  return [`/api/payment-methods`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetPaymentMethodsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPaymentMethods>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetPaymentMethodsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPaymentMethods>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetPaymentMethodsQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getPaymentMethods>>
+  > = ({ signal }) => getPaymentMethods(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPaymentMethods>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetPaymentMethodsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPaymentMethods>>
+>;
+export type GetPaymentMethodsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Payment methods available for a channel
+ */
+
+export function useGetPaymentMethods<
+  TData = Awaited<ReturnType<typeof getPaymentMethods>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetPaymentMethodsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPaymentMethods>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPaymentMethodsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
@@ -3972,6 +4075,175 @@ export const useAdminDeletePriceTier = <
   TContext
 > => {
   return useMutation(getAdminDeletePriceTierMutationOptions(options));
+};
+
+/**
+ * The fixed payment-rail catalog with each rail's per-channel on/off and config readiness. Requires x-admin-key header.
+ * @summary Admin — list payment methods with per-channel toggles + readiness
+ */
+export const getAdminListPaymentMethodsUrl = () => {
+  return `/api/admin/payment-methods`;
+};
+
+export const adminListPaymentMethods = async (
+  options?: RequestInit,
+): Promise<PaymentMethodState[]> => {
+  return customFetch<PaymentMethodState[]>(getAdminListPaymentMethodsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListPaymentMethodsQueryKey = () => {
+  return [`/api/admin/payment-methods`] as const;
+};
+
+export const getAdminListPaymentMethodsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListPaymentMethods>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListPaymentMethods>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListPaymentMethodsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListPaymentMethods>>
+  > = ({ signal }) => adminListPaymentMethods({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListPaymentMethods>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListPaymentMethodsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListPaymentMethods>>
+>;
+export type AdminListPaymentMethodsQueryError = ErrorType<void>;
+
+/**
+ * @summary Admin — list payment methods with per-channel toggles + readiness
+ */
+
+export function useAdminListPaymentMethods<
+  TData = Awaited<ReturnType<typeof adminListPaymentMethods>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListPaymentMethods>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListPaymentMethodsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Toggle a rail for retail and/or wholesale. Zelle cannot be enabled for retail (wholesale-only). Requires x-admin-key header.
+ * @summary Admin — enable/disable a payment method per channel
+ */
+export const getAdminPatchPaymentMethodUrl = (method: string) => {
+  return `/api/admin/payment-methods/${method}`;
+};
+
+export const adminPatchPaymentMethod = async (
+  method: string,
+  patchPaymentMethodRequest: PatchPaymentMethodRequest,
+  options?: RequestInit,
+): Promise<PaymentMethodState> => {
+  return customFetch<PaymentMethodState>(
+    getAdminPatchPaymentMethodUrl(method),
+    {
+      ...options,
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(patchPaymentMethodRequest),
+    },
+  );
+};
+
+export const getAdminPatchPaymentMethodMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchPaymentMethod>>,
+    TError,
+    { method: string; data: BodyType<PatchPaymentMethodRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminPatchPaymentMethod>>,
+  TError,
+  { method: string; data: BodyType<PatchPaymentMethodRequest> },
+  TContext
+> => {
+  const mutationKey = ["adminPatchPaymentMethod"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminPatchPaymentMethod>>,
+    { method: string; data: BodyType<PatchPaymentMethodRequest> }
+  > = (props) => {
+    const { method, data } = props ?? {};
+
+    return adminPatchPaymentMethod(method, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminPatchPaymentMethodMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminPatchPaymentMethod>>
+>;
+export type AdminPatchPaymentMethodMutationBody =
+  BodyType<PatchPaymentMethodRequest>;
+export type AdminPatchPaymentMethodMutationError = ErrorType<void>;
+
+/**
+ * @summary Admin — enable/disable a payment method per channel
+ */
+export const useAdminPatchPaymentMethod = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminPatchPaymentMethod>>,
+    TError,
+    { method: string; data: BodyType<PatchPaymentMethodRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminPatchPaymentMethod>>,
+  TError,
+  { method: string; data: BodyType<PatchPaymentMethodRequest> },
+  TContext
+> => {
+  return useMutation(getAdminPatchPaymentMethodMutationOptions(options));
 };
 
 /**

@@ -484,6 +484,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/StoreSettings"
 
+  /payment-methods:
+    get:
+      operationId: getPaymentMethods
+      tags: [settings]
+      summary: Payment methods available for a channel
+      description: >
+        Public — the payment methods the storefront should offer for the given
+        channel. `available` already folds in admin-enabled AND backend-configured;
+        no config detail is exposed.
+      parameters:
+        - name: channel
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [retail, wholesale]
+      responses:
+        "200":
+          description: Available payment methods
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicPaymentMethods"
+
   /admin/discount-codes:
     get:
       operationId: adminListDiscountCodes
@@ -1275,6 +1299,54 @@ paths:
           description: Cannot delete the default tier
         "409":
           description: Tier has assigned customers
+
+  /admin/payment-methods:
+    get:
+      operationId: adminListPaymentMethods
+      tags: [admin]
+      summary: Admin — list payment methods with per-channel toggles + readiness
+      description: The fixed payment-rail catalog with each rail's per-channel on/off and config readiness. Requires x-admin-key header.
+      responses:
+        "200":
+          description: Payment method states
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PaymentMethodState"
+        "401":
+          description: Admin key required
+
+  /admin/payment-methods/{method}:
+    patch:
+      operationId: adminPatchPaymentMethod
+      tags: [admin]
+      summary: Admin — enable/disable a payment method per channel
+      description: Toggle a rail for retail and/or wholesale. Zelle cannot be enabled for retail (wholesale-only). Requires x-admin-key header.
+      parameters:
+        - name: method
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchPaymentMethodRequest"
+      responses:
+        "200":
+          description: Updated payment method state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentMethodState"
+        "400":
+          description: Invalid input (e.g. enabling Zelle for retail)
+        "404":
+          description: Unknown payment method
 
   /admin/stats:
     get:
@@ -3237,6 +3309,82 @@ components:
         - paymentRecordId
         - orderStatus
         - paymentStatus
+
+    PaymentMethodState:
+      type: object
+      description: A fixed payment rail with its per-channel toggle and config readiness.
+      properties:
+        method:
+          type: string
+          enum: [crypto_btc, crypto_usdc, ach, wire, zelle]
+        label:
+          type: string
+        configLabel:
+          type: string
+          description: Which backend config gates this rail (e.g. "BTCPay", "Bank details", "Zelle recipient").
+        configured:
+          type: boolean
+          description: True when the rail's backend config/secrets are provisioned.
+        retailAllowed:
+          type: boolean
+          description: False for wholesale-only rails (Zelle) — their retail toggle can never be on.
+        enabledRetail:
+          type: boolean
+        enabledWholesale:
+          type: boolean
+        availableRetail:
+          type: boolean
+          description: Live for retail = enabledRetail AND configured.
+        availableWholesale:
+          type: boolean
+          description: Live for wholesale = enabledWholesale AND configured.
+      required:
+        - method
+        - label
+        - configLabel
+        - configured
+        - retailAllowed
+        - enabledRetail
+        - enabledWholesale
+        - availableRetail
+        - availableWholesale
+
+    PatchPaymentMethodRequest:
+      type: object
+      properties:
+        enabledRetail:
+          type: boolean
+        enabledWholesale:
+          type: boolean
+
+    PublicPaymentMethod:
+      type: object
+      properties:
+        method:
+          type: string
+          enum: [crypto_btc, crypto_usdc, ach, wire, zelle]
+        label:
+          type: string
+        available:
+          type: boolean
+      required:
+        - method
+        - label
+        - available
+
+    PublicPaymentMethods:
+      type: object
+      properties:
+        channel:
+          type: string
+          enum: [retail, wholesale]
+        methods:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicPaymentMethod"
+      required:
+        - channel
+        - methods
 
     StoreSettings:
       type: object

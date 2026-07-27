@@ -740,6 +740,26 @@ export const GetSettingsResponse = zod
   .describe("Global storefront settings.");
 
 /**
+ * Public — the payment methods the storefront should offer for the given channel. `available` already folds in admin-enabled AND backend-configured; no config detail is exposed.
+
+ * @summary Payment methods available for a channel
+ */
+export const GetPaymentMethodsQueryParams = zod.object({
+  channel: zod.enum(["retail", "wholesale"]).optional(),
+});
+
+export const GetPaymentMethodsResponse = zod.object({
+  channel: zod.enum(["retail", "wholesale"]),
+  methods: zod.array(
+    zod.object({
+      method: zod.enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"]),
+      label: zod.string(),
+      available: zod.boolean(),
+    }),
+  ),
+});
+
+/**
  * Lists all promo codes newest-first with confirmed-order report figures. Requires x-admin-key header.
  * @summary Admin — list discount codes
  */
@@ -1502,6 +1522,90 @@ export const AdminPatchPriceTierResponse = zod.object({
 export const AdminDeletePriceTierParams = zod.object({
   id: zod.coerce.number(),
 });
+
+/**
+ * The fixed payment-rail catalog with each rail's per-channel on/off and config readiness. Requires x-admin-key header.
+ * @summary Admin — list payment methods with per-channel toggles + readiness
+ */
+export const AdminListPaymentMethodsResponseItem = zod
+  .object({
+    method: zod.enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"]),
+    label: zod.string(),
+    configLabel: zod
+      .string()
+      .describe(
+        'Which backend config gates this rail (e.g. \"BTCPay\", \"Bank details\", \"Zelle recipient\").',
+      ),
+    configured: zod
+      .boolean()
+      .describe(
+        "True when the rail's backend config\/secrets are provisioned.",
+      ),
+    retailAllowed: zod
+      .boolean()
+      .describe(
+        "False for wholesale-only rails (Zelle) — their retail toggle can never be on.",
+      ),
+    enabledRetail: zod.boolean(),
+    enabledWholesale: zod.boolean(),
+    availableRetail: zod
+      .boolean()
+      .describe("Live for retail = enabledRetail AND configured."),
+    availableWholesale: zod
+      .boolean()
+      .describe("Live for wholesale = enabledWholesale AND configured."),
+  })
+  .describe(
+    "A fixed payment rail with its per-channel toggle and config readiness.",
+  );
+export const AdminListPaymentMethodsResponse = zod.array(
+  AdminListPaymentMethodsResponseItem,
+);
+
+/**
+ * Toggle a rail for retail and/or wholesale. Zelle cannot be enabled for retail (wholesale-only). Requires x-admin-key header.
+ * @summary Admin — enable/disable a payment method per channel
+ */
+export const AdminPatchPaymentMethodParams = zod.object({
+  method: zod.coerce.string(),
+});
+
+export const AdminPatchPaymentMethodBody = zod.object({
+  enabledRetail: zod.boolean().optional(),
+  enabledWholesale: zod.boolean().optional(),
+});
+
+export const AdminPatchPaymentMethodResponse = zod
+  .object({
+    method: zod.enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"]),
+    label: zod.string(),
+    configLabel: zod
+      .string()
+      .describe(
+        'Which backend config gates this rail (e.g. \"BTCPay\", \"Bank details\", \"Zelle recipient\").',
+      ),
+    configured: zod
+      .boolean()
+      .describe(
+        "True when the rail's backend config\/secrets are provisioned.",
+      ),
+    retailAllowed: zod
+      .boolean()
+      .describe(
+        "False for wholesale-only rails (Zelle) — their retail toggle can never be on.",
+      ),
+    enabledRetail: zod.boolean(),
+    enabledWholesale: zod.boolean(),
+    availableRetail: zod
+      .boolean()
+      .describe("Live for retail = enabledRetail AND configured."),
+    availableWholesale: zod
+      .boolean()
+      .describe("Live for wholesale = enabledWholesale AND configured."),
+  })
+  .describe(
+    "A fixed payment rail with its per-channel toggle and config readiness.",
+  );
 
 /**
  * Server-derived operational counters and confirmed revenue. Requires x-admin-key header.

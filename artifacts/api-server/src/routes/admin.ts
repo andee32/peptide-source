@@ -16,6 +16,7 @@ import {
   orderAttestationsTable,
   storeSettingsTable,
   discountCodesTable,
+  paymentMethodsTable,
   categoryEnum,
   batchStatusEnum,
   testTypeEnum,
@@ -37,6 +38,7 @@ import {
 } from "../lib/adminSession";
 import { loginRateLimit, reauthRateLimit } from "../lib/rateLimit";
 import { ensureBootstrapAdmin } from "../lib/bootstrapAdmin";
+import { getPaymentMethodStates, PAYMENT_METHOD_CATALOG } from "../lib/paymentMethods";
 import {
   SETTLEABLE_ORDER_STATUSES,
   TERMINAL_ORDER_STATUSES,
@@ -2151,6 +2153,70 @@ router.patch("/admin/settings", async (req, res) => {
     });
   } catch (err) {
     console.error("admin patchSettings error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+// ── Payment methods ──────────────────────────────────────────────────────────
+// Manage the FIXED rail catalog (crypto/ACH/wire/Zelle): per-channel on/off plus
+// readiness. Enabling a rail never bypasses its backend config fail-closed guard.
+router.get("/admin/payment-methods", async (_req, res) => {
+  try {
+    res.json(await getPaymentMethodStates());
+  } catch (err) {
+    console.error("admin listPaymentMethods error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+const PatchPaymentMethodSchema = z.object({
+  enabledRetail: z.boolean().optional(),
+  enabledWholesale: z.boolean().optional(),
+});
+
+router.patch("/admin/payment-methods/:method", async (req, res) => {
+  const parsed = PatchPaymentMethodSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "bad_request", message: parsed.error.issues[0]?.message ?? "Invalid input" });
+    return;
+  }
+  const method = req.params.method;
+  const catalog = PAYMENT_METHOD_CATALOG.find((c) => c.method === method);
+  if (!catalog) {
+    // The rail set is fixed — unknown methods (or new processors) are rejected.
+    res.status(404).json({ error: "not_found", message: "Unknown payment method" });
+    return;
+  }
+  // Zelle is wholesale-only by invariant — its retail toggle can never be on.
+  if (parsed.data.enabledRetail === true && !catalog.retailAllowed) {
+    res.status(400).json({
+      error: "bad_request",
+      message: `${catalog.label} is wholesale-only and cannot be enabled for retail.`,
+    });
+    return;
+  }
+  try {
+    const { enabledRetail, enabledWholesale } = parsed.data;
+    await db
+      .insert(paymentMethodsTable)
+      .values({
+        method,
+        enabledRetail: enabledRetail ?? false,
+        enabledWholesale: enabledWholesale ?? false,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: paymentMethodsTable.method,
+        set: {
+          ...(enabledRetail !== undefined ? { enabledRetail } : {}),
+          ...(enabledWholesale !== undefined ? { enabledWholesale } : {}),
+          updatedAt: new Date(),
+        },
+      });
+    const states = await getPaymentMethodStates();
+    res.json(states.find((s) => s.method === method));
+  } catch (err) {
+    console.error("admin patchPaymentMethod error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });
   }
 });

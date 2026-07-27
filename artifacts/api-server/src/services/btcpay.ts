@@ -53,6 +53,11 @@ export class BTCPayService {
     return !!(BTCPAY_URL && BTCPAY_KEY && BTCPAY_STORE);
   }
 
+  /** Public readiness flag (no secrets) for the admin payment-methods view. */
+  get configured(): boolean {
+    return this.isConfigured;
+  }
+
   async createInvoice(
     orderId: string,
     amountCents: number,

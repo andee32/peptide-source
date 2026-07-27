@@ -905,6 +905,72 @@ export interface ConfirmAchResponse {
   paymentStatus: ConfirmAchResponsePaymentStatus;
 }
 
+export type PaymentMethodStateMethod =
+  (typeof PaymentMethodStateMethod)[keyof typeof PaymentMethodStateMethod];
+
+export const PaymentMethodStateMethod = {
+  crypto_btc: "crypto_btc",
+  crypto_usdc: "crypto_usdc",
+  ach: "ach",
+  wire: "wire",
+  zelle: "zelle",
+} as const;
+
+/**
+ * A fixed payment rail with its per-channel toggle and config readiness.
+ */
+export interface PaymentMethodState {
+  method: PaymentMethodStateMethod;
+  label: string;
+  /** Which backend config gates this rail (e.g. "BTCPay", "Bank details", "Zelle recipient"). */
+  configLabel: string;
+  /** True when the rail's backend config/secrets are provisioned. */
+  configured: boolean;
+  /** False for wholesale-only rails (Zelle) — their retail toggle can never be on. */
+  retailAllowed: boolean;
+  enabledRetail: boolean;
+  enabledWholesale: boolean;
+  /** Live for retail = enabledRetail AND configured. */
+  availableRetail: boolean;
+  /** Live for wholesale = enabledWholesale AND configured. */
+  availableWholesale: boolean;
+}
+
+export interface PatchPaymentMethodRequest {
+  enabledRetail?: boolean;
+  enabledWholesale?: boolean;
+}
+
+export type PublicPaymentMethodMethod =
+  (typeof PublicPaymentMethodMethod)[keyof typeof PublicPaymentMethodMethod];
+
+export const PublicPaymentMethodMethod = {
+  crypto_btc: "crypto_btc",
+  crypto_usdc: "crypto_usdc",
+  ach: "ach",
+  wire: "wire",
+  zelle: "zelle",
+} as const;
+
+export interface PublicPaymentMethod {
+  method: PublicPaymentMethodMethod;
+  label: string;
+  available: boolean;
+}
+
+export type PublicPaymentMethodsChannel =
+  (typeof PublicPaymentMethodsChannel)[keyof typeof PublicPaymentMethodsChannel];
+
+export const PublicPaymentMethodsChannel = {
+  retail: "retail",
+  wholesale: "wholesale",
+} as const;
+
+export interface PublicPaymentMethods {
+  channel: PublicPaymentMethodsChannel;
+  methods: PublicPaymentMethod[];
+}
+
 /**
  * Global storefront settings.
  */
@@ -1438,6 +1504,18 @@ export type ListRetailProductsParams = {
 export type ListBatchesParams = {
   productId?: number;
 };
+
+export type GetPaymentMethodsParams = {
+  channel?: GetPaymentMethodsChannel;
+};
+
+export type GetPaymentMethodsChannel =
+  (typeof GetPaymentMethodsChannel)[keyof typeof GetPaymentMethodsChannel];
+
+export const GetPaymentMethodsChannel = {
+  retail: "retail",
+  wholesale: "wholesale",
+} as const;
 
 export type ListSubscriptionsParams = {
   /**
