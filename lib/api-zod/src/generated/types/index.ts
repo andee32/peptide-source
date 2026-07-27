@@ -45,6 +45,7 @@ export * from "./catalogProduct";
 export * from "./catalogProductSourcingPath";
 export * from "./catalogVariant";
 export * from "./catalogVariantUnitType";
+export * from "./claimOrder200";
 export * from "./coaHeavyMetal";
 export * from "./coaResult";
 export * from "./coaResultTestType";

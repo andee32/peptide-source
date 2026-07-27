@@ -613,6 +613,19 @@ export const CreateCryptoInvoiceResponse = zod.object({
 });
 
 /**
+ * Post-purchase account linkage. Requires a customer Bearer session; the order is linked only when the session identity's email matches the order's shipping email and the order isn't already linked.
+
+ * @summary Link a guest order to the signed-in account
+ */
+export const ClaimOrderParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const ClaimOrderResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
  * Returns a PNG QR code encoding the crypto payment URI (bitcoin:... or ethereum:...)
  * @summary Get payment QR code PNG
  */

@@ -37,6 +37,7 @@ import type {
   BtcpayWebhookEvent,
   CancelSubscriptionParams,
   CatalogProduct,
+  ClaimOrder200,
   ConfirmAchRequest,
   ConfirmAchResponse,
   CreateAdminUserRequest,
@@ -1184,6 +1185,92 @@ export const useCreateCryptoInvoice = <
   TContext
 > => {
   return useMutation(getCreateCryptoInvoiceMutationOptions(options));
+};
+
+/**
+ * Post-purchase account linkage. Requires a customer Bearer session; the order is linked only when the session identity's email matches the order's shipping email and the order isn't already linked.
+
+ * @summary Link a guest order to the signed-in account
+ */
+export const getClaimOrderUrl = (id: string) => {
+  return `/api/orders/${id}/claim`;
+};
+
+export const claimOrder = async (
+  id: string,
+  options?: RequestInit,
+): Promise<ClaimOrder200> => {
+  return customFetch<ClaimOrder200>(getClaimOrderUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getClaimOrderMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof claimOrder>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof claimOrder>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["claimOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof claimOrder>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return claimOrder(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClaimOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof claimOrder>>
+>;
+
+export type ClaimOrderMutationError = ErrorType<void>;
+
+/**
+ * @summary Link a guest order to the signed-in account
+ */
+export const useClaimOrder = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof claimOrder>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof claimOrder>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getClaimOrderMutationOptions(options));
 };
 
 /**

@@ -371,6 +371,42 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+  /orders/{id}/claim:
+    post:
+      operationId: claimOrder
+      tags: [orders]
+      summary: Link a guest order to the signed-in account
+      description: >
+        Post-purchase account linkage. Requires a customer Bearer session; the
+        order is linked only when the session identity's email matches the
+        order's shipping email and the order isn't already linked.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Linked (or already linked to this account)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                required:
+                  - ok
+        "401":
+          description: Not signed in
+        "403":
+          description: Order was placed under a different email
+        "404":
+          description: Order not found
+        "409":
+          description: Already linked to another account
+
   /orders/{id}/payment-qr:
     get:
       operationId: getOrderPaymentQr

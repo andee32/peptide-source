@@ -1537,6 +1537,10 @@ export type ListBatchesParams = {
   productId?: number;
 };
 
+export type ClaimOrder200 = {
+  ok: boolean;
+};
+
 export type GetPaymentMethodsParams = {
   channel?: GetPaymentMethodsChannel;
 };

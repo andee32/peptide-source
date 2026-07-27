@@ -8,10 +8,18 @@ import {
   ExternalLink,
   ArrowLeft,
   Truck,
+  UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { bearerHeaders, useCustomerSession } from "@/hooks/useCustomerAuth";
+import { Input } from "@/components/ui/input";
+import {
+  bearerHeaders,
+  useCustomerAuth,
+  useCustomerSession,
+} from "@/hooks/useCustomerAuth";
 import { useWholesaleSession } from "@/hooks/useWholesaleSession";
+
+const MIN_PASSWORD_LENGTH = 8;
 
 interface OrderLineItem {
   variantId: number;
@@ -59,6 +67,7 @@ interface OrderDetail {
   trackingNumber?: string | null;
   carrier?: string | null;
   shippedAt?: string | null;
+  customerUserId?: string | null;
 }
 
 function formatCents(cents: number) {
@@ -83,6 +92,14 @@ export function OrderConfirmationPage() {
   const customerSession = useCustomerSession();
   const { wholesaleHeaders } = useWholesaleSession();
   const customerToken = customerSession?.token ?? null;
+  const { register } = useCustomerAuth();
+
+  // Optional post-purchase upsell: let a guest order be claimed by a fresh
+  // account. Non-blocking — the confirmation itself renders fine either way.
+  const [claimPassword, setClaimPassword] = useState("");
+  const [claimSubmitting, setClaimSubmitting] = useState(false);
+  const [claimRegisterError, setClaimRegisterError] = useState<string | null>(null);
+  const [claimResult, setClaimResult] = useState<"idle" | "linked" | "link-failed">("idle");
 
   useEffect(() => {
     if (!id) {
@@ -136,6 +153,35 @@ export function OrderConfirmationPage() {
 
   const { status, payment } = order;
   const shopHref = order.channel === "wholesale" ? "/shop" : "/retail";
+  const showAccountCard = !order.customerUserId && !customerSession;
+
+  async function handleCreateAccount(e: React.FormEvent) {
+    e.preventDefault();
+    if (!order || claimPassword.length < MIN_PASSWORD_LENGTH || claimSubmitting) return;
+    setClaimSubmitting(true);
+    setClaimRegisterError(null);
+    try {
+      const session = await register({
+        email: order.shippingEmail,
+        password: claimPassword,
+      });
+      try {
+        const res = await fetch(`/api/orders/${order.id}/claim`, {
+          method: "POST",
+          headers: bearerHeaders(session.token),
+        });
+        setClaimResult(res.ok ? "linked" : "link-failed");
+      } catch {
+        setClaimResult("link-failed");
+      }
+    } catch {
+      setClaimRegisterError(
+        "An account with this email already exists — sign in to link this order.",
+      );
+    } finally {
+      setClaimSubmitting(false);
+    }
+  }
   const isConfirmed = status === "confirmed";
   const isShipped = status === "shipped";
   const isAwaiting = status === "awaiting_payment" || status === "pending";
@@ -370,6 +416,89 @@ export function OrderConfirmationPage() {
               </div>
             </div>
           </div>
+
+          {showAccountCard && (
+            <div className="bg-card border border-border rounded-xl p-5">
+              {claimResult === "linked" ? (
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="w-5 h-5 text-good shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Account created — this order is now saved to your account.
+                    </p>
+                    <Link
+                      href="/account"
+                      className="text-sm text-primary hover:underline mt-1 inline-block"
+                    >
+                      View your account
+                    </Link>
+                  </div>
+                </div>
+              ) : claimResult === "link-failed" ? (
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-warn shrink-0 mt-0.5" />
+                  <p className="text-sm text-muted-foreground">
+                    Couldn't link the order — you can find it from your account.
+                  </p>
+                </div>
+              ) : (
+                <form onSubmit={handleCreateAccount} className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <UserPlus className="w-4 h-4 text-primary" />
+                    <p className="text-sm font-medium text-foreground">
+                      Create an account to track this order
+                    </p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Save your shipping details and see this order — and future
+                    ones — in one place.
+                  </p>
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                      Email
+                    </p>
+                    <Input
+                      type="email"
+                      value={order.shippingEmail}
+                      readOnly
+                      disabled
+                      className="font-mono bg-muted/40"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
+                      Password
+                    </p>
+                    <Input
+                      type="password"
+                      value={claimPassword}
+                      onChange={(e) => setClaimPassword(e.target.value)}
+                      autoComplete="new-password"
+                      placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+                      minLength={MIN_PASSWORD_LENGTH}
+                    />
+                  </div>
+                  {claimRegisterError && (
+                    <p className="text-xs text-crit">
+                      {claimRegisterError}{" "}
+                      <Link href="/account/login" className="underline">
+                        Sign in
+                      </Link>
+                    </p>
+                  )}
+                  <Button
+                    type="submit"
+                    className="w-full"
+                    disabled={
+                      claimPassword.length < MIN_PASSWORD_LENGTH || claimSubmitting
+                    }
+                  >
+                    {claimSubmitting ? "Creating…" : "Create account"}
+                  </Button>
+                </form>
+              )}
+            </div>
+          )}
 
           <div className="text-center">
             <p className="text-xs text-muted-foreground font-mono mb-4">

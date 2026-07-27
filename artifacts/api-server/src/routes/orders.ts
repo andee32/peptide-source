@@ -1,6 +1,6 @@
 import { Router, type Request } from "express";
 import { z } from "zod/v4";
-import { eq, and, inArray, sql, desc } from "drizzle-orm";
+import { eq, and, inArray, isNull, sql, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import QRCode from "qrcode";
 import { db } from "@atlab/db";
@@ -1015,6 +1015,54 @@ router.get("/orders/:id/payment-qr", async (req, res) => {
   res.setHeader("Content-Type", "image/png");
   res.setHeader("Cache-Control", "private, max-age=3600");
   res.send(qrPng);
+});
+
+// Post-purchase account linkage: a guest who just created an account claims the
+// order they placed. Allowed only when the signed-in identity's email matches
+// the order's shipping email and the order isn't already linked — so an order id
+// (a capability URL) alone can't attach someone else's order to your account.
+router.post("/orders/:id/claim", async (req, res) => {
+  const user = await resolveCustomerUser(req);
+  if (!user) {
+    res.status(401).json({ error: "unauthorized", message: "Sign in to claim this order." });
+    return;
+  }
+  try {
+    const order = await db.query.ordersTable.findFirst({
+      where: eq(ordersTable.id, String(req.params.id)),
+    });
+    if (!order) {
+      res.status(404).json({ error: "not_found", message: "Order not found" });
+      return;
+    }
+    if (order.customerUserId) {
+      if (order.customerUserId === user.id) {
+        res.json({ ok: true });
+        return;
+      }
+      res.status(409).json({ error: "conflict", message: "This order is already linked to an account." });
+      return;
+    }
+    if (order.shippingEmail.trim().toLowerCase() !== user.email.trim().toLowerCase()) {
+      res.status(403).json({ error: "forbidden", message: "This order was placed under a different email." });
+      return;
+    }
+    // Guard the write on still-unlinked so two concurrent claims can't both
+    // land (the read above is already stale by here).
+    const [linked] = await db
+      .update(ordersTable)
+      .set({ customerUserId: user.id, updatedAt: new Date() })
+      .where(and(eq(ordersTable.id, order.id), isNull(ordersTable.customerUserId)))
+      .returning();
+    if (!linked) {
+      res.status(409).json({ error: "conflict", message: "This order was just linked to an account." });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("claimOrder error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
 });
 
 export default router;

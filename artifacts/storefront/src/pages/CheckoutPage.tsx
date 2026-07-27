@@ -4,11 +4,12 @@ import { useCart } from "@/contexts/cart";
 import { useWholesaleSession } from "@/hooks/useWholesaleSession";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 import { useGetPaymentMethods } from "@atlab/api-client-react";
-import { bearerHeaders, useCustomerSession } from "@/hooks/useCustomerAuth";
+import { bearerHeaders, useCustomerSession, useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   ShoppingBag,
   ArrowLeft,
@@ -258,6 +259,7 @@ export function CheckoutPage() {
   // Retail shopper session (optional): the bearer token below is what makes the
   // server stamp customerUserId on the order. Guest checkout sends no header.
   const customerSession = useCustomerSession();
+  const { register } = useCustomerAuth();
   const [, navigate] = useLocation();
 
   // All catalog variants are kits, so total kits = total quantity.
@@ -314,6 +316,11 @@ export function CheckoutPage() {
   const [invoice, setInvoice] = useState<CryptoInvoice | null>(null);
   const [ach, setAch] = useState<AchInstructions | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Optional account creation at checkout — retail guests only.
+  const [createAccount, setCreateAccount] = useState(false);
+  const [accountPassword, setAccountPassword] = useState("");
+  const [accountNotice, setAccountNotice] = useState<string | null>(null);
 
   // RUO attestation — must be affirmed and signed to place an order.
   const [signerName, setSignerName] = useState("");
@@ -508,11 +515,32 @@ export function CheckoutPage() {
     setSubmitting(true);
     setSubmitError(null);
 
+    if (createAccount && !customerSession && !isWholesale && accountPassword.length < 8) {
+      setSubmitError("Password must be at least 8 characters to create an account.");
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const lineItems = cartItems.map((item) => ({
         variantId: item.variantId,
         quantity: item.quantity,
       }));
+
+      // Optional account creation — retail guest only, opt-in. Non-blocking:
+      // if it fails (e.g. email already registered), the order still proceeds
+      // as a guest order.
+      let createdToken: string | null = null;
+      if (createAccount && !customerSession && !isWholesale) {
+        try {
+          const s = await register({ email: shipping.email.trim(), password: accountPassword });
+          createdToken = s.token;
+        } catch {
+          setAccountNotice(
+            "We couldn't create the account (the email may already be registered) — your order still went through; sign in later to link it."
+          );
+        }
+      }
 
       const createRes = await fetch("/api/orders", {
         method: "POST",
@@ -522,7 +550,9 @@ export function CheckoutPage() {
           // sends the customer Bearer directly. Same credential the per-order
           // endpoints below re-check, so the order is placed and read under one
           // identity. A guest order sends neither and stays a capability URL.
-          ...orderAuthHeaders,
+          ...(createdToken
+            ? { ...orderAuthHeaders, ...bearerHeaders(createdToken) }
+            : orderAuthHeaders),
         },
         body: JSON.stringify({
           // Wholesale session: backend switches to wholesale channel, applies
@@ -799,6 +829,12 @@ export function CheckoutPage() {
             ) : null}
           </div>
 
+          {accountNotice && (
+            <p className="text-center text-xs text-muted-foreground mt-4 max-w-sm mx-auto">
+              {accountNotice}
+            </p>
+          )}
+
           <p className="text-center text-xs text-muted-foreground mt-4">
             Order ID: <span className="font-mono">{orderId}</span>
           </p>
@@ -874,6 +910,12 @@ export function CheckoutPage() {
             </div>
           </div>
 
+          {accountNotice && (
+            <p className="text-center text-xs text-muted-foreground mt-4 max-w-sm mx-auto">
+              {accountNotice}
+            </p>
+          )}
+
           <p className="text-center text-xs text-muted-foreground mt-4">
             Order ID: <span className="font-mono">{orderId}</span>
           </p>
@@ -892,6 +934,11 @@ export function CheckoutPage() {
           Payment Confirmed
         </h1>
         <p className="text-muted-foreground">Redirecting to your order…</p>
+        {accountNotice && (
+          <p className="text-xs text-muted-foreground mt-3 max-w-sm">
+            {accountNotice}
+          </p>
+        )}
       </div>
     );
   }
@@ -1147,6 +1194,44 @@ export function CheckoutPage() {
                   </div>
                 </div>
               </div>
+
+              {!customerSession && !isWholesale && (
+                <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <Checkbox
+                      checked={createAccount}
+                      onCheckedChange={(checked) => setCreateAccount(checked === true)}
+                      className="mt-0.5"
+                    />
+                    <span className="text-sm text-foreground leading-relaxed">
+                      Create an account for order tracking &amp; faster reorders
+                    </span>
+                  </label>
+
+                  {createAccount && (
+                    <div className="mt-4 pl-7">
+                      <Label
+                        htmlFor="accountPassword"
+                        className="text-muted-foreground text-sm mb-1.5 block"
+                      >
+                        Password
+                      </Label>
+                      <Input
+                        id="accountPassword"
+                        type="password"
+                        minLength={8}
+                        value={accountPassword}
+                        onChange={(e) => setAccountPassword(e.target.value)}
+                        placeholder="At least 8 characters"
+                        className="max-w-xs"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        Your email {shipping.email || "above"} will be your login.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="bg-card border border-border rounded-xl p-6 shadow-sm">
                 <h2 className="text-base font-semibold text-foreground mb-1">
