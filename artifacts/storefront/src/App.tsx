@@ -37,7 +37,7 @@ import { RegisterPage } from "@/pages/account/RegisterPage";
 import { ForgotPasswordPage } from "@/pages/account/ForgotPasswordPage";
 import { ResetPasswordPage } from "@/pages/account/ResetPasswordPage";
 import { AccountPage } from "@/pages/account/AccountPage";
-import { AgeGate } from "@/components/retail/AgeGate";
+import { RuoGate } from "@/components/RuoGate";
 
 const queryClient = new QueryClient();
 
@@ -48,17 +48,25 @@ function StorefrontRouter() {
       <main className="flex-1">
         <Switch>
           <Route path="/" component={HomePage} />
-          <Route path="/shop" component={ProductsPage} />
-          <Route path="/shop/:slug" component={ProductDetailPage} />
+          <Route path="/shop">
+            <RuoGate channel="wholesale">
+              <ProductsPage />
+            </RuoGate>
+          </Route>
+          <Route path="/shop/:slug">
+            <RuoGate channel="wholesale">
+              <ProductDetailPage />
+            </RuoGate>
+          </Route>
           <Route path="/retail">
-            <AgeGate>
+            <RuoGate channel="retail">
               <RetailShopPage />
-            </AgeGate>
+            </RuoGate>
           </Route>
           <Route path="/retail/:slug">
-            <AgeGate>
+            <RuoGate channel="retail">
               <RetailProductPage />
-            </AgeGate>
+            </RuoGate>
           </Route>
           <Route path="/verify" component={VerifyPage} />
           <Route path="/verify/:id" component={VerifyPage} />

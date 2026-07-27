@@ -17,7 +17,7 @@
       "name": "storefront",
       "runtimeExecutable": "env",
       "runtimeArgs": [
-        "API_PROXY_TARGET=http://localhost:8081",
+        "API_PROXY_TARGET=http://localhost:8080",
         "pnpm",
         "--config.verify-deps-before-run=false",
         "--filter",
