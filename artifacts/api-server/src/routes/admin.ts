@@ -1693,6 +1693,15 @@ router.patch("/admin/orders/:id", async (req, res) => {
       }).catch((err) => console.error("sendShipmentEmail error:", err));
     }
 
+    // Notify the shipper when an admin manually confirms an order here (the
+    // settle paths — webhook + ACH confirm — already fire this; this covers a
+    // hand-set status change). Off the response path.
+    if (order.status !== "confirmed" && updated.status === "confirmed") {
+      void notifyFulfillmentOnConfirm(updated).catch((err) =>
+        console.error("notifyFulfillmentOnConfirm error:", err)
+      );
+    }
+
     res.json(updated);
   } catch (err) {
     console.error("admin patchOrder error:", err);
