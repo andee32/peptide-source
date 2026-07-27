@@ -38,6 +38,7 @@ import {
   ACH_EXPIRY_DAYS,
 } from "../services/ach";
 import { PAYABLE_ORDER_STATUSES } from "../lib/orderStatus";
+import { notifyOnOrderPlaced } from "../lib/fulfillment";
 
 const router = Router();
 
@@ -656,6 +657,17 @@ router.post("/orders", createOrderRateLimit, async (req, res) => {
     }
     throw err;
   }
+
+  // Off the response path: email the buyer how to pay via their chosen rail, and
+  // notify ops that an order came in. The whole path — including its re-read — is
+  // detached so nothing here (a mail failure OR a transient DB blip) can fail the
+  // order that already committed and make the buyer re-submit into a duplicate.
+  void (async () => {
+    const placedOrder = await db.query.ordersTable.findFirst({
+      where: eq(ordersTable.id, orderId),
+    });
+    if (placedOrder) await notifyOnOrderPlaced(placedOrder);
+  })().catch((err) => console.error("notifyOnOrderPlaced error:", err));
 
   res.status(201).json({
     id: orderId,

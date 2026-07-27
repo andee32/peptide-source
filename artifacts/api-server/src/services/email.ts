@@ -339,6 +339,131 @@ ${address}
   });
 }
 
+export type OrderPaymentMethod =
+  | "crypto_btc"
+  | "crypto_usdc"
+  | "ach"
+  | "wire"
+  | "zelle";
+
+export interface PaymentInstructionsEmailData {
+  to: string;
+  orderId: string;
+  paymentMethod: OrderPaymentMethod;
+  totalCents: number;
+}
+
+// Rail-aware "how to pay" body. Deliberately does NOT embed live bank details or
+// a crypto address: those are minted lazily (fail-closed, idempotent) by the
+// per-order payment endpoints and rendered on the order page. The email points
+// the buyer back to that page to complete payment, so nothing here can leak an
+// unverified destination or prematurely advance the order.
+function paymentRailInstructions(method: OrderPaymentMethod, orderUrl: string): string {
+  switch (method) {
+    case "crypto_btc":
+    case "crypto_usdc":
+      return `Pay with crypto (${method === "crypto_btc" ? "BTC" : "USDC"}).
+Open your order to get the pay-to address and QR code:
+${orderUrl}
+
+Your order confirms automatically once the payment settles on-chain.`;
+    case "ach":
+    case "wire":
+      return `Pay by bank transfer (${method === "wire" ? "wire" : "ACH"}).
+Open your order for the beneficiary bank details and your unique reference code:
+${orderUrl}
+
+Include the reference code in the transfer memo so we can match your payment.
+Bank transfers usually take 1–3 business days; we confirm your order once the funds arrive.`;
+    case "zelle":
+      return `Pay by Zelle.
+Open your order for the recipient handle and your reference code:
+${orderUrl}
+
+Include the reference code in the Zelle memo. We confirm your order once the transfer arrives.`;
+  }
+}
+
+// Sent to the BUYER right after an order is placed (status pending) — how to pay
+// via the rail they chose. Placeholder-guarded like the other senders.
+export async function sendPaymentInstructionsEmail(
+  data: PaymentInstructionsEmailData
+): Promise<void> {
+  const transport = getTransport();
+  const orderUrl = `${SITE_URL}/orders/${data.orderId}`;
+  if (!transport) {
+    console.log(
+      `[email] SMTP not configured — payment instructions (${data.paymentMethod}) for order ${data.orderId} to ${data.to}: ${orderUrl}`
+    );
+    return;
+  }
+  await transport.sendMail({
+    from: FROM,
+    to: data.to,
+    subject: "Complete payment for your AT Lab Sourcing order",
+    text: `
+Thanks for your order — it's reserved and awaiting payment.
+
+Order: ${data.orderId}
+Amount due: $${(data.totalCents / 100).toFixed(2)}
+
+${paymentRailInstructions(data.paymentMethod, orderUrl)}
+
+All products are research use only (RUO) — not for human or animal consumption.
+
+— AT Lab Sourcing
+`.trim(),
+  });
+}
+
+export interface OpsOrderReceivedEmailData {
+  to: string;
+  order: {
+    id: string;
+    channel: string;
+    paymentMethod: OrderPaymentMethod;
+    totalCents: number;
+    buyerName: string;
+    buyerEmail: string;
+  };
+}
+
+// Internal ops notice when an order is PLACED (pending payment) — distinct from
+// the fulfilment notice, which fires on confirm ("ship now"). For the manual
+// rails (ach/wire/zelle) this is the heads-up to watch for the incoming transfer.
+export async function sendOpsOrderReceivedEmail(data: OpsOrderReceivedEmailData): Promise<void> {
+  const o = data.order;
+  const transport = getTransport();
+  const isManual = o.paymentMethod === "ach" || o.paymentMethod === "wire" || o.paymentMethod === "zelle";
+  if (!transport) {
+    console.log(
+      `[email] SMTP not configured — ops order-received notice for ${o.id} (${o.paymentMethod}) to ${data.to}`
+    );
+    return;
+  }
+  await transport.sendMail({
+    from: FROM,
+    to: data.to,
+    subject: `New order received — ${o.id} (${o.channel}, ${o.paymentMethod})`,
+    text: `
+A new ${o.channel} order was placed and is awaiting payment.
+
+Order: ${o.id}
+Payment: ${o.paymentMethod}
+Total: $${(o.totalCents / 100).toFixed(2)}
+Buyer: ${o.buyerName} <${o.buyerEmail}>
+
+${
+      isManual
+        ? "This is a manual rail — watch for the incoming transfer referencing the order, then confirm the order in Admin."
+        : "Crypto order — it confirms automatically once the payment settles on-chain."
+    }
+
+— AT Lab Sourcing
+`.trim(),
+  });
+}
+
 export interface OrderConfirmationEmailData {
   to: string;
   order: {
