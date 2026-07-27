@@ -40,7 +40,7 @@ import { loginRateLimit, reauthRateLimit } from "../lib/rateLimit";
 import { ensureBootstrapAdmin } from "../lib/bootstrapAdmin";
 import { getPaymentMethodStates, PAYMENT_METHOD_CATALOG } from "../lib/paymentMethods";
 import { sendShipmentEmail } from "../services/email";
-import { notifyFulfillmentOnConfirm } from "../lib/fulfillment";
+import { notifyOnOrderConfirmed } from "../lib/fulfillment";
 import {
   SETTLEABLE_ORDER_STATUSES,
   TERMINAL_ORDER_STATUSES,
@@ -1448,8 +1448,8 @@ router.post("/admin/orders/:id/confirm-ach", async (req, res) => {
     // Notify the dropshipper once the order actually reaches confirmed. Off the
     // response path so a mail hiccup never fails the confirmation.
     if (settled.confirmedOrder) {
-      void notifyFulfillmentOnConfirm(settled.confirmedOrder).catch((err) =>
-        console.error("notifyFulfillmentOnConfirm error:", err)
+      void notifyOnOrderConfirmed(settled.confirmedOrder).catch((err) =>
+        console.error("notifyOnOrderConfirmed error:", err)
       );
     }
 
@@ -1697,8 +1697,8 @@ router.patch("/admin/orders/:id", async (req, res) => {
     // settle paths — webhook + ACH confirm — already fire this; this covers a
     // hand-set status change). Off the response path.
     if (order.status !== "confirmed" && updated.status === "confirmed") {
-      void notifyFulfillmentOnConfirm(updated).catch((err) =>
-        console.error("notifyFulfillmentOnConfirm error:", err)
+      void notifyOnOrderConfirmed(updated).catch((err) =>
+        console.error("notifyOnOrderConfirmed error:", err)
       );
     }
 

@@ -338,3 +338,53 @@ ${address}
 `.trim(),
   });
 }
+
+export interface OrderConfirmationEmailData {
+  to: string;
+  order: {
+    id: string;
+    lineItems: { productName: string; variantName: string; quantity: number; unitPriceCents: number }[];
+    totalCents: number;
+  };
+}
+
+// Sent to the BUYER when their order is confirmed (payment settled). Order
+// summary + a link to view it. No payment/secret detail.
+export async function sendOrderConfirmationEmail(data: OrderConfirmationEmailData): Promise<void> {
+  const o = data.order;
+  const transport = getTransport();
+  if (!transport) {
+    console.log(
+      `[email] SMTP not configured — order confirmation for ${o.id} to ${data.to}`
+    );
+    return;
+  }
+  const items = o.lineItems
+    .map(
+      (li) =>
+        `  ${li.quantity} × ${li.productName} ${li.variantName} — $${(li.unitPriceCents / 100).toFixed(2)}`
+    )
+    .join("\n");
+  const orderUrl = `${SITE_URL}/orders/${o.id}`;
+  await transport.sendMail({
+    from: FROM,
+    to: data.to,
+    subject: "Your AT Lab Sourcing order is confirmed",
+    text: `
+Thanks — your payment is confirmed and your order is being prepared.
+
+Order: ${o.id}
+
+Items:
+${items}
+
+Total: $${(o.totalCents / 100).toFixed(2)}
+
+View your order: ${orderUrl}
+
+All products are research use only (RUO) — not for human or animal consumption.
+
+— AT Lab Sourcing
+`.trim(),
+  });
+}

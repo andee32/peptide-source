@@ -4,7 +4,7 @@ import { db } from "@atlab/db";
 import { ordersTable, paymentRecordsTable } from "@atlab/db/schema";
 import { btcpayService } from "../services/btcpay";
 import { SETTLEABLE_ORDER_STATUSES } from "../lib/orderStatus";
-import { notifyFulfillmentOnConfirm } from "../lib/fulfillment";
+import { notifyOnOrderConfirmed } from "../lib/fulfillment";
 
 const router = Router();
 
@@ -111,8 +111,8 @@ router.post("/webhooks/btcpay", async (req: RequestWithRawBody, res) => {
     // Notify the dropshipper once the order actually reaches confirmed. Off the
     // response path so a mail hiccup never fails the webhook.
     if (result.confirmedOrder) {
-      void notifyFulfillmentOnConfirm(result.confirmedOrder).catch((err) =>
-        console.error("notifyFulfillmentOnConfirm error:", err)
+      void notifyOnOrderConfirmed(result.confirmedOrder).catch((err) =>
+        console.error("notifyOnOrderConfirmed error:", err)
       );
     }
 
