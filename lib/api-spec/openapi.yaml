@@ -3060,7 +3060,7 @@ components:
           $ref: "#/components/schemas/PaymentMethod"
         status:
           type: string
-          enum: [pending, awaiting_payment, confirmed, failed, expired, refunded]
+          enum: [pending, awaiting_payment, confirmed, shipped, failed, expired, refunded]
         channel:
           type: string
           enum: [retail, wholesale]
@@ -3439,7 +3439,7 @@ components:
 
     OrderStatus:
       type: string
-      enum: [pending, awaiting_payment, confirmed, failed, expired, refunded]
+      enum: [pending, awaiting_payment, confirmed, shipped, failed, expired, refunded]
 
     AdminStats:
       type: object
@@ -3610,6 +3610,10 @@ components:
           nullable: true
         carrier:
           type: string
+          nullable: true
+        shippedAt:
+          type: string
+          format: date-time
           nullable: true
         createdAt:
           type: string
@@ -4172,6 +4176,10 @@ components:
           nullable: true
         carrier:
           type: string
+          nullable: true
+        shippedAt:
+          type: string
+          format: date-time
           nullable: true
         createdAt:
           type: string

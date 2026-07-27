@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ExternalLink,
   ArrowLeft,
+  Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { bearerHeaders, useCustomerSession } from "@/hooks/useCustomerAuth";
@@ -43,7 +44,7 @@ interface OrderDetail {
   totalCents: number;
   paymentMethod: "crypto_btc" | "crypto_usdc" | "ach" | "wire";
   channel: "retail" | "wholesale";
-  status: "pending" | "awaiting_payment" | "confirmed" | "failed" | "expired" | "refunded";
+  status: "pending" | "awaiting_payment" | "confirmed" | "shipped" | "failed" | "expired" | "refunded";
   lineItems: OrderLineItem[];
   shippingName: string;
   shippingEmail: string;
@@ -55,6 +56,9 @@ interface OrderDetail {
   shippingCountry: string;
   payment: PaymentRecord | null;
   createdAt: string;
+  trackingNumber?: string | null;
+  carrier?: string | null;
+  shippedAt?: string | null;
 }
 
 function formatCents(cents: number) {
@@ -133,6 +137,7 @@ export function OrderConfirmationPage() {
   const { status, payment } = order;
   const shopHref = order.channel === "wholesale" ? "/shop" : "/retail";
   const isConfirmed = status === "confirmed";
+  const isShipped = status === "shipped";
   const isAwaiting = status === "awaiting_payment" || status === "pending";
   const isExpired = status === "expired";
   const isFailed = status === "failed";
@@ -149,18 +154,23 @@ export function OrderConfirmationPage() {
         </Link>
 
         <div className="text-center mb-8">
-          {isConfirmed && (
+          {(isConfirmed || isShipped) && (
             <div className="flex flex-col items-center gap-3">
               <div className="w-16 h-16 rounded-full bg-good-tint border border-good/40 flex items-center justify-center">
-                <CheckCircle className="w-8 h-8 text-good" />
+                {isShipped ? (
+                  <Truck className="w-8 h-8 text-good" />
+                ) : (
+                  <CheckCircle className="w-8 h-8 text-good" />
+                )}
               </div>
               <div>
                 <h1 className="text-2xl font-semibold text-foreground">
-                  Payment Confirmed
+                  {isShipped ? "Order Shipped" : "Payment Confirmed"}
                 </h1>
                 <p className="text-muted-foreground text-sm mt-1">
-                  Your order has been verified on-chain. Thank you for your
-                  research investment.
+                  {isShipped
+                    ? "Your order is on its way."
+                    : "Your order has been verified on-chain. Thank you for your research investment."}
                 </p>
               </div>
             </div>
@@ -213,6 +223,29 @@ export function OrderConfirmationPage() {
         </div>
 
         <div className="space-y-5">
+          {isShipped && (
+            <div className="bg-good-tint border border-good/40 rounded-xl p-5">
+              <p className="text-xs text-good/80 uppercase tracking-wider mb-1">
+                Tracking
+              </p>
+              {order.trackingNumber ? (
+                <p className="text-sm text-good">
+                  Shipped via {order.carrier ?? "carrier"} — Tracking:{" "}
+                  <span className="font-mono">{order.trackingNumber}</span>
+                </p>
+              ) : (
+                <p className="text-sm text-good">
+                  Tracking details will follow.
+                </p>
+              )}
+              {order.shippedAt && (
+                <p className="text-xs text-good/70 mt-2">
+                  Shipped on {new Date(order.shippedAt).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+          )}
+
           {isConfirmed && payment?.txHash && (
             <div className="bg-good-tint border border-good/40 rounded-xl p-5">
               <p className="text-xs text-good/80 uppercase tracking-wider mb-1">

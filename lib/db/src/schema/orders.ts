@@ -34,6 +34,7 @@ export const orderStatusEnum = pgEnum("order_status", [
   "pending",
   "awaiting_payment",
   "confirmed",
+  "shipped",
   "failed",
   "expired",
   "refunded",
@@ -85,6 +86,9 @@ export const ordersTable = pgTable("orders", {
   shippingCountry: text("shipping_country").notNull().default("US"),
   trackingNumber: text("tracking_number"),
   carrier: text("carrier"),
+  // Set when an admin marks the order shipped (dropshipper fulfils; we record
+  // the shipment + tracking here). Null = confirmed but not yet shipped.
+  shippedAt: timestamp("shipped_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

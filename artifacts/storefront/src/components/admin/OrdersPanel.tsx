@@ -69,6 +69,7 @@ function statusLabel(status: string): string {
 function OrderStatusBadge({ status }: { status: OrderStatusValue }) {
   const cls: Record<OrderStatusValue, string> = {
     confirmed: "bg-primary/15 text-teal-ink border-primary/30",
+    shipped: "bg-[var(--atl-blue-tint)] text-[var(--atl-blue)] border-[var(--atl-blue)]/30",
     awaiting_payment: "bg-warn-tint text-warn border-warn/30",
     pending: "bg-secondary text-secondary-foreground border-border/40",
     refunded: "bg-muted text-muted-foreground border-border/40",

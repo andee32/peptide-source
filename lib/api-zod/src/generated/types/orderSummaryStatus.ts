@@ -13,6 +13,7 @@ export const OrderSummaryStatus = {
   pending: "pending",
   awaiting_payment: "awaiting_payment",
   confirmed: "confirmed",
+  shipped: "shipped",
   failed: "failed",
   expired: "expired",
   refunded: "refunded",

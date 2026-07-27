@@ -46,6 +46,7 @@ export interface AdminOrderDetail {
   shippingCountry: string;
   trackingNumber: string | null;
   carrier: string | null;
+  shippedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
   payments?: PaymentRecord[];

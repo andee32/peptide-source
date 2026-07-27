@@ -30,5 +30,6 @@ export interface CustomerOrderSummary {
   lineItems: OrderLineItem[];
   trackingNumber?: string | null;
   carrier?: string | null;
+  shippedAt?: Date | null;
   createdAt: Date;
 }

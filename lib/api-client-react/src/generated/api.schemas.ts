@@ -729,6 +729,7 @@ export const OrderSummaryStatus = {
   pending: "pending",
   awaiting_payment: "awaiting_payment",
   confirmed: "confirmed",
+  shipped: "shipped",
   failed: "failed",
   expired: "expired",
   refunded: "refunded",
@@ -1015,6 +1016,7 @@ export const OrderStatus = {
   pending: "pending",
   awaiting_payment: "awaiting_payment",
   confirmed: "confirmed",
+  shipped: "shipped",
   failed: "failed",
   expired: "expired",
   refunded: "refunded",
@@ -1129,6 +1131,7 @@ export interface AdminOrderDetail {
   shippingCountry: string;
   trackingNumber: string | null;
   carrier: string | null;
+  shippedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   payments?: PaymentRecord[];
@@ -1484,6 +1487,7 @@ export interface CustomerOrderSummary {
   lineItems: OrderLineItem[];
   trackingNumber?: string | null;
   carrier?: string | null;
+  shippedAt?: string | null;
   createdAt: string;
 }
 

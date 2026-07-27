@@ -29,10 +29,15 @@ export const TERMINAL_ORDER_STATUSES: readonly OrderStatus[] = ["refunded"];
  * settlement, it only strands a good one — a late payment against an invoice we
  * already expired would confirm the payment record and leave the order dead,
  * with real funds received and nothing but a log line to show for it.
+ *
+ * "shipped" is the one narrowing that strands nothing: a shipped order's payment
+ * is already confirmed and it can't mint a new one (shipped ∉ PAYABLE), so no
+ * legitimate settlement ever targets it — excluding it only prevents a future
+ * rail from regressing a fulfilled order back to confirmed.
  */
 export const SETTLEABLE_ORDER_STATUSES: readonly OrderStatus[] =
   orderStatusEnum.enumValues.filter(
-    (s) => !TERMINAL_ORDER_STATUSES.includes(s)
+    (s) => !TERMINAL_ORDER_STATUSES.includes(s) && s !== "shipped"
   );
 
 /**

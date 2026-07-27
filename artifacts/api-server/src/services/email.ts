@@ -243,3 +243,38 @@ If you did not request this, you can safely ignore this email.
 `.trim(),
   });
 }
+
+export interface ShipmentEmailData {
+  to: string;
+  orderId: string;
+  trackingNumber: string | null;
+  carrier: string | null;
+}
+
+export async function sendShipmentEmail(data: ShipmentEmailData): Promise<void> {
+  const transport = getTransport();
+  const trackingLine = data.trackingNumber
+    ? `Tracking${data.carrier ? ` (${data.carrier})` : ""}: ${data.trackingNumber}`
+    : "Tracking details will follow separately.";
+  if (!transport) {
+    console.log(
+      `[email] SMTP not configured — shipment notice for order ${data.orderId} to ${data.to}: ${trackingLine}`
+    );
+    return;
+  }
+  const orderUrl = `${SITE_URL}/orders/${data.orderId}`;
+  await transport.sendMail({
+    from: FROM,
+    to: data.to,
+    subject: "Your AT Lab Sourcing order has shipped",
+    text: `
+Your order has shipped.
+
+${trackingLine}
+
+Track your order: ${orderUrl}
+
+— AT Lab Sourcing
+`.trim(),
+  });
+}

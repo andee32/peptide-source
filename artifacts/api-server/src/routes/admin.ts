@@ -39,6 +39,7 @@ import {
 import { loginRateLimit, reauthRateLimit } from "../lib/rateLimit";
 import { ensureBootstrapAdmin } from "../lib/bootstrapAdmin";
 import { getPaymentMethodStates, PAYMENT_METHOD_CATALOG } from "../lib/paymentMethods";
+import { sendShipmentEmail } from "../services/email";
 import {
   SETTLEABLE_ORDER_STATUSES,
   TERMINAL_ORDER_STATUSES,
@@ -1473,11 +1474,11 @@ router.get("/admin/stats", async (_req, res) => {
       db.select({ c: count() }).from(productsTable).where(eq(productsTable.complianceStatus, "blocked")),
       db.select({ c: count() }).from(productVariantsTable).where(eq(productVariantsTable.inStock, false)),
       db.select({ status: ordersTable.status, c: count() }).from(ordersTable).groupBy(ordersTable.status),
-      // Only "confirmed" exists among {confirmed, fulfilled, shipped} in orderStatusEnum.
+      // Revenue = paid orders: both confirmed and shipped (shipped is still paid).
       db
         .select({ total: sql<string>`coalesce(sum(${ordersTable.totalCents}), 0)` })
         .from(ordersTable)
-        .where(eq(ordersTable.status, "confirmed")),
+        .where(inArray(ordersTable.status, ["confirmed", "shipped"])),
     ]);
 
     const ordersByStatus: Record<string, number> = {};
@@ -1625,8 +1626,28 @@ router.patch("/admin/orders/:id", async (req, res) => {
       return;
     }
 
+    // Only a paid (confirmed) order can be marked shipped — the dropshipper
+    // fulfils a confirmed order; shipping an unpaid/failed one makes no sense.
+    if (
+      parsed.data.status === "shipped" &&
+      order.status !== "confirmed" &&
+      order.status !== "shipped"
+    ) {
+      res.status(409).json({
+        error: "conflict",
+        message: `Only a confirmed order can be marked shipped (order is "${order.status}").`,
+      });
+      return;
+    }
+
     const updates: Partial<typeof ordersTable.$inferInsert> = { updatedAt: new Date() };
-    if (parsed.data.status !== undefined) updates.status = parsed.data.status;
+    if (parsed.data.status !== undefined) {
+      updates.status = parsed.data.status;
+      // Stamp the ship date on the first transition into "shipped".
+      if (parsed.data.status === "shipped" && !order.shippedAt) {
+        updates.shippedAt = new Date();
+      }
+    }
     if (parsed.data.trackingNumber !== undefined) updates.trackingNumber = parsed.data.trackingNumber;
     if (parsed.data.carrier !== undefined) updates.carrier = parsed.data.carrier;
 
@@ -1650,6 +1671,17 @@ router.patch("/admin/orders/:id", async (req, res) => {
         message: "Order reached a terminal status before this change was applied",
       });
       return;
+    }
+
+    // Notify the buyer when the order first transitions into "shipped". Off the
+    // response path; placeholder-guarded (logs the notice until SMTP is set up).
+    if (order.status !== "shipped" && updated.status === "shipped") {
+      void sendShipmentEmail({
+        to: updated.shippingEmail,
+        orderId: updated.id,
+        trackingNumber: updated.trackingNumber,
+        carrier: updated.carrier,
+      }).catch((err) => console.error("sendShipmentEmail error:", err));
     }
 
     res.json(updated);
