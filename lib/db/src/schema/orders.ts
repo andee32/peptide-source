@@ -89,6 +89,10 @@ export const ordersTable = pgTable("orders", {
   // Set when an admin marks the order shipped (dropshipper fulfils; we record
   // the shipment + tracking here). Null = confirmed but not yet shipped.
   shippedAt: timestamp("shipped_at"),
+  // Set when the daily unpaid-order recovery sweep has emailed the buyer a
+  // payment reminder. Non-null = already nudged; the sweep never re-emails, so a
+  // buyer gets at most one recovery reminder per order.
+  recoveryEmailedAt: timestamp("recovery_emailed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
