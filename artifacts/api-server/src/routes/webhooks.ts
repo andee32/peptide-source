@@ -4,6 +4,7 @@ import { db } from "@atlab/db";
 import { ordersTable, paymentRecordsTable } from "@atlab/db/schema";
 import { btcpayService } from "../services/btcpay";
 import { SETTLEABLE_ORDER_STATUSES } from "../lib/orderStatus";
+import { notifyFulfillmentOnConfirm } from "../lib/fulfillment";
 
 const router = Router();
 
@@ -64,7 +65,7 @@ router.post("/webhooks/btcpay", async (req: RequestWithRawBody, res) => {
     orderStatus: "confirmed" | "expired" | "failed",
     extra: { txHash?: string | null; confirmedAt?: Date } = {}
   ): Promise<boolean> {
-    return db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       const [movedPayment] = await tx
         .update(paymentRecordsTable)
         .set({ status: paymentStatus, ...extra })
@@ -77,7 +78,7 @@ router.post("/webhooks/btcpay", async (req: RequestWithRawBody, res) => {
         .returning();
 
       // Already in a terminal state — this is a redelivery. Do nothing.
-      if (!movedPayment) return false;
+      if (!movedPayment) return { moved: false, confirmedOrder: null };
 
       const [movedOrder] = await tx
         .update(ordersTable)
@@ -101,8 +102,21 @@ router.post("/webhooks/btcpay", async (req: RequestWithRawBody, res) => {
         );
       }
 
-      return true;
+      return {
+        moved: true,
+        confirmedOrder: orderStatus === "confirmed" ? movedOrder ?? null : null,
+      };
     });
+
+    // Notify the dropshipper once the order actually reaches confirmed. Off the
+    // response path so a mail hiccup never fails the webhook.
+    if (result.confirmedOrder) {
+      void notifyFulfillmentOnConfirm(result.confirmedOrder).catch((err) =>
+        console.error("notifyFulfillmentOnConfirm error:", err)
+      );
+    }
+
+    return result.moved;
   }
 
   if (type === "InvoiceSettled") {

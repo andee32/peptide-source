@@ -29,6 +29,7 @@ export * from "./adminPatchSubscriptionStatusBody";
 export * from "./adminPatchSubscriptionStatusBodyStatus";
 export * from "./adminStats";
 export * from "./adminStatsOrdersByStatus";
+export * from "./adminStoreSettings";
 export * from "./adminSubscriptionsOverview";
 export * from "./adminUser";
 export * from "./apiError";

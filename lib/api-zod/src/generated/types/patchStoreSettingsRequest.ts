@@ -16,4 +16,6 @@ export interface PatchStoreSettingsRequest {
    * @maximum 5000
    */
   cryptoDiscountBps?: number;
+  /** Shipper/fulfillment email. Empty string clears it; a non-empty value must be a valid email. */
+  fulfillmentEmail?: string | null;
 }

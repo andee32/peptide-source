@@ -5,10 +5,12 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, AlertTriangle, Check } from "lucide-react";
-import { useGetSettings, useAdminPatchSettings } from "@atlab/api-client-react";
+import { useAdminGetSettings, useAdminPatchSettings } from "@atlab/api-client-react";
 
 export function SettingsPanel({ adminKey }: { adminKey: string }) {
-  const settingsQuery = useGetSettings();
+  const settingsQuery = useAdminGetSettings({
+    request: { headers: { "x-admin-key": adminKey } },
+  });
 
   const patch = useAdminPatchSettings({
     request: { headers: { "x-admin-key": adminKey } },
@@ -21,6 +23,20 @@ export function SettingsPanel({ adminKey }: { adminKey: string }) {
 
   const showVialImages = settingsQuery.data?.showVialImages ?? true;
   const cryptoDiscountBps = settingsQuery.data?.cryptoDiscountBps ?? 1000;
+  const fulfillmentEmail = settingsQuery.data?.fulfillmentEmail ?? "";
+
+  // Local draft for the shipper email so typing doesn't PATCH per keystroke.
+  const [shipperEmail, setShipperEmail] = useState("");
+  useEffect(() => {
+    setShipperEmail(fulfillmentEmail ?? "");
+  }, [fulfillmentEmail]);
+  const shipperDirty = shipperEmail.trim() !== (fulfillmentEmail ?? "").trim();
+  const shipperValid =
+    shipperEmail.trim() === "" || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(shipperEmail.trim());
+  const saveShipper = () => {
+    if (!shipperDirty || !shipperValid) return;
+    patch.mutate({ data: { fulfillmentEmail: shipperEmail.trim() } });
+  };
 
   // Local percent draft so typing doesn't fire a PATCH per keystroke.
   const [discountPct, setDiscountPct] = useState(String(cryptoDiscountBps / 100));
@@ -142,6 +158,44 @@ export function SettingsPanel({ adminKey }: { adminKey: string }) {
             {!pctValid && (
               <p className="text-destructive text-xs font-mono mt-2">
                 Enter a percentage between 0 and 50.
+              </p>
+            )}
+
+            <div className="mt-6 pt-5 border-t border-border/50 flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="fulfillment-email" className="text-sm font-medium">
+                  Shipper / fulfillment email
+                </Label>
+                <p className="text-[11px] text-muted-foreground font-mono leading-relaxed max-w-md">
+                  Emailed the order details (what to ship + where) when an order is
+                  confirmed. Leave blank for no shipper notification.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="fulfillment-email"
+                  type="email"
+                  placeholder="shipper@example.com"
+                  value={shipperEmail}
+                  onChange={(e) => setShipperEmail(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && saveShipper()}
+                  className="h-8 w-56 font-mono text-xs"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 font-mono text-xs"
+                  disabled={!shipperDirty || !shipperValid || patch.isPending}
+                  onClick={saveShipper}
+                  aria-label="Save shipper email"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+            {!shipperValid && (
+              <p className="text-destructive text-xs font-mono mt-2">
+                Enter a valid email, or leave blank to disable.
               </p>
             )}
             {patch.isError && (

@@ -999,6 +999,20 @@ export interface StoreSettings {
 }
 
 /**
+ * Admin view of store settings — includes the fulfillment (shipper) email, which is not public.
+ */
+export interface AdminStoreSettings {
+  showVialImages: boolean;
+  /**
+   * @minimum 0
+   * @maximum 5000
+   */
+  cryptoDiscountBps: number;
+  /** Where the shipper/dropshipper fulfillment notice is sent when an order is confirmed. Null = no shipper notification. */
+  fulfillmentEmail: string | null;
+}
+
+/**
  * Update store settings. At least one field must be provided.
  */
 export interface PatchStoreSettingsRequest {
@@ -1008,6 +1022,8 @@ export interface PatchStoreSettingsRequest {
    * @maximum 5000
    */
   cryptoDiscountBps?: number;
+  /** Shipper/fulfillment email. Empty string clears it; a non-empty value must be a valid email. */
+  fulfillmentEmail?: string | null;
 }
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];

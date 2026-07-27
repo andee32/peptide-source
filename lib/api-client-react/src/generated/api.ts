@@ -27,6 +27,7 @@ import type {
   AdminOrderSummary,
   AdminPatchSubscriptionStatusBody,
   AdminStats,
+  AdminStoreSettings,
   AdminSubscriptionsOverview,
   AdminUser,
   ApiError,
@@ -1966,6 +1967,82 @@ export function useAdminDiscountCodeReport<
 }
 
 /**
+ * Admin-only. Returns global settings including the fulfillment (shipper) email, which is not exposed on the public GET /settings. Requires x-admin-key header.
+ * @summary Get store settings incl. fulfillment email (admin)
+ */
+export const getAdminGetSettingsUrl = () => {
+  return `/api/admin/settings`;
+};
+
+export const adminGetSettings = async (
+  options?: RequestInit,
+): Promise<AdminStoreSettings> => {
+  return customFetch<AdminStoreSettings>(getAdminGetSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetSettingsQueryKey = () => {
+  return [`/api/admin/settings`] as const;
+};
+
+export const getAdminGetSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetSettings>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminGetSettingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetSettings>>
+  > = ({ signal }) => adminGetSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetSettings>>
+>;
+export type AdminGetSettingsQueryError = ErrorType<void>;
+
+/**
+ * @summary Get store settings incl. fulfillment email (admin)
+ */
+
+export function useAdminGetSettings<
+  TData = Awaited<ReturnType<typeof adminGetSettings>>,
+  TError = ErrorType<void>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * Admin-only. Updates global storefront settings; upserts the single 'default' row if absent. Requires x-admin-key header.
  * @summary Update store settings (admin)
  */
@@ -1976,8 +2053,8 @@ export const getAdminPatchSettingsUrl = () => {
 export const adminPatchSettings = async (
   patchStoreSettingsRequest: PatchStoreSettingsRequest,
   options?: RequestInit,
-): Promise<StoreSettings> => {
-  return customFetch<StoreSettings>(getAdminPatchSettingsUrl(), {
+): Promise<AdminStoreSettings> => {
+  return customFetch<AdminStoreSettings>(getAdminPatchSettingsUrl(), {
     ...options,
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...options?.headers },

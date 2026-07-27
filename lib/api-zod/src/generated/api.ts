@@ -903,6 +903,31 @@ export const AdminDiscountCodeReportResponse = zod
   );
 
 /**
+ * Admin-only. Returns global settings including the fulfillment (shipper) email, which is not exposed on the public GET /settings. Requires x-admin-key header.
+ * @summary Get store settings incl. fulfillment email (admin)
+ */
+export const adminGetSettingsResponseCryptoDiscountBpsMin = 0;
+export const adminGetSettingsResponseCryptoDiscountBpsMax = 5000;
+
+export const AdminGetSettingsResponse = zod
+  .object({
+    showVialImages: zod.boolean(),
+    cryptoDiscountBps: zod
+      .number()
+      .min(adminGetSettingsResponseCryptoDiscountBpsMin)
+      .max(adminGetSettingsResponseCryptoDiscountBpsMax),
+    fulfillmentEmail: zod
+      .string()
+      .nullable()
+      .describe(
+        "Where the shipper\/dropshipper fulfillment notice is sent when an order is confirmed. Null = no shipper notification.",
+      ),
+  })
+  .describe(
+    "Admin view of store settings — includes the fulfillment (shipper) email, which is not public.",
+  );
+
+/**
  * Admin-only. Updates global storefront settings; upserts the single 'default' row if absent. Requires x-admin-key header.
  * @summary Update store settings (admin)
  */
@@ -917,6 +942,12 @@ export const AdminPatchSettingsBody = zod
       .min(adminPatchSettingsBodyCryptoDiscountBpsMin)
       .max(adminPatchSettingsBodyCryptoDiscountBpsMax)
       .optional(),
+    fulfillmentEmail: zod
+      .string()
+      .nullish()
+      .describe(
+        "Shipper\/fulfillment email. Empty string clears it; a non-empty value must be a valid email.",
+      ),
   })
   .describe("Update store settings. At least one field must be provided.");
 
@@ -925,20 +956,21 @@ export const adminPatchSettingsResponseCryptoDiscountBpsMax = 5000;
 
 export const AdminPatchSettingsResponse = zod
   .object({
-    showVialImages: zod
-      .boolean()
-      .describe(
-        "When false, product vial\/placeholder images are hidden across the storefront.",
-      ),
+    showVialImages: zod.boolean(),
     cryptoDiscountBps: zod
       .number()
       .min(adminPatchSettingsResponseCryptoDiscountBpsMin)
-      .max(adminPatchSettingsResponseCryptoDiscountBpsMax)
+      .max(adminPatchSettingsResponseCryptoDiscountBpsMax),
+    fulfillmentEmail: zod
+      .string()
+      .nullable()
       .describe(
-        "Retail crypto-payment discount in basis points (1000 = 10%). 0 disables the discount. Never applied to wholesale orders.",
+        "Where the shipper\/dropshipper fulfillment notice is sent when an order is confirmed. Null = no shipper notification.",
       ),
   })
-  .describe("Global storefront settings.");
+  .describe(
+    "Admin view of store settings — includes the fulfillment (shipper) email, which is not public.",
+  );
 
 /**
  * Public endpoint — creates a reviewer submission in pending state. Validates Janoshik Task ID format.

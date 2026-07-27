@@ -625,6 +625,20 @@ paths:
           description: Not found
 
   /admin/settings:
+    get:
+      operationId: adminGetSettings
+      tags: [settings]
+      summary: Get store settings incl. fulfillment email (admin)
+      description: Admin-only. Returns global settings including the fulfillment (shipper) email, which is not exposed on the public GET /settings. Requires x-admin-key header.
+      responses:
+        "200":
+          description: Store settings (admin view)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStoreSettings"
+        "401":
+          description: Admin key required
     patch:
       operationId: adminPatchSettings
       tags: [settings]
@@ -642,7 +656,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StoreSettings"
+                $ref: "#/components/schemas/AdminStoreSettings"
         "400":
           description: Validation error
           content:
@@ -3425,6 +3439,26 @@ components:
         - cryptoDiscountBps
       additionalProperties: false
 
+    AdminStoreSettings:
+      type: object
+      description: Admin view of store settings — includes the fulfillment (shipper) email, which is not public.
+      properties:
+        showVialImages:
+          type: boolean
+        cryptoDiscountBps:
+          type: integer
+          minimum: 0
+          maximum: 5000
+        fulfillmentEmail:
+          type: string
+          nullable: true
+          description: Where the shipper/dropshipper fulfillment notice is sent when an order is confirmed. Null = no shipper notification.
+      required:
+        - showVialImages
+        - cryptoDiscountBps
+        - fulfillmentEmail
+      additionalProperties: false
+
     PatchStoreSettingsRequest:
       type: object
       description: Update store settings. At least one field must be provided.
@@ -3435,6 +3469,10 @@ components:
           type: integer
           minimum: 0
           maximum: 5000
+        fulfillmentEmail:
+          type: string
+          nullable: true
+          description: Shipper/fulfillment email. Empty string clears it; a non-empty value must be a valid email.
       additionalProperties: false
 
     OrderStatus:

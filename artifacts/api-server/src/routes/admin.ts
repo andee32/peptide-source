@@ -40,6 +40,7 @@ import { loginRateLimit, reauthRateLimit } from "../lib/rateLimit";
 import { ensureBootstrapAdmin } from "../lib/bootstrapAdmin";
 import { getPaymentMethodStates, PAYMENT_METHOD_CATALOG } from "../lib/paymentMethods";
 import { sendShipmentEmail } from "../services/email";
+import { notifyFulfillmentOnConfirm } from "../lib/fulfillment";
 import {
   SETTLEABLE_ORDER_STATUSES,
   TERMINAL_ORDER_STATUSES,
@@ -1413,7 +1414,7 @@ router.post("/admin/orders/:id/confirm-ach", async (req, res) => {
         )
         .returning();
 
-      if (!movedPayment) return false;
+      if (!movedPayment) return { settled: false, confirmedOrder: null };
 
       const [movedOrder] = await tx
         .update(ordersTable)
@@ -1433,15 +1434,23 @@ router.post("/admin/orders/:id/confirm-ach", async (req, res) => {
         );
       }
 
-      return true;
+      return { settled: true, confirmedOrder: movedOrder ?? null };
     });
 
-    if (!settled) {
+    if (!settled.settled) {
       res.status(409).json({
         error: "conflict",
         message: "This payment has already been settled",
       });
       return;
+    }
+
+    // Notify the dropshipper once the order actually reaches confirmed. Off the
+    // response path so a mail hiccup never fails the confirmation.
+    if (settled.confirmedOrder) {
+      void notifyFulfillmentOnConfirm(settled.confirmedOrder).catch((err) =>
+        console.error("notifyFulfillmentOnConfirm error:", err)
+      );
     }
 
     res.json({
@@ -2150,11 +2159,37 @@ const PatchSettingsSchema = z
   .object({
     showVialImages: z.boolean().optional(),
     cryptoDiscountBps: z.number().int().min(0).max(5000).optional(),
+    // "" clears the address; a non-empty value must be a valid email.
+    fulfillmentEmail: z
+      .union([z.string().email().max(320), z.literal("")])
+      .nullable()
+      .optional(),
   })
   .refine(
-    (v) => v.showVialImages !== undefined || v.cryptoDiscountBps !== undefined,
+    (v) =>
+      v.showVialImages !== undefined ||
+      v.cryptoDiscountBps !== undefined ||
+      v.fulfillmentEmail !== undefined,
     { message: "At least one field is required" },
   );
+
+// Admin read — includes the fulfillment (shipper) email, which is NOT in the
+// public GET /settings.
+router.get("/admin/settings", async (_req, res) => {
+  try {
+    const row = await db.query.storeSettingsTable.findFirst({
+      where: eq(storeSettingsTable.id, "default"),
+    });
+    res.json({
+      showVialImages: row?.showVialImages ?? true,
+      cryptoDiscountBps: row?.cryptoDiscountBps ?? 1000,
+      fulfillmentEmail: row?.fulfillmentEmail ?? null,
+    });
+  } catch (err) {
+    console.error("admin getSettings error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
 
 router.patch("/admin/settings", async (req, res) => {
   const parsed = PatchSettingsSchema.safeParse(req.body);
@@ -2172,6 +2207,10 @@ router.patch("/admin/settings", async (req, res) => {
     if (parsed.data.cryptoDiscountBps !== undefined) {
       updates.cryptoDiscountBps = parsed.data.cryptoDiscountBps;
     }
+    if (parsed.data.fulfillmentEmail !== undefined) {
+      // Empty string clears it back to null.
+      updates.fulfillmentEmail = parsed.data.fulfillmentEmail || null;
+    }
 
     const [row] = await db
       .insert(storeSettingsTable)
@@ -2182,6 +2221,7 @@ router.patch("/admin/settings", async (req, res) => {
     res.json({
       showVialImages: row.showVialImages,
       cryptoDiscountBps: row.cryptoDiscountBps,
+      fulfillmentEmail: row.fulfillmentEmail ?? null,
     });
   } catch (err) {
     console.error("admin patchSettings error:", err);

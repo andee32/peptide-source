@@ -278,3 +278,63 @@ Track your order: ${orderUrl}
 `.trim(),
   });
 }
+
+export interface FulfillmentEmailData {
+  to: string;
+  order: {
+    id: string;
+    channel: string;
+    lineItems: { productName: string; variantName: string; quantity: number }[];
+    shippingName: string;
+    shippingAddress1: string;
+    shippingAddress2?: string | null;
+    shippingCity: string;
+    shippingState: string;
+    shippingZip: string;
+    shippingCountry: string;
+  };
+}
+
+// Sent to the dropshipper/fulfillment address when an order is confirmed — what
+// to ship and where. Order-fulfilment detail only; no payment info.
+export async function sendFulfillmentEmail(data: FulfillmentEmailData): Promise<void> {
+  const o = data.order;
+  const items = o.lineItems
+    .map((li) => `  ${li.quantity} × ${li.productName} ${li.variantName}`)
+    .join("\n");
+  const address = [
+    o.shippingName,
+    o.shippingAddress1,
+    o.shippingAddress2 || null,
+    `${o.shippingCity}, ${o.shippingState} ${o.shippingZip}`,
+    o.shippingCountry,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const transport = getTransport();
+  if (!transport) {
+    console.log(
+      `[email] SMTP not configured — fulfillment notice for order ${o.id} to ${data.to}`
+    );
+    return;
+  }
+  await transport.sendMail({
+    from: FROM,
+    to: data.to,
+    subject: `New order to ship — ${o.id} (${o.channel})`,
+    text: `
+A ${o.channel} order has been confirmed and is ready to ship.
+
+Order: ${o.id}
+
+Items:
+${items}
+
+Ship to:
+${address}
+
+— AT Lab Sourcing
+`.trim(),
+  });
+}

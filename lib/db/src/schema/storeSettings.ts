@@ -9,6 +9,9 @@ export const storeSettingsTable = pgTable("store_settings", {
   // Retail crypto-payment discount in basis points (1000 = 10%). 0 disables it.
   // Applied server-side at order creation; wholesale orders never receive it.
   cryptoDiscountBps: integer("crypto_discount_bps").notNull().default(1000),
+  // Where the dropshipper/fulfillment notice is sent when an order is confirmed.
+  // Empty = no shipper notification (the confirm just logs a note).
+  fulfillmentEmail: text("fulfillment_email"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
