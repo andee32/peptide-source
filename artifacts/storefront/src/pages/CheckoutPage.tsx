@@ -7,6 +7,7 @@ import { useGetPaymentMethods } from "@atlab/api-client-react";
 import { bearerHeaders, useCustomerSession, useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1216,9 +1217,8 @@ export function CheckoutPage() {
                       >
                         Password
                       </Label>
-                      <Input
+                      <PasswordInput
                         id="accountPassword"
-                        type="password"
                         minLength={8}
                         value={accountPassword}
                         onChange={(e) => setAccountPassword(e.target.value)}

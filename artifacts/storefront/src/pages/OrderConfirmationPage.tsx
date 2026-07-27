@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   bearerHeaders,
   useCustomerAuth,
@@ -469,8 +470,7 @@ export function OrderConfirmationPage() {
                     <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">
                       Password
                     </p>
-                    <Input
-                      type="password"
+                    <PasswordInput
                       value={claimPassword}
                       onChange={(e) => setClaimPassword(e.target.value)}
                       autoComplete="new-password"

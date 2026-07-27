@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useSearch, useLocation } from "wouter";
 import { useResetPassword } from "@atlab/api-client-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,7 +20,6 @@ export function ResetPasswordPage() {
   const token = useMemo(() => new URLSearchParams(search).get("token") ?? "", [search]);
 
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const reset = useResetPassword();
@@ -30,10 +29,6 @@ export function ResetPasswordPage() {
     setError(null);
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
-      return;
-    }
-    if (password !== confirm) {
-      setError("Passwords don't match.");
       return;
     }
     reset.mutate(
@@ -109,27 +104,10 @@ export function ResetPasswordPage() {
                   <Label htmlFor="password" className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
                     New Password
                   </Label>
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    autoComplete="new-password"
-                    className="mt-1.5"
-                    minLength={8}
-                    maxLength={200}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="confirm" className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
-                    Confirm Password
-                  </Label>
-                  <Input
-                    id="confirm"
-                    type="password"
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
                     autoComplete="new-password"
                     className="mt-1.5"
                     minLength={8}
@@ -148,7 +126,7 @@ export function ResetPasswordPage() {
                 <Button
                   type="submit"
                   className="w-full font-mono uppercase tracking-widest h-11"
-                  disabled={reset.isPending || !password || !confirm}
+                  disabled={reset.isPending || !password}
                 >
                   {reset.isPending ? "Saving…" : "Set password"}
                 </Button>

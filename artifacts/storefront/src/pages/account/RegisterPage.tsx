@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -23,7 +24,6 @@ export function RegisterPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,10 +36,6 @@ export function RegisterPage() {
 
     if (password.length < MIN_PASSWORD_LENGTH) {
       setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
-      return;
-    }
-    if (password !== confirm) {
-      setError("Passwords do not match.");
       return;
     }
 
@@ -140,32 +136,12 @@ export function RegisterPage() {
                 >
                   Password
                 </Label>
-                <Input
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="new-password"
                   placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
-                  className="mt-1.5"
-                  minLength={MIN_PASSWORD_LENGTH}
-                  maxLength={200}
-                  required
-                />
-              </div>
-              <div>
-                <Label
-                  htmlFor="confirm"
-                  className="font-mono text-xs uppercase tracking-wider text-muted-foreground"
-                >
-                  Confirm Password
-                </Label>
-                <Input
-                  id="confirm"
-                  type="password"
-                  value={confirm}
-                  onChange={(e) => setConfirm(e.target.value)}
-                  autoComplete="new-password"
                   className="mt-1.5"
                   minLength={MIN_PASSWORD_LENGTH}
                   maxLength={200}
