@@ -464,6 +464,148 @@ ${
   });
 }
 
+export interface PaymentFailedEmailData {
+  to: string;
+  orderId: string;
+  reason: "expired" | "failed";
+}
+
+// Sent to the BUYER when their payment expired (window elapsed before funds
+// arrived) or was invalidated. The order was not charged. Placeholder-guarded.
+export async function sendPaymentFailedEmail(
+  data: PaymentFailedEmailData
+): Promise<void> {
+  const transport = getTransport();
+  if (!transport) {
+    console.log(
+      `[email] SMTP not configured — payment-${data.reason} notice for order ${data.orderId} to ${data.to}`
+    );
+    return;
+  }
+  const shopUrl = `${SITE_URL}/shop`;
+  const reasonLine =
+    data.reason === "expired"
+      ? "The payment window for your order expired before we received payment, so the order was not completed."
+      : "The payment for your order could not be processed, so the order was not completed.";
+  await transport.sendMail({
+    from: FROM,
+    to: data.to,
+    subject: "Payment not completed for your AT Lab Sourcing order",
+    text: `
+${reasonLine}
+
+Order: ${data.orderId}
+
+You were not charged. To try again, place a new order:
+${shopUrl}
+
+If you believe you paid and are seeing this in error, reply to this email so we
+can reconcile the payment.
+
+— AT Lab Sourcing
+`.trim(),
+  });
+}
+
+export interface UnpaidRecoveryEmailData {
+  to: string;
+  orderId: string;
+  paymentMethod: OrderPaymentMethod;
+  totalCents: number;
+}
+
+// Sent to the BUYER for an order still awaiting payment past the nudge window —
+// a single reminder with the link to complete payment. Placeholder-guarded.
+export async function sendUnpaidRecoveryEmail(
+  data: UnpaidRecoveryEmailData
+): Promise<void> {
+  const transport = getTransport();
+  const orderUrl = `${SITE_URL}/orders/${data.orderId}`;
+  if (!transport) {
+    console.log(
+      `[email] SMTP not configured — unpaid-recovery reminder for order ${data.orderId} to ${data.to}: ${orderUrl}`
+    );
+    return;
+  }
+  await transport.sendMail({
+    from: FROM,
+    to: data.to,
+    subject: "Your AT Lab Sourcing order is still waiting for payment",
+    text: `
+Your order is reserved but we haven't received payment yet.
+
+Order: ${data.orderId}
+Amount due: $${(data.totalCents / 100).toFixed(2)}
+
+${paymentRailInstructions(data.paymentMethod, orderUrl)}
+
+If you no longer want this order, you can ignore this email and it will be
+released.
+
+— AT Lab Sourcing
+`.trim(),
+  });
+}
+
+export interface WholesaleDecisionEmailData {
+  to: string;
+  decision: "approved" | "rejected";
+  businessName: string;
+  contactName: string;
+  tierName?: string | null;
+}
+
+// Sent to the wholesale applicant's business-contact email when an admin approves
+// or rejects their account. Placeholder-guarded like the other senders.
+export async function sendWholesaleDecisionEmail(
+  data: WholesaleDecisionEmailData
+): Promise<void> {
+  const transport = getTransport();
+  if (!transport) {
+    console.log(
+      `[email] SMTP not configured — wholesale ${data.decision} notice for ${data.businessName} to ${data.to}`
+    );
+    return;
+  }
+  const loginUrl = `${SITE_URL}/account/login`;
+  const body =
+    data.decision === "approved"
+      ? `
+Hello ${data.contactName},
+
+Your wholesale account for ${data.businessName} has been approved.${
+          data.tierName ? `\n\nPrice tier: ${data.tierName}` : ""
+        }
+
+Sign in to see your wholesale pricing and place orders:
+${loginUrl}
+
+All products are research use only (RUO) — not for human or animal consumption.
+
+— AT Lab Sourcing
+`
+      : `
+Hello ${data.contactName},
+
+Thank you for your interest in a wholesale account for ${data.businessName}.
+After review, we're unable to approve your application at this time.
+
+If you believe this was in error or would like to provide additional
+documentation, just reply to this email.
+
+— AT Lab Sourcing
+`;
+  await transport.sendMail({
+    from: FROM,
+    to: data.to,
+    subject:
+      data.decision === "approved"
+        ? "Your AT Lab Sourcing wholesale account is approved"
+        : "Update on your AT Lab Sourcing wholesale application",
+    text: body.trim(),
+  });
+}
+
 export interface OrderConfirmationEmailData {
   to: string;
   order: {

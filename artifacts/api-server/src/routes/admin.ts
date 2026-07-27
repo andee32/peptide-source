@@ -39,7 +39,7 @@ import {
 import { loginRateLimit, reauthRateLimit } from "../lib/rateLimit";
 import { ensureBootstrapAdmin } from "../lib/bootstrapAdmin";
 import { getPaymentMethodStates, PAYMENT_METHOD_CATALOG } from "../lib/paymentMethods";
-import { sendShipmentEmail } from "../services/email";
+import { sendShipmentEmail, sendWholesaleDecisionEmail } from "../services/email";
 import { notifyOnOrderConfirmed } from "../lib/fulfillment";
 import {
   SETTLEABLE_ORDER_STATUSES,
@@ -1169,6 +1169,36 @@ router.patch("/admin/accounts/:id", async (req, res) => {
       .set(updates)
       .where(eq(customerAccountsTable.id, req.params.id))
       .returning();
+
+    // Notify the applicant only on a real transition INTO approved/rejected —
+    // not on a no-op re-save of the same status, and not on tier/notes-only
+    // edits. Fire-and-forget off the response path; a mail failure must not fail
+    // the admin action. Sent to the business-contact email on the account.
+    const decision = parsed.data.status;
+    if (
+      (decision === "approved" || decision === "rejected") &&
+      decision !== account.status
+    ) {
+      void (async () => {
+        const tierName =
+          decision === "approved" && updated.priceTierId != null
+            ? (
+                await db.query.priceTiersTable.findFirst({
+                  where: eq(priceTiersTable.id, updated.priceTierId),
+                })
+              )?.name ?? null
+            : null;
+        await sendWholesaleDecisionEmail({
+          to: updated.email,
+          decision,
+          businessName: updated.businessName,
+          contactName: updated.contactName,
+          tierName,
+        });
+      })().catch((err) =>
+        console.error("sendWholesaleDecisionEmail error:", err)
+      );
+    }
 
     res.json(await serializeAccount(updated));
   } catch (err) {

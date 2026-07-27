@@ -5,6 +5,7 @@ import { ordersTable, paymentRecordsTable } from "@atlab/db/schema";
 import { btcpayService } from "../services/btcpay";
 import { SETTLEABLE_ORDER_STATUSES } from "../lib/orderStatus";
 import { notifyOnOrderConfirmed } from "../lib/fulfillment";
+import { sendPaymentFailedEmail } from "../services/email";
 
 const router = Router();
 
@@ -78,7 +79,7 @@ router.post("/webhooks/btcpay", async (req: RequestWithRawBody, res) => {
         .returning();
 
       // Already in a terminal state — this is a redelivery. Do nothing.
-      if (!movedPayment) return { moved: false, confirmedOrder: null };
+      if (!movedPayment) return { moved: false, movedOrder: null };
 
       const [movedOrder] = await tx
         .update(ordersTable)
@@ -102,18 +103,26 @@ router.post("/webhooks/btcpay", async (req: RequestWithRawBody, res) => {
         );
       }
 
-      return {
-        moved: true,
-        confirmedOrder: orderStatus === "confirmed" ? movedOrder ?? null : null,
-      };
+      return { moved: true, movedOrder: movedOrder ?? null };
     });
 
-    // Notify the dropshipper once the order actually reaches confirmed. Off the
-    // response path so a mail hiccup never fails the webhook.
-    if (result.confirmedOrder) {
-      void notifyOnOrderConfirmed(result.confirmedOrder).catch((err) =>
-        console.error("notifyOnOrderConfirmed error:", err)
-      );
+    // All notifications fire off the response path so a mail hiccup never fails
+    // the webhook. Only when the ORDER actually transitioned (movedOrder set) —
+    // a payment that moved without its order is the mixed state logged above.
+    if (result.movedOrder) {
+      if (orderStatus === "confirmed") {
+        void notifyOnOrderConfirmed(result.movedOrder).catch((err) =>
+          console.error("notifyOnOrderConfirmed error:", err)
+        );
+      } else {
+        // orderStatus is "expired" or "failed" — tell the buyer the payment
+        // didn't complete and they were not charged.
+        void sendPaymentFailedEmail({
+          to: result.movedOrder.shippingEmail,
+          orderId: result.movedOrder.id,
+          reason: orderStatus,
+        }).catch((err) => console.error("sendPaymentFailedEmail error:", err));
+      }
     }
 
     return result.moved;
