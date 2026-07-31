@@ -9,16 +9,13 @@ import {
   paymentMethodsTable,
 } from "@atlab/db/schema";
 import { sql } from "drizzle-orm";
+import coaLinks from "./coaLinks.json" with { type: "json" };
+
+const coaFor = (sku: string): string | null =>
+  (coaLinks as Record<string, string>)[sku] ?? null;
 
 type VariantSeed = { name: string; priceCents: number; sku: string };
 
-// Retail (B2C) single-vial price from the wholesale kit price. Take ~38% of the
-// kit price (a healthy retail markup over the ~per-vial wholesale cost) then
-// round UP to the nearest value ending in 99 cents (e.g. 7500 -> 2850 -> 2899).
-function retailVialCents(kitPriceCents: number): number {
-  const base = Math.round(kitPriceCents * 0.38);
-  return base + ((99 - (base % 100) + 100) % 100);
-}
 type ProductSeed = {
   name: string;
   slug: string;
@@ -50,10 +47,11 @@ const CATALOG: ProductSeed[] = [
       "NanoBRET beta-arrestin and GRK2 recruitment and SNAP-tag receptor internalization assays characterizing GLP-1R signaling bias",
     ],
     variants: [
-      { name: "10mg", priceCents: 7500, sku: "TR10" },
+      { name: "10mg", priceCents: 8000, sku: "TR10" },
       { name: "15mg", priceCents: 9000, sku: "TR15" },
       { name: "20mg", priceCents: 10000, sku: "TR20" },
       { name: "30mg", priceCents: 11500, sku: "TR30" },
+      { name: "60mg", priceCents: 22000, sku: "TR60" },
     ],
   },
   {
@@ -73,9 +71,12 @@ const CATALOG: ProductSeed[] = [
       "In-vitro structure-activity and receptor-binding characterization of acylated multi-agonist peptides",
     ],
     variants: [
+      { name: "5mg", priceCents: 8700, sku: "RT5" },
       { name: "10mg", priceCents: 11500, sku: "RT10" },
+      { name: "15mg", priceCents: 14000, sku: "RT15" },
       { name: "20mg", priceCents: 16000, sku: "RT20" },
-      { name: "30mg", priceCents: 19000, sku: "RT30" },
+      { name: "30mg", priceCents: 20000, sku: "RT30" },
+      { name: "50mg", priceCents: 30000, sku: "RT50" },
     ],
   },
   {
@@ -90,7 +91,10 @@ const CATALOG: ProductSeed[] = [
       "RAMP-dependent receptor pharmacology and agonist-selectivity profiling in CTR/RAMP-transfected cell lines",
       "In-vitro physical-stability and amyloid-fibrillation characterization of amylin-family peptides",
     ],
-    variants: [{ name: "10mg", priceCents: 19000, sku: "CG10" }],
+    variants: [
+      { name: "5mg", priceCents: 13000, sku: "CAG5" },
+      { name: "10mg", priceCents: 19000, sku: "CGL10" },
+    ],
   },
 
   // ---- Growth hormone (usa_domestic) ----
@@ -107,8 +111,8 @@ const CATALOG: ProductSeed[] = [
       "GHRH receptor (GHRHR) competitive binding and Gs/cAMP reporter assays in pituitary-derived cell lines — established for GHRH-class agonists (PMC12137518); tesamorelin-specific in-vitro affinity data not located in the peer-reviewed literature",
     ],
     variants: [
-      { name: "5mg", priceCents: 11500, sku: "TS5" },
-      { name: "10mg", priceCents: 19000, sku: "TS10" },
+      { name: "5mg", priceCents: 11500, sku: "TSM5" },
+      { name: "10mg", priceCents: 19000, sku: "TSM10" },
     ],
   },
   {
@@ -123,21 +127,21 @@ const CATALOG: ProductSeed[] = [
       "In-vitro cell proliferation and anti-apoptotic signalling assays",
       "In-vitro IGF-1R pathway studies (IRS-1/PI3K-Akt and MAPK phosphorylation) under low-IGF-binding-protein conditions",
     ],
-    variants: [{ name: "1mg", priceCents: 19500, sku: "IGF1" }],
+    variants: [],
   },
   {
-    name: "Ipamorelin",
-    slug: "ipamorelin",
+    name: "CJC/IPA No DAC",
+    slug: "cjc-ipa-no-dac",
     category: "other",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Ipamorelin (Aib-His-D-2-Nal-D-Phe-Lys-NH2), a synthetic pentapeptide agonist of the growth hormone secretagogue receptor GHS-R1a, supplied as a 10-vial kit for in-vitro receptor binding and signalling assays. For laboratory research use only.",
+      "Research blend of CJC-1295 without DAC (modified GRF(1-29), a synthetic GHRH analog) and Ipamorelin (a selective GHS-R1a pentapeptide agonist), supplied as a 10-vial kit for in-vitro GHRH-receptor and ghrelin-receptor signaling research. Component identities and per-component masses are stated on the lot COA. For laboratory research use only.",
     researchUses: [
-      "GHS-R1a (ghrelin receptor) radioligand competition binding assays in receptor-transfected cell lines",
-      "GHS-R1a functional signalling readouts — inositol phosphate accumulation and intracellular Ca2+ mobilisation",
-      "Growth hormone secretion assays in primary anterior pituitary cell culture",
+      "GHRH receptor (GHRHR) Gs/cAMP reporter assays for the CJC-1295 (mod GRF 1-29) component in pituitary-derived cell lines",
+      "GHS-R1a (ghrelin receptor) radioligand binding and Ca2+/IP signaling assays for the Ipamorelin component",
+      "In-vitro plasma-stability and LC-MS/MS identity and purity characterization of a two-component peptide mixture",
     ],
-    variants: [{ name: "10mg", priceCents: 8500, sku: "IP10" }],
+    variants: [{ name: "10mg", priceCents: 11500, sku: "IP10" }],
   },
 
   // ---- Healing / BPC (usa_domestic) ----
@@ -154,10 +158,7 @@ const CATALOG: ProductSeed[] = [
       "Cultured fibroblast and tendon-explant outgrowth assays",
       "FAK-paxillin and VEGFR2-Akt-eNOS signalling readouts in cell culture",
     ],
-    variants: [
-      { name: "5mg", priceCents: 6000, sku: "BC5" },
-      { name: "10mg", priceCents: 8500, sku: "BC10" },
-    ],
+    variants: [{ name: "5mg", priceCents: 7000, sku: "BC5" }],
   },
   {
     name: "TB-500",
@@ -171,7 +172,7 @@ const CATALOG: ProductSeed[] = [
       "Ex-vivo vessel-sprouting / angiogenesis explant assays (chick aortic arch)",
       "Structure-activity comparison against full-length thymosin beta-4 and truncated LKKTET analogues, including G-actin binding studies — actin sequestration by the isolated heptapeptide remains an untested hypothesis",
     ],
-    variants: [{ name: "10mg", priceCents: 15000, sku: "TB10" }],
+    variants: [{ name: "10mg", priceCents: 15000, sku: "BT10" }],
   },
   {
     name: "Ara-290",
@@ -185,7 +186,7 @@ const CATALOG: ProductSeed[] = [
       "In-vitro macrophage and dendritic cell cytokine/chemokine expression assays (CCL2, CCL3, CXCL1; MHC-II, CD86)",
       "Cellular stress and apoptosis assays in cultured mesenchymal-derived or neuronal cells",
     ],
-    variants: [{ name: "10mg", priceCents: 7100, sku: "AR10" }],
+    variants: [{ name: "10mg", priceCents: 8500, sku: "RA10" }],
   },
   {
     name: "KPV",
@@ -199,7 +200,7 @@ const CATALOG: ProductSeed[] = [
       "PepT1-mediated peptide-transporter uptake/competition studies ([3H]KPV kinetics)",
       "In-vitro pro-inflammatory cytokine (e.g. IL-8/TNF-driven) secretion assays in epithelial and immune (Jurkat) cell models",
     ],
-    variants: [{ name: "10mg", priceCents: 7300, sku: "KPV10" }],
+    variants: [{ name: "10mg", priceCents: 8500, sku: "KPV10" }],
   },
 
   // ---- Neuropeptides (asia_warehouse) ----
@@ -215,7 +216,7 @@ const CATALOG: ProductSeed[] = [
       "Comparative protease-resistance and peptide stability characterization (vs. tuftsin)",
       "Exploratory gene-expression profiling in neuronal cell lines (e.g. IMR-32)",
     ],
-    variants: [{ name: "10mg", priceCents: 7700, sku: "SL10" }],
+    variants: [{ name: "10mg", priceCents: 8500, sku: "SK10" }],
   },
   {
     name: "Adamax",
@@ -229,7 +230,7 @@ const CATALOG: ProductSeed[] = [
       "Comparative BDNF-expression assays in cultured glia",
       "Radioligand competition against the Semax binding site in rat basal-forebrain membrane preparations to establish whether the modification retains binding",
     ],
-    variants: [{ name: "10mg", priceCents: 20000, sku: "AD10" }],
+    variants: [{ name: "10mg", priceCents: 20000, sku: "ADM10" }],
   },
   {
     name: "Wolverine",
@@ -243,24 +244,13 @@ const CATALOG: ProductSeed[] = [
       "In-vitro G-actin binding and cytoskeletal sequestration assays for the LKKTETQ actin-binding motif (TB-500 component)",
       "In-vitro endothelial tube-formation and VEGFR2 signalling assays",
     ],
-    variants: [{ name: "10mg", priceCents: 10500, sku: "WV10" }],
+    variants: [
+      { name: "10mg", priceCents: 12000, sku: "WOL10" },
+      { name: "20mg", priceCents: 19000, sku: "WOL20" },
+    ],
   },
 
   // ---- Bioregulators (asia_warehouse) ----
-  {
-    name: "Thymalin",
-    slug: "thymalin",
-    category: "longevity",
-    sourcingPath: "asia_warehouse",
-    shortDescription:
-      "Bovine thymus–derived polypeptide complex (heterogeneous ~1–10 kDa mixture; no single defined sequence, and not thymulin or thymogen), supplied as a 10-vial kit for in-vitro immunology research. For laboratory research use only.",
-    researchUses: [
-      "In-vitro differentiation-marker expression in cultured human hematopoietic stem cells (CD44 / CD117 / CD28)",
-      "In-vitro gene-expression and protein-synthesis studies of the constituent KE (Lys-Glu) and EW (Glu-Trp) dipeptides in cultured cells",
-      "Analytical characterization of the peptide mixture (RP-HPLC fingerprinting, molecular-weight distribution, peptide content)",
-    ],
-    variants: [{ name: "10mg", priceCents: 8100, sku: "TM10" }],
-  },
   {
     name: "Epithalon",
     slug: "epithalon",
@@ -273,7 +263,7 @@ const CATALOG: ProductSeed[] = [
       "Telomere-length quantification (qPCR) in cultured normal and immortalised cell lines",
       "Replicative-lifespan (Hayflick-limit) culture models in telomerase-negative human fibroblasts",
     ],
-    variants: [{ name: "10mg", priceCents: 6500, sku: "EP10" }],
+    variants: [{ name: "10mg", priceCents: 7500, sku: "ET10" }],
   },
   {
     name: "MOTS-c",
@@ -288,8 +278,8 @@ const CATALOG: ProductSeed[] = [
       "Cell-based studies of the folate/one-carbon cycle and AICAR-mediated AMPK regulation",
     ],
     variants: [
-      { name: "10mg", priceCents: 7500, sku: "MC10" },
-      { name: "40mg", priceCents: 19000, sku: "MC40" },
+      { name: "10mg", priceCents: 8300, sku: "MS10" },
+      { name: "20mg", priceCents: 14500, sku: "MS20" },
     ],
   },
   {
@@ -304,7 +294,7 @@ const CATALOG: ProductSeed[] = [
       "Bioenergetic assays in isolated mitochondria and permeabilized fibers (respiration, ATP synthesis rate, ADP sensitivity)",
       "Chemical crosslinking / affinity-capture mapping of inner-mitochondrial-membrane protein interactors",
     ],
-    variants: [{ name: "10mg", priceCents: 9500, sku: "SS10" }],
+    variants: [{ name: "10mg", priceCents: 9500, sku: "2S10" }],
   },
 
   // ---- Copper (usa_domestic) ----
@@ -321,7 +311,7 @@ const CATALOG: ProductSeed[] = [
       "MMP and TIMP expression studies in fibroblast culture",
       "Peptide–copper(II) coordination and complex-stability chemistry",
     ],
-    variants: [{ name: "50mg", priceCents: 5116, sku: "CU50" }],
+    variants: [{ name: "50mg", priceCents: 6200, sku: "CU50" }],
   },
   {
     name: "AHK-Cu",
@@ -335,7 +325,7 @@ const CATALOG: ProductSeed[] = [
       "Ex-vivo human hair follicle organ-culture elongation studies",
       "In-vitro apoptosis-marker studies (Annexin V/PI, Bcl-2/Bax, cleaved caspase-3/PARP)",
     ],
-    variants: [{ name: "100mg", priceCents: 7700, sku: "AHK100" }],
+    variants: [{ name: "100mg", priceCents: 7700, sku: "AU100" }],
   },
 
   // ---- Melanocortin (asia_warehouse) ----
@@ -351,7 +341,7 @@ const CATALOG: ProductSeed[] = [
       "In-vitro melanogenesis and melanocyte pigmentation studies (tyrosinase/melanin induction)",
       "Melanocortin receptor signaling (cAMP) assays across MC1R/MC3R/MC4R/MC5R using NDP-MSH as reference ligand",
     ],
-    variants: [{ name: "10mg", priceCents: 6000, sku: "MT1-10" }],
+    variants: [{ name: "10mg", priceCents: 7000, sku: "MT1" }],
   },
   {
     name: "Melanotan-2",
@@ -365,7 +355,7 @@ const CATALOG: ProductSeed[] = [
       "In-vitro melanogenesis / melanin-content studies in cultured melanocyte or B16 melanoma cell lines",
       "Reference agonist for non-selective melanocortin receptor pharmacology and SAR comparison",
     ],
-    variants: [{ name: "10mg", priceCents: 6000, sku: "MT2-10" }],
+    variants: [{ name: "10mg", priceCents: 7000, sku: "ML10" }],
   },
   {
     name: "PT-141",
@@ -379,7 +369,7 @@ const CATALOG: ProductSeed[] = [
       "In-vitro melanocortin receptor signaling and selectivity/structure-activity profiling",
       "Reference-standard/analytical characterization of the cyclic heptapeptide (HPLC/MS identity and purity)",
     ],
-    variants: [{ name: "10mg", priceCents: 7995, sku: "PT10" }],
+    variants: [{ name: "10mg", priceCents: 7995, sku: "P41" }],
   },
   {
     name: "Kisspeptin-10",
@@ -393,7 +383,7 @@ const CATALOG: ProductSeed[] = [
       "In-vitro GPR54 signaling readouts (Gq/11-mediated Ca2+ flux, IP accumulation, ERK1/2 phosphorylation) in receptor-expressing cell lines",
       "In-vitro neuroendocrine signaling studies in GnRH-secreting neuronal cell models (e.g., GT1-7)",
     ],
-    variants: [{ name: "10mg", priceCents: 9900, sku: "KP10" }],
+    variants: [{ name: "10mg", priceCents: 9900, sku: "KS10" }],
   },
 
   // ---- Vitamins / amino (usa_domestic) ----
@@ -412,8 +402,8 @@ const CATALOG: ProductSeed[] = [
       "Cofactor for in-vitro dehydrogenase enzyme assays",
     ],
     variants: [
-      { name: "100mg", priceCents: 7995, sku: "NAD100" },
-      { name: "500mg", priceCents: 11193, sku: "NAD500" },
+      { name: "100mg", priceCents: 7995, sku: "NJ100" },
+      { name: "500mg", priceCents: 11193, sku: "NJ500" },
     ],
   },
   {
@@ -429,8 +419,8 @@ const CATALOG: ProductSeed[] = [
       "In-vitro lipogenesis assays in differentiated 3T3-L1 adipocytes",
     ],
     variants: [
-      { name: "5mg", priceCents: 6714, sku: "5A5" },
-      { name: "50mg", priceCents: 14391, sku: "5A50" },
+      { name: "5mg", priceCents: 6714, sku: "5AM5" },
+      { name: "10mg", priceCents: 9000, sku: "5AM10" },
     ],
   },
 
@@ -447,7 +437,7 @@ const CATALOG: ProductSeed[] = [
       "Comparative in-vitro studies of NF-kB / IL-1beta pathway modulation (KPV component)",
       "In-vitro fibroblast / extracellular-matrix and tissue-repair model studies (GHK-Cu component)",
     ],
-    variants: [{ name: "80mg", priceCents: 22500, sku: "KLOW80" }],
+    variants: [{ name: "80mg", priceCents: 24000, sku: "KLOW80" }],
   },
   {
     name: "GLOW Blend",
@@ -462,8 +452,84 @@ const CATALOG: ProductSeed[] = [
       "TB-500 component: G-actin monomer binding and endothelial cell migration assays using the LKKTET actin-binding motif — note most published in-vitro data is on full-length thymosin beta-4, not the 17–23 fragment",
       "Analytical use: reference material for LC-MS/MS identity and purity confirmation of a multi-component peptide mixture",
     ],
-    variants: [{ name: "70mg", priceCents: 19500, sku: "GLOW70" }],
+    variants: [{ name: "70mg", priceCents: 21000, sku: "BBG70" }],
   },
+
+  // ---- Additional catalog ----
+  {
+    name: "AOD-9604",
+    slug: "aod-9604",
+    category: "metabolic",
+    sourcingPath: "asia_warehouse",
+    shortDescription:
+      "AOD-9604, a synthetic peptide corresponding to residues 176-191 of the C-terminus of human growth hormone (hGH), supplied as a 10-vial kit for in-vitro lipolysis and adipocyte-metabolism research. For laboratory research use only.",
+    researchUses: [
+      "In-vitro lipolysis assays in cultured 3T3-L1 adipocytes (glycerol release)",
+      "In-vitro lipogenesis-inhibition assays in adipocyte cell models",
+      "Analytical reference-standard characterization (LC-MS / HPLC identity and purity)",
+    ],
+    variants: [{ name: "5mg", priceCents: 12000, sku: "AOD5" }],
+  },
+  {
+    name: "DSIP",
+    slug: "dsip",
+    category: "cognitive",
+    sourcingPath: "asia_warehouse",
+    shortDescription:
+      "Delta sleep-inducing peptide (DSIP), a synthetic nonapeptide (Trp-Ala-Gly-Gly-Asp-Ala-Ser-Gly-Glu), supplied as a 10-vial kit for in-vitro neuropeptide-stability and receptor research. For laboratory research use only.",
+    researchUses: [
+      "In-vitro peptidase-resistance and plasma-stability characterization (LC-MS/MS)",
+      "Exploratory receptor-binding and neuronal cell-culture signaling studies",
+      "Analytical reference-standard identity and purity confirmation",
+    ],
+    variants: [{ name: "10mg", priceCents: 9000, sku: "DSIP10" }],
+  },
+  {
+    name: "Vitamin B12",
+    slug: "vitamin-b12",
+    category: "metabolic",
+    sourcingPath: "usa_domestic",
+    shortDescription:
+      "Methylcobalamin, the methylated coenzyme form of vitamin B12 (cobalamin), supplied as a 10-vial kit for in-vitro biochemistry and cell-culture research. For laboratory research use only.",
+    researchUses: [
+      "Cofactor supplementation in methionine synthase and one-carbon-metabolism enzyme assays",
+      "Cell-culture media supplementation studies",
+      "Analytical identity and purity characterization (UV-Vis / HPLC)",
+    ],
+    variants: [{ name: "Methylcobalamin", priceCents: 6500, sku: "B12" }],
+  },
+  {
+    name: "Glutathione",
+    slug: "glutathione",
+    category: "longevity",
+    sourcingPath: "usa_domestic",
+    shortDescription:
+      "Reduced L-glutathione (GSH), the endogenous gamma-glutamyl-cysteinyl-glycine tripeptide antioxidant, supplied as a 10-vial kit for in-vitro redox and oxidative-stress research. For laboratory research use only.",
+    researchUses: [
+      "In-vitro antioxidant / reactive-oxygen-species scavenging assays in cell culture",
+      "Glutathione-dependent enzyme (glutathione peroxidase / S-transferase) activity assays",
+      "Intracellular GSH:GSSG redox-ratio quantification",
+    ],
+    variants: [{ name: "1500mg", priceCents: 10000, sku: "GLUT1500" }],
+  },
+];
+
+// Explicit single-vial (retail) list. Each row builds one unitType='vial'
+// variant on the referenced product. Prices are set here, not derived.
+type SingleVialSeed = { slug: string; name: string; priceCents: number; sku: string };
+const SINGLE_VIALS: SingleVialSeed[] = [
+  { slug: "igf-1-lr3", name: "1mg", priceCents: 5500, sku: "SV_IG1" },
+  { slug: "retatrutide", name: "10mg", priceCents: 3500, sku: "SV_RT10" },
+  { slug: "retatrutide", name: "50mg", priceCents: 9000, sku: "SV_RT50" },
+  { slug: "retatrutide", name: "60mg", priceCents: 12000, sku: "SV_RT60" },
+  { slug: "tesamorelin", name: "10mg", priceCents: 4500, sku: "SV_TSM10" },
+  { slug: "kpv", name: "10mg", priceCents: 3500, sku: "SV_KPV10" },
+  { slug: "mots-c", name: "10mg", priceCents: 3500, sku: "SV_MS10" },
+  { slug: "ghk-cu", name: "50mg", priceCents: 3500, sku: "SV_CU50" },
+  { slug: "glow-blend", name: "70mg", priceCents: 5500, sku: "SV_GLOW70" },
+  { slug: "klow-blend", name: "80mg", priceCents: 5500, sku: "SV_KLOW80" },
+  { slug: "5-amino-1mq", name: "50mg", priceCents: 4000, sku: "SV_5AM50" },
+  { slug: "bpc-157", name: "10mg", priceCents: 3500, sku: "SV_BC10" },
 ];
 
 async function seed() {
@@ -493,34 +559,43 @@ async function seed() {
   const productIdBySlug = new Map(products.map((p) => [p.slug, p.id]));
   console.log(`Inserted ${products.length} products`);
 
-  // --- Variants: each catalog entry becomes a 10-vial wholesale KIT plus a
-  // single-vial RETAIL variant (unitType='vial', sku suffixed '-V', retail price).
-  const variantValues = CATALOG.flatMap((p) =>
-    p.variants.flatMap((v) => [
-      {
-        productId: productIdBySlug.get(p.slug)!,
-        name: v.name,
-        concentration: `${v.name}/vial`,
-        sizeml: 1,
-        priceCents: v.priceCents,
-        sku: v.sku,
-        unitType: "kit" as const,
-        vialsPerUnit: 10,
-        inStock: true,
-      },
-      {
-        productId: productIdBySlug.get(p.slug)!,
-        name: v.name,
-        concentration: `${v.name}/vial`,
-        sizeml: 1,
-        priceCents: retailVialCents(v.priceCents),
-        sku: `${v.sku}-V`,
-        unitType: "vial" as const,
-        vialsPerUnit: 1,
-        inStock: true,
-      },
-    ])
+  // --- Variants: each catalog entry's variants become 10-vial wholesale KITs.
+  // Single-vial RETAIL variants come from the explicit SINGLE_VIALS list.
+  const kitValues = CATALOG.flatMap((p) =>
+    p.variants.map((v) => ({
+      productId: productIdBySlug.get(p.slug)!,
+      name: v.name,
+      concentration: `${v.name}/vial`,
+      sizeml: 1,
+      priceCents: v.priceCents,
+      sku: v.sku,
+      unitType: "kit" as const,
+      vialsPerUnit: 10,
+      inStock: true,
+      coaUrl: coaFor(v.sku),
+    }))
   );
+
+  const vialValues = SINGLE_VIALS.map((v) => {
+    const productId = productIdBySlug.get(v.slug);
+    if (!productId) {
+      throw new Error(`SINGLE_VIALS references unknown product slug: ${v.slug}`);
+    }
+    return {
+      productId,
+      name: v.name,
+      concentration: `${v.name}/vial`,
+      sizeml: 1,
+      priceCents: v.priceCents,
+      sku: v.sku,
+      unitType: "vial" as const,
+      vialsPerUnit: 1,
+      inStock: true,
+      coaUrl: coaFor(v.sku),
+    };
+  });
+
+  const variantValues = [...kitValues, ...vialValues];
 
   const variants = await db
     .insert(productVariantsTable)
