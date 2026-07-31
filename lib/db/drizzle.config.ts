@@ -15,6 +15,10 @@ if (!process.env.DATABASE_URL) {
 
 export default defineConfig({
   schema: path.join(__dirname, "./src/schema/index.ts"),
+  // Versioned SQL migrations live here (committed). `generate` writes them from
+  // the schema diff (offline); `migrate` applies pending ones on deploy. `push`
+  // stays dev-only — it diffs straight against the live DB and can drop data.
+  out: path.join(__dirname, "./migrations"),
   dialect: "postgresql",
   dbCredentials: {
     url: process.env.DATABASE_URL,

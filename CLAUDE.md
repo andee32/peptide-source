@@ -56,7 +56,16 @@ scripts                @atlab/scripts      seed.ts
 - Typecheck all: `pnpm run typecheck`. Build: `pnpm run build`.
 - API: `pnpm --filter @atlab/api-server run dev` (loads root `.env` via `--env-file-if-exists`).
 - Storefront: `pnpm --filter @atlab/storefront run dev`.
-- DB push: `pnpm --filter @atlab/db run push` (needs `DATABASE_URL`).
+- DB (dev): `pnpm --filter @atlab/db run push` (diffs straight against the live DB;
+  **dev only** — it can drop columns/data, never run it against prod).
+- DB (prod-safe migrations): after a schema edit, `pnpm --filter @atlab/db run generate`
+  to write a versioned SQL migration under `lib/db/migrations/` (offline — no DB needed),
+  commit it, then `pnpm --filter @atlab/db run migrate` applies pending ones on deploy.
+  Caveat: DBs built via `push` have no `__drizzle_migrations` table, so `migrate` on them
+  tries to re-CREATE existing tables and fails — baseline them first (mark `0000` applied)
+  or point `migrate` at a fresh DB. A brand-new prod DB migrates cleanly from `0000`.
+- Local Postgres (optional; dev/tests instead of Neon): `docker compose up -d`, then
+  `DATABASE_URL=postgres://atlab:atlab@localhost:5432/atlab`. Init also creates `atlab_test`.
 - Regenerate API types: edit `lib/api-spec/openapi.yaml`, then
   `pnpm --filter @atlab/api-spec run codegen`. **Never hand-edit api-zod / api-client-react.**
 - Seed: `pnpm --filter @atlab/scripts run seed`.
