@@ -62,6 +62,12 @@ export const ListProductsResponseItem = zod.object({
         priceCents: zod.number(),
         sku: zod.string(),
         inStock: zod.boolean(),
+        coaUrl: zod
+          .string()
+          .nullish()
+          .describe(
+            'COA document link for this SKU (Janoshik verify URL or hosted certificate image); null = no COA published. Drives the \"View COA\" link.',
+          ),
       }),
     )
     .describe(
@@ -117,6 +123,12 @@ export const GetProductResponse = zod
           priceCents: zod.number(),
           sku: zod.string(),
           inStock: zod.boolean(),
+          coaUrl: zod
+            .string()
+            .nullish()
+            .describe(
+              'COA document link for this SKU (Janoshik verify URL or hosted certificate image); null = no COA published. Drives the \"View COA\" link.',
+            ),
         }),
       )
       .describe(
@@ -211,6 +223,12 @@ export const ListRetailProductsResponseItem = zod
           inStock: zod.boolean(),
           unitType: zod.enum(["vial", "kit"]),
           vialsPerUnit: zod.number(),
+          coaUrl: zod
+            .string()
+            .nullish()
+            .describe(
+              "COA document link for this SKU (Janoshik verify URL or hosted certificate image); null = no COA published.",
+            ),
         })
         .describe(
           "A variant sold on the B2C retail storefront — single vials, plus kits that have an admin-set retail price. priceCents is always the retail price the buyer pays.",
@@ -258,6 +276,12 @@ export const GetRetailProductResponse = zod
           inStock: zod.boolean(),
           unitType: zod.enum(["vial", "kit"]),
           vialsPerUnit: zod.number(),
+          coaUrl: zod
+            .string()
+            .nullish()
+            .describe(
+              "COA document link for this SKU (Janoshik verify URL or hosted certificate image); null = no COA published.",
+            ),
         })
         .describe(
           "A variant sold on the B2C retail storefront — single vials, plus kits that have an admin-set retail price. priceCents is always the retail price the buyer pays.",
@@ -2317,6 +2341,12 @@ export const AdminPatchProductResponse = zod
           priceCents: zod.number(),
           sku: zod.string(),
           inStock: zod.boolean(),
+          coaUrl: zod
+            .string()
+            .nullish()
+            .describe(
+              'COA document link for this SKU (Janoshik verify URL or hosted certificate image); null = no COA published. Drives the \"View COA\" link.',
+            ),
         }),
       )
       .describe(
@@ -2408,6 +2438,12 @@ export const AdminPatchVariantResponse = zod.object({
   priceCents: zod.number(),
   sku: zod.string(),
   inStock: zod.boolean(),
+  coaUrl: zod
+    .string()
+    .nullish()
+    .describe(
+      'COA document link for this SKU (Janoshik verify URL or hosted certificate image); null = no COA published. Drives the \"View COA\" link.',
+    ),
 });
 
 /**

@@ -77,6 +77,11 @@ export const productVariantsTable = pgTable("product_variants", {
   unitType: unitTypeEnum("unit_type").notNull().default("vial"),
   vialsPerUnit: integer("vials_per_unit").notNull().default(1),
   inStock: boolean("in_stock").notNull().default(true),
+  // COA document link for this SKU: a third-party Janoshik verify URL (preferred —
+  // tamper-evident proof) or a hosted certificate image. Null = no COA published
+  // yet. This is the document link shown as "View COA"; structured per-lot results
+  // live separately in coa_results.
+  coaUrl: text("coa_url"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

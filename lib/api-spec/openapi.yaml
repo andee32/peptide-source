@@ -2799,6 +2799,10 @@ components:
           type: string
         inStock:
           type: boolean
+        coaUrl:
+          type: string
+          nullable: true
+          description: COA document link for this SKU (Janoshik verify URL or hosted certificate image); null = no COA published. Drives the "View COA" link.
       required:
         - id
         - name
@@ -3826,6 +3830,10 @@ components:
           enum: [vial, kit]
         vialsPerUnit:
           type: integer
+        coaUrl:
+          type: string
+          nullable: true
+          description: COA document link for this SKU (Janoshik verify URL or hosted certificate image); null = no COA published.
       required:
         - id
         - name

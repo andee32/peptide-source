@@ -38,6 +38,16 @@ function VariantRow({ product, variant }: { product: Product; variant: ProductVa
         <div className="font-mono text-[11px] text-muted-foreground">
           {variant.concentration} · {variant.vialsPerUnit} vial/kit
         </div>
+        {variant.coaUrl && (
+          <a
+            href={variant.coaUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-mono text-[11px] text-primary hover:underline"
+          >
+            View COA →
+          </a>
+        )}
       </div>
       <span className="font-mono text-sm font-semibold text-primary tabular-nums whitespace-nowrap">
         ${(variant.priceCents / 100).toFixed(2)}

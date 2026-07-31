@@ -580,6 +580,8 @@ export interface ProductVariant {
   priceCents: number;
   sku: string;
   inStock: boolean;
+  /** COA document link for this SKU (Janoshik verify URL or hosted certificate image); null = no COA published. Drives the "View COA" link. */
+  coaUrl?: string | null;
 }
 
 export interface Product {
@@ -1224,6 +1226,8 @@ export interface RetailVariant {
   inStock: boolean;
   unitType: RetailVariantUnitType;
   vialsPerUnit: number;
+  /** COA document link for this SKU (Janoshik verify URL or hosted certificate image); null = no COA published. */
+  coaUrl?: string | null;
 }
 
 /**

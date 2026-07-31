@@ -16,4 +16,6 @@ export interface ProductVariant {
   priceCents: number;
   sku: string;
   inStock: boolean;
+  /** COA document link for this SKU (Janoshik verify URL or hosted certificate image); null = no COA published. Drives the "View COA" link. */
+  coaUrl?: string | null;
 }

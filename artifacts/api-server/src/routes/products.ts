@@ -120,6 +120,7 @@ router.get("/products", async (req, res) => {
             priceCents: v.priceCents,
             sku: v.sku,
             inStock: v.inStock,
+            coaUrl: v.coaUrl,
           })),
         };
       })
@@ -238,6 +239,7 @@ router.get("/products/:id", async (req, res) => {
         priceCents: v.priceCents,
         sku: v.sku,
         inStock: v.inStock,
+        coaUrl: v.coaUrl,
       })),
       latestBatch: latestBatchDetail,
     };

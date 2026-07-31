@@ -233,6 +233,17 @@ export function RetailProductPage() {
                       ? `${variant.vialsPerUnit}-vial kit`
                       : "1 vial"}
                   </div>
+                  {variant.coaUrl && (
+                    <a
+                      href={variant.coaUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-1 text-[11px] font-mono text-primary hover:underline w-fit"
+                    >
+                      View COA →
+                    </a>
+                  )}
                   {!variant.inStock && (
                     <Badge variant="destructive" className="mt-3 w-fit text-[10px]">
                       Out of Stock

@@ -19,4 +19,6 @@ export interface RetailVariant {
   inStock: boolean;
   unitType: RetailVariantUnitType;
   vialsPerUnit: number;
+  /** COA document link for this SKU (Janoshik verify URL or hosted certificate image); null = no COA published. */
+  coaUrl?: string | null;
 }

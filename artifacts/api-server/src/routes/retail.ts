@@ -35,6 +35,7 @@ function toRetail(
       inStock: v.inStock,
       unitType: v.unitType,
       vialsPerUnit: v.vialsPerUnit,
+      coaUrl: v.coaUrl,
     }))
     // Sort by the price the buyer actually sees — the DB sort is on the
     // wholesale list price, which orders kits wrongly against vials.
