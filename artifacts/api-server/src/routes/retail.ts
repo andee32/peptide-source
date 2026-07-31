@@ -104,7 +104,11 @@ router.get("/retail/products", async (req, res) => {
       })
     );
 
-    const validated = ListRetailProductsResponse.parse(result);
+    // A product with no retail-sellable variant (kit-only, e.g. Tirzepatide) has
+    // nothing to sell at retail — drop it rather than surface a $0.00 vial.
+    const retailable = result.filter((p) => p.variants.length > 0);
+
+    const validated = ListRetailProductsResponse.parse(retailable);
     res.json(validated);
   } catch (err) {
     console.error("listRetailProducts error:", err);
@@ -141,6 +145,13 @@ router.get("/retail/products/:slug", async (req, res) => {
       ),
       orderBy: [asc(productVariantsTable.priceCents)],
     });
+
+    // Kit-only products aren't sold at retail — no retail variant means there's
+    // no retail product page to show (guards against a $0.00 detail view).
+    if (retailVariants.length === 0) {
+      res.status(404).json({ error: "not_found", message: "Product not found" });
+      return;
+    }
 
     // Latest released batch → backs the clickable COA-Verified badge. Only a
     // real (non-demo) released batch counts; demo/seed batches carry no COA.
