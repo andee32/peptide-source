@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useLocation, useSearch } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,9 +16,10 @@ import {
   Calendar,
   FlaskConical,
   ExternalLink,
+  FileText,
 } from "lucide-react";
 import { Link } from "wouter";
-import { useGetBatch } from "@atlab/api-client-react";
+import { useGetBatch, useListCoaLibrary } from "@atlab/api-client-react";
 import { CoaVisualization } from "@/components/coa/CoaVisualization";
 import { useAnalytics } from "@/contexts/analytics";
 import { format } from "date-fns";
@@ -313,6 +314,115 @@ function SearchForm() {
   );
 }
 
+function CoaLibrarySection() {
+  const [query, setQuery] = useState("");
+  const { data, isLoading, isError } = useListCoaLibrary();
+
+  const grouped = useMemo(() => {
+    const entries = data ?? [];
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? entries.filter(
+          (e) =>
+            e.productName.toLowerCase().includes(q) ||
+            e.sku.toLowerCase().includes(q),
+        )
+      : entries;
+
+    const byProduct = new Map<string, typeof entries>();
+    for (const entry of filtered) {
+      const list = byProduct.get(entry.productName);
+      if (list) {
+        list.push(entry);
+      } else {
+        byProduct.set(entry.productName, [entry]);
+      }
+    }
+
+    return Array.from(byProduct.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [data, query]);
+
+  return (
+    <div className="mt-20 text-left">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-mono font-bold tracking-tight">COA Library</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Search third-party certificates of analysis by compound.
+        </p>
+      </div>
+
+      <Card className="p-2 bg-card/80 backdrop-blur border-border/50 shadow-lg mb-8">
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search by product name or SKU (e.g. Tirzepatide)"
+            className="h-12 pl-11 font-mono bg-transparent border-none focus-visible:ring-0"
+          />
+        </div>
+      </Card>
+
+      {isLoading && (
+        <p className="text-center text-sm text-muted-foreground font-mono">
+          Loading COA library…
+        </p>
+      )}
+
+      {isError && (
+        <p className="text-center text-sm text-destructive font-mono">
+          Could not load the COA library. Please try again later.
+        </p>
+      )}
+
+      {!isLoading && !isError && grouped.length === 0 && (
+        <p className="text-center text-sm text-muted-foreground font-mono">
+          No COAs match &quot;{query}&quot;.
+        </p>
+      )}
+
+      {!isLoading && !isError && grouped.length > 0 && (
+        <div className="space-y-4">
+          {grouped.map(([productName, entries]) => (
+            <Card key={productName} className="border-border/30 bg-card/50">
+              <CardContent className="p-4">
+                <h3 className="font-mono font-semibold text-sm mb-3">{productName}</h3>
+                <div className="space-y-2">
+                  {entries.map((entry) => (
+                    <div
+                      key={entry.sku}
+                      className="flex items-center justify-between gap-3 bg-secondary/40 rounded-lg px-3 py-2 border border-border/30"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="min-w-0">
+                          <div className="font-mono text-sm font-medium">{entry.name}</div>
+                          <div className="font-mono text-xs text-muted-foreground truncate">
+                            {entry.sku}
+                          </div>
+                        </div>
+                      </div>
+                      <a
+                        href={entry.coaUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-sm font-mono text-primary hover:underline shrink-0"
+                      >
+                        View COA
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function VerifyPage() {
   const { id } = useParams<{ id?: string }>();
   const searchString = useSearch();
@@ -335,7 +445,10 @@ export function VerifyPage() {
         {id ? (
           <BatchDetailView batchId={id} source={source} />
         ) : (
-          <SearchForm />
+          <>
+            <SearchForm />
+            <CoaLibrarySection />
+          </>
         )}
       </div>
     </div>

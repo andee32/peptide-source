@@ -1230,6 +1230,29 @@ export interface RetailVariant {
   coaUrl?: string | null;
 }
 
+export type CoaLibraryEntryUnitType =
+  (typeof CoaLibraryEntryUnitType)[keyof typeof CoaLibraryEntryUnitType];
+
+export const CoaLibraryEntryUnitType = {
+  vial: "vial",
+  kit: "kit",
+} as const;
+
+/**
+ * One SKU's certificate of analysis, for the public COA library. No pricing.
+ */
+export interface CoaLibraryEntry {
+  productName: string;
+  slug: string;
+  category: string;
+  sku: string;
+  /** The variant strength label (e.g. "20mg"). */
+  name: string;
+  unitType: CoaLibraryEntryUnitType;
+  /** Janoshik verify URL or hosted certificate image path. */
+  coaUrl: string;
+}
+
 /**
  * A retail catalog product with only its single-vial variants and retail pricing.
  */

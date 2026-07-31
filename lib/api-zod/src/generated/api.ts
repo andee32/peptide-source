@@ -243,6 +243,27 @@ export const ListRetailProductsResponse = zod.array(
 );
 
 /**
+ * Every published, non-blocked SKU that has a certificate of analysis on file — a flat, publicly browsable list of document COAs (Janoshik verify URLs or hosted certificate images). No pricing. Backs the searchable COA library. One entry per variant that has a coaUrl.
+ * @summary Public COA library
+ */
+export const ListCoaLibraryResponseItem = zod
+  .object({
+    productName: zod.string(),
+    slug: zod.string(),
+    category: zod.string(),
+    sku: zod.string(),
+    name: zod.string().describe('The variant strength label (e.g. \"20mg\").'),
+    unitType: zod.enum(["vial", "kit"]),
+    coaUrl: zod
+      .string()
+      .describe("Janoshik verify URL or hosted certificate image path."),
+  })
+  .describe(
+    "One SKU's certificate of analysis, for the public COA library. No pricing.",
+  );
+export const ListCoaLibraryResponse = zod.array(ListCoaLibraryResponseItem);
+
+/**
  * Returns a single retail product with its single-vial variants.
  * @summary Get retail product by slug
  */

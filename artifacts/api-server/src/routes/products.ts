@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, asc, desc } from "drizzle-orm";
+import { eq, and, asc, desc, ne, isNotNull } from "drizzle-orm";
 import { db } from "@atlab/db";
 import {
   productsTable,
@@ -13,6 +13,7 @@ import {
   ListProductsResponse,
   GetProductParams,
   GetProductResponse,
+  ListCoaLibraryResponse,
 } from "@atlab/api-zod";
 import { resolveWholesaleAccount } from "../lib/wholesaleSession";
 
@@ -26,6 +27,41 @@ const WHOLESALE_REQUIRED = {
   message:
     "The wholesale kit catalog is available to approved wholesale accounts. Apply for an account or sign in to view kit pricing.",
 } as const;
+
+// Public COA library — every published, non-blocked SKU that has a COA on file.
+// No pricing, so it's safe to expose without wholesale auth (mirrors the public
+// COA library on atlabsourcing.org). Backs the searchable COA library UI.
+router.get("/coa-library", async (_req, res) => {
+  try {
+    const rows = await db
+      .select({
+        productName: productsTable.name,
+        slug: productsTable.slug,
+        category: productsTable.category,
+        sku: productVariantsTable.sku,
+        name: productVariantsTable.name,
+        unitType: productVariantsTable.unitType,
+        coaUrl: productVariantsTable.coaUrl,
+      })
+      .from(productVariantsTable)
+      .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
+      .where(
+        and(
+          isNotNull(productVariantsTable.coaUrl),
+          eq(productsTable.published, true),
+          ne(productsTable.complianceStatus, "blocked")
+        )
+      )
+      .orderBy(asc(productsTable.name), asc(productVariantsTable.priceCents));
+
+    // coaUrl is non-null by the WHERE above; narrow the type for the schema.
+    const entries = rows.map((r) => ({ ...r, coaUrl: r.coaUrl! }));
+    res.json(ListCoaLibraryResponse.parse(entries));
+  } catch (err) {
+    console.error("listCoaLibrary error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
 
 router.get("/products", async (req, res) => {
   try {

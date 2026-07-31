@@ -38,6 +38,7 @@ import type {
   CancelSubscriptionParams,
   CatalogProduct,
   ClaimOrder200,
+  CoaLibraryEntry,
   ConfirmAchRequest,
   ConfirmAchResponse,
   CreateAdminUserRequest,
@@ -465,6 +466,82 @@ export function useListRetailProducts<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListRetailProductsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Every published, non-blocked SKU that has a certificate of analysis on file — a flat, publicly browsable list of document COAs (Janoshik verify URLs or hosted certificate images). No pricing. Backs the searchable COA library. One entry per variant that has a coaUrl.
+ * @summary Public COA library
+ */
+export const getListCoaLibraryUrl = () => {
+  return `/api/coa-library`;
+};
+
+export const listCoaLibrary = async (
+  options?: RequestInit,
+): Promise<CoaLibraryEntry[]> => {
+  return customFetch<CoaLibraryEntry[]>(getListCoaLibraryUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCoaLibraryQueryKey = () => {
+  return [`/api/coa-library`] as const;
+};
+
+export const getListCoaLibraryQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCoaLibrary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCoaLibrary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCoaLibraryQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listCoaLibrary>>> = ({
+    signal,
+  }) => listCoaLibrary({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCoaLibrary>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCoaLibraryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCoaLibrary>>
+>;
+export type ListCoaLibraryQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Public COA library
+ */
+
+export function useListCoaLibrary<
+  TData = Awaited<ReturnType<typeof listCoaLibrary>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listCoaLibrary>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCoaLibraryQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
