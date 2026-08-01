@@ -15,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Beaker, FlaskConical, ShoppingCart, ArrowRight } from "lucide-react";
+import { Beaker, FlaskConical, ShoppingCart, ArrowRight, FileText } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
 
@@ -111,12 +111,24 @@ function RetailProductCard({ product }: { product: RetailProduct }) {
           {product.shortDescription}
         </p>
 
-        <Link
-          href={`/retail/${product.slug}`}
-          className="text-xs font-mono uppercase tracking-wider text-teal-ink hover:underline underline-offset-4 w-fit mb-4 inline-flex items-center gap-1"
-        >
-          View details <ArrowRight className="h-3 w-3" />
-        </Link>
+        <div className="flex items-center gap-4 mb-4">
+          <Link
+            href={`/retail/${product.slug}`}
+            className="text-xs font-mono uppercase tracking-wider text-teal-ink hover:underline underline-offset-4 w-fit inline-flex items-center gap-1"
+          >
+            View details <ArrowRight className="h-3 w-3" />
+          </Link>
+          {selected?.coaUrl && (
+            <a
+              href={selected.coaUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-mono uppercase tracking-wider text-primary hover:underline underline-offset-4 w-fit inline-flex items-center gap-1"
+            >
+              View COA <FileText className="h-3 w-3" />
+            </a>
+          )}
+        </div>
 
         {variants.length > 1 && (
           <div className="mt-auto pt-2">

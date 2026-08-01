@@ -535,8 +535,13 @@ const SINGLE_VIALS: SingleVialSeed[] = [
 async function seed() {
   console.log("Seeding AT Lab Sourcing wholesale KIT catalog...");
 
+  // Reset the CATALOG only. Do NOT truncate price_tiers: customer_accounts.
+  // price_tier_id is an FK to it, so `TRUNCATE price_tiers CASCADE` would wipe
+  // every wholesale account (and cascade on to their orders). Truncating
+  // product_variants already cascades to price_list_entries via its FK. Tiers are
+  // re-seeded idempotently below, so they survive a re-seed too.
   await db.execute(
-    sql`TRUNCATE TABLE price_list_entries, price_tiers, coa_results, batches, product_variants, products RESTART IDENTITY CASCADE`
+    sql`TRUNCATE TABLE coa_results, batches, product_variants, products RESTART IDENTITY CASCADE`
   );
 
   // --- Products ---
@@ -576,6 +581,18 @@ async function seed() {
     }))
   );
 
+  // A COA certifies a compound at a strength, not a packaging. So a single vial
+  // inherits the COA of the matching kit (same product + strength) when the vial
+  // has none of its own — otherwise a retail vial would show no COA even though
+  // its kit does. Keyed by `${slug}|${strength}`.
+  const kitCoaByProductStrength = new Map<string, string>();
+  for (const p of CATALOG) {
+    for (const v of p.variants) {
+      const url = coaFor(v.sku);
+      if (url) kitCoaByProductStrength.set(`${p.slug}|${v.name}`, url);
+    }
+  }
+
   const vialValues = SINGLE_VIALS.map((v) => {
     const productId = productIdBySlug.get(v.slug);
     if (!productId) {
@@ -591,7 +608,7 @@ async function seed() {
       unitType: "vial" as const,
       vialsPerUnit: 1,
       inStock: true,
-      coaUrl: coaFor(v.sku),
+      coaUrl: coaFor(v.sku) ?? kitCoaByProductStrength.get(`${v.slug}|${v.name}`) ?? null,
     };
   });
 
@@ -604,7 +621,10 @@ async function seed() {
   console.log(`Inserted ${variants.length} variants`);
 
   // --- Price tiers ---
-  const tiers = await db
+  // Idempotent: tiers are no longer truncated (that would cascade to wholesale
+  // accounts), so keep existing ones and only insert missing slugs. Editing tier
+  // discounts is done in admin, not re-seeded.
+  await db
     .insert(priceTiersTable)
     .values([
       // discountBps = % off list in basis points. Editable in admin; the server
@@ -613,8 +633,9 @@ async function seed() {
       { name: "Preferred", slug: "preferred", discountBps: 800 },
       { name: "Distributor", slug: "distributor", discountBps: 1500 },
     ])
-    .returning();
-  console.log(`Inserted ${tiers.length} price tiers`);
+    .onConflictDoNothing({ target: priceTiersTable.slug });
+  const tierCount = (await db.query.priceTiersTable.findMany()).length;
+  console.log(`Ensured ${tierCount} price tiers`);
 
   // Per-SKU price_list_entries are an optional advanced override and are no
   // longer seeded — tier pricing comes from each tier's discountBps.
