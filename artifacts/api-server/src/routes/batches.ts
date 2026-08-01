@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, asc } from "drizzle-orm";
 import QRCode from "qrcode";
 import { db } from "@atlab/db";
+import { coaDownloadRateLimit } from "../lib/rateLimit";
 import {
   batchesTable,
   coaDocumentsTable,
@@ -169,9 +170,11 @@ router.get("/batches/:id", async (req, res) => {
   }
 });
 
-router.get("/batches/:id/coa-file", async (req, res) => {
+router.get("/batches/:id/coa-file", coaDownloadRateLimit, async (req, res) => {
   try {
-    const { id } = req.params;
+    // Chaining a path-agnostic middleware (the rate limiter) widens req.params
+    // to ParamsDictionary; the route pattern guarantees a single value.
+    const id = req.params.id as string;
 
     const batch = await db.query.batchesTable.findFirst({
       where: eq(batchesTable.id, id),

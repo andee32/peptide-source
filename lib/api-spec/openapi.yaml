@@ -3824,6 +3824,14 @@ components:
         unitType:
           type: string
           enum: [vial, kit]
+        coaUrl:
+          type: string
+          nullable: true
+          description: This SKU's COA link — an uploaded document's download path or an external verify URL. Null = no COA on file.
+        coaPurityPercent:
+          type: number
+          nullable: true
+          description: Purity % extracted from the uploaded certificate, if any.
       required:
         - id
         - sku
@@ -3921,6 +3929,18 @@ components:
         coaUrl:
           type: string
           description: Janoshik verify URL or hosted certificate image path.
+        purityPercent:
+          type: number
+          nullable: true
+          description: Purity % read off the uploaded certificate by the AI extraction; null when the COA is an external link or nothing was extracted.
+        labName:
+          type: string
+          nullable: true
+          description: Testing laboratory named on the certificate, if extracted.
+        testedAt:
+          type: string
+          nullable: true
+          description: ISO date the sample was tested, if extracted.
       required:
         - productName
         - slug

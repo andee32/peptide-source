@@ -267,6 +267,20 @@ export const ListCoaLibraryResponseItem = zod
     coaUrl: zod
       .string()
       .describe("Janoshik verify URL or hosted certificate image path."),
+    purityPercent: zod
+      .number()
+      .nullish()
+      .describe(
+        "Purity % read off the uploaded certificate by the AI extraction; null when the COA is an external link or nothing was extracted.",
+      ),
+    labName: zod
+      .string()
+      .nullish()
+      .describe("Testing laboratory named on the certificate, if extracted."),
+    testedAt: zod
+      .string()
+      .nullish()
+      .describe("ISO date the sample was tested, if extracted."),
   })
   .describe(
     "One SKU's certificate of analysis, for the public COA library. No pricing.",
@@ -2323,6 +2337,16 @@ export const AdminGetCatalogResponseItem = zod.object({
         ),
       inStock: zod.boolean(),
       unitType: zod.enum(["vial", "kit"]),
+      coaUrl: zod
+        .string()
+        .nullish()
+        .describe(
+          "This SKU's COA link — an uploaded document's download path or an external verify URL. Null = no COA on file.",
+        ),
+      coaPurityPercent: zod
+        .number()
+        .nullish()
+        .describe("Purity % extracted from the uploaded certificate, if any."),
     }),
   ),
 });

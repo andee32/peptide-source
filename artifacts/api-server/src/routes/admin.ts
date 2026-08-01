@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { eq, and, ne, asc, desc, count, inArray, notInArray, sql } from "drizzle-orm";
+import { eq, and, ne, asc, desc, count, inArray, notInArray, isNotNull, sql } from "drizzle-orm";
 import { createHash, timingSafeEqual } from "crypto";
 import multer from "multer";
 import { db } from "@atlab/db";
@@ -506,7 +506,29 @@ router.get("/admin/products", async (_req, res) => {
       orderBy: [asc(productsTable.name)],
       with: { variants: { orderBy: [asc(productVariantsTable.name)] } },
     });
-    res.json(products);
+
+    // Extracted purity lives on the uploaded document, not the variant — surface
+    // it per SKU so the catalog can show what the AI read off each certificate.
+    const docs = await db
+      .select({
+        variantId: coaDocumentsTable.variantId,
+        purityPercent: coaDocumentsTable.purityPercent,
+      })
+      .from(coaDocumentsTable)
+      .where(isNotNull(coaDocumentsTable.variantId));
+    const purityByVariant = new Map(
+      docs.map((d) => [d.variantId, d.purityPercent ?? null])
+    );
+
+    res.json(
+      products.map((p) => ({
+        ...p,
+        variants: p.variants.map((v) => ({
+          ...v,
+          coaPurityPercent: purityByVariant.get(v.id) ?? null,
+        })),
+      }))
+    );
   } catch (err) {
     console.error("admin listProducts error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });
@@ -799,6 +821,176 @@ router.delete("/admin/batches/:id/coa-file/:docId", async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error("admin deleteCoaFile error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+// ─── Per-peptide (variant/SKU) COAs ──────────────────────────────────────────
+// Most first-party COAs certify a compound at a strength, not a production lot,
+// so they attach to the SKU. Uploading stores the file, runs the AI extraction,
+// and points the variant's coaUrl at the public download — which lights up the
+// existing "View COA" links and the COA library with no further wiring.
+
+router.post("/admin/variants/:id/coa-file", uploadCoaFile, async (req, res) => {
+  try {
+    // As in the batch upload: chaining multer widens req.params, so the
+    // route-guaranteed single value is narrowed by hand.
+    const variantId = Number(req.params.id as string);
+    if (!Number.isInteger(variantId) || variantId <= 0) {
+      res.status(400).json({ error: "bad_request", message: "Invalid variant id" });
+      return;
+    }
+
+    const variant = await db.query.productVariantsTable.findFirst({
+      where: eq(productVariantsTable.id, variantId),
+    });
+    if (!variant) {
+      res.status(404).json({ error: "not_found", message: "Variant not found" });
+      return;
+    }
+
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({
+        error: "bad_request",
+        message: "Missing or unsupported file (allowed: PDF, JPEG, PNG, WebP; max 10 MB)",
+      });
+      return;
+    }
+
+    // Soft-fail: extraction never blocks the upload. Null => operator fills in
+    // (or corrects) the values by hand.
+    const extracted = await extractCoaFromFile(file.buffer, file.mimetype);
+    const testedAt = extracted?.testedAt ? new Date(extracted.testedAt) : null;
+
+    const documentId = randomUUID();
+    const coaUrl = `/api/variants/${variantId}/coa-file`;
+
+    // A certificate covers a compound at a strength, not a packaging — so one
+    // upload serves BOTH that peptide's 10-vial kit and its single vial at the
+    // same strength. The document is stored once against the uploaded variant;
+    // every sibling SKU (same product + strength) points its link at it.
+    const siblings = await db
+      .select({ id: productVariantsTable.id, sku: productVariantsTable.sku })
+      .from(productVariantsTable)
+      .where(
+        and(
+          eq(productVariantsTable.productId, variant.productId),
+          eq(productVariantsTable.name, variant.name)
+        )
+      );
+    const siblingIds = siblings.map((s) => s.id);
+
+    // One current COA per SKU: replace any previous document and repoint every
+    // covered link atomically, so no variant can show a stale certificate.
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(coaDocumentsTable)
+        .where(inArray(coaDocumentsTable.variantId, siblingIds));
+      await tx.insert(coaDocumentsTable).values({
+        id: documentId,
+        variantId,
+        filename: file.originalname,
+        mimeType: file.mimetype,
+        sizeBytes: file.size,
+        data: file.buffer,
+        purityPercent: extracted?.purityPercent ?? null,
+        endotoxinEuPerMl: extracted?.endotoxinEuPerMl ?? null,
+        sterilityPass: extracted?.sterilityPass ?? null,
+        labName: extracted?.labName ?? null,
+        testedAt: testedAt && !Number.isNaN(testedAt.getTime()) ? testedAt : null,
+      });
+      await tx
+        .update(productVariantsTable)
+        .set({ coaUrl })
+        .where(inArray(productVariantsTable.id, siblingIds));
+    });
+
+    res.status(201).json({
+      documentId,
+      filename: file.originalname,
+      coaUrl,
+      appliedToSkus: siblings.map((s) => s.sku),
+      extracted,
+    });
+  } catch (err) {
+    console.error("admin uploadVariantCoaFile error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+// Set (or clear) a variant's COA link by URL — for third-party certificates that
+// already live somewhere verifiable, e.g. a Janoshik verify page. Clearing with
+// null also removes any uploaded document.
+// Only https:// (a real third-party certificate) or our own download path. A
+// bare .url() would accept javascript:/data:, and this value is rendered as an
+// anchor href on public product pages — an admin-only field must still not be a
+// route to stored XSS or an open redirect.
+const SetVariantCoaSchema = z.object({
+  coaUrl: z
+    .string()
+    .trim()
+    .max(2000)
+    .nullable()
+    .refine(
+      (v) => v === null || /^https:\/\//i.test(v) || /^\/api\/variants\/\d+\/coa-file$/.test(v),
+      { message: "coaUrl must be an https:// URL" }
+    ),
+});
+
+router.patch("/admin/variants/:id/coa", async (req, res) => {
+  try {
+    const variantId = Number(req.params.id);
+    if (!Number.isInteger(variantId) || variantId <= 0) {
+      res.status(400).json({ error: "bad_request", message: "Invalid variant id" });
+      return;
+    }
+    const parsed = SetVariantCoaSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "bad_request", message: parsed.error.message });
+      return;
+    }
+    const nextUrl = parsed.data.coaUrl;
+
+    const variant = await db.query.productVariantsTable.findFirst({
+      where: eq(productVariantsTable.id, variantId),
+    });
+    if (!variant) {
+      res.status(404).json({ error: "not_found", message: "Variant not found" });
+      return;
+    }
+
+    // Mirror the upload's fan-out. Upload points every sibling SKU at one
+    // document, so clearing (or repointing) only the requested variant would
+    // leave its siblings linking to a file that no longer exists — a dead
+    // certificate link on a public page. Siblings move together, always.
+    const siblings = await db
+      .select({ id: productVariantsTable.id, sku: productVariantsTable.sku })
+      .from(productVariantsTable)
+      .where(
+        and(
+          eq(productVariantsTable.productId, variant.productId),
+          eq(productVariantsTable.name, variant.name)
+        )
+      );
+    const siblingIds = siblings.map((s) => s.id);
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(productVariantsTable)
+        .set({ coaUrl: nextUrl })
+        .where(inArray(productVariantsTable.id, siblingIds));
+      // Any stored document is now unreferenced: on clear there is no link, and
+      // on repoint the link is an external certificate — keeping the old file
+      // would keep publishing extracted values that came from a different one.
+      await tx
+        .delete(coaDocumentsTable)
+        .where(inArray(coaDocumentsTable.variantId, siblingIds));
+    });
+
+    res.json({ id: variantId, coaUrl: nextUrl, appliedToSkus: siblings.map((s) => s.sku) });
+  } catch (err) {
+    console.error("admin setVariantCoa error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });
   }
 });

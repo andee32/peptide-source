@@ -1188,6 +1188,10 @@ export interface CatalogVariant {
   retailPriceCents: number | null;
   inStock: boolean;
   unitType: CatalogVariantUnitType;
+  /** This SKU's COA link — an uploaded document's download path or an external verify URL. Null = no COA on file. */
+  coaUrl?: string | null;
+  /** Purity % extracted from the uploaded certificate, if any. */
+  coaPurityPercent?: number | null;
 }
 
 export type CatalogProductSourcingPath =
@@ -1255,6 +1259,12 @@ export interface CoaLibraryEntry {
   unitType: CoaLibraryEntryUnitType;
   /** Janoshik verify URL or hosted certificate image path. */
   coaUrl: string;
+  /** Purity % read off the uploaded certificate by the AI extraction; null when the COA is an external link or nothing was extracted. */
+  purityPercent?: number | null;
+  /** Testing laboratory named on the certificate, if extracted. */
+  labName?: string | null;
+  /** ISO date the sample was tested, if extracted. */
+  testedAt?: string | null;
 }
 
 /**

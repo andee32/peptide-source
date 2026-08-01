@@ -68,6 +68,10 @@ function VariantRow({
     variant.retailPriceCents == null ? "" : dollars(variant.retailPriceCents)
   );
   const [error, setError] = useState("");
+  const [coaUploading, setCoaUploading] = useState(false);
+  const [coaRemoving, setCoaRemoving] = useState(false);
+  const [coaError, setCoaError] = useState("");
+  const [coaNotice, setCoaNotice] = useState("");
 
   const patch = useAdminPatchVariant({
     request: { headers: { "x-admin-key": adminKey } },
@@ -112,6 +116,74 @@ function VariantRow({
 
   const toggleStock = (inStock: boolean) => {
     patch.mutate({ id: variant.id, data: { inStock } });
+  };
+
+  // No generated hooks for these two endpoints (multipart upload + a simple
+  // admin-only link patch aren't in openapi.yaml) — raw fetch, same pattern
+  // as the batch COA upload in AdminPage.tsx.
+  const handleCoaFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    void uploadCoa(file);
+  };
+
+  const uploadCoa = async (file: File) => {
+    setCoaUploading(true);
+    setCoaError("");
+    setCoaNotice("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/admin/variants/${variant.id}/coa-file`, {
+        method: "POST",
+        headers: { "x-admin-key": adminKey },
+        body: fd,
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message ?? `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as {
+        appliedToSkus: string[];
+        extracted: { purityPercent: number | null } | null;
+      };
+      const skus = data.appliedToSkus?.join(", ") || variant.sku;
+      if (data.extracted?.purityPercent != null) {
+        setCoaNotice(`Applied to ${skus} — extracted purity ${data.extracted.purityPercent}%`);
+      } else if (data.extracted) {
+        setCoaNotice(`Applied to ${skus}`);
+      } else {
+        setCoaNotice(`Applied to ${skus} — no AI extraction (ANTHROPIC_API_KEY not set)`);
+      }
+      onChanged();
+    } catch (err) {
+      setCoaError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setCoaUploading(false);
+    }
+  };
+
+  const removeCoa = async () => {
+    setCoaRemoving(true);
+    setCoaError("");
+    setCoaNotice("");
+    try {
+      const res = await fetch(`/api/admin/variants/${variant.id}/coa`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "x-admin-key": adminKey },
+        body: JSON.stringify({ coaUrl: null }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message ?? `HTTP ${res.status}`);
+      }
+      onChanged();
+    } catch (err) {
+      setCoaError(err instanceof Error ? err.message : "Remove failed");
+    } finally {
+      setCoaRemoving(false);
+    }
   };
 
   return (
@@ -211,6 +283,52 @@ function VariantRow({
           >
             {variant.inStock ? "In stock" : "Out"}
           </span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <div className="flex flex-col gap-1 min-w-32">
+          {variant.coaUrl && (
+            <div className="flex items-center gap-1.5">
+              <a
+                href={variant.coaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary text-xs font-mono underline underline-offset-2"
+              >
+                View
+              </a>
+              {variant.coaPurityPercent != null && (
+                <span className="text-muted-foreground text-[10px] font-mono">
+                  {variant.coaPurityPercent}%
+                </span>
+              )}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-1.5 text-[10px] font-mono text-destructive"
+                disabled={coaRemoving}
+                onClick={removeCoa}
+              >
+                Remove
+              </Button>
+            </div>
+          )}
+          <input
+            type="file"
+            accept="application/pdf,image/jpeg,image/png,image/webp"
+            disabled={coaUploading}
+            onChange={handleCoaFileChange}
+            aria-label={coaUploading ? "Uploading COA" : "Upload COA"}
+            className="block w-32 text-[10px] font-mono disabled:opacity-50"
+          />
+          {coaNotice && (
+            <p className="text-teal-ink text-[10px] font-mono leading-snug">
+              {coaNotice}
+            </p>
+          )}
+          {coaError && (
+            <p className="text-destructive text-[10px] font-mono">{coaError}</p>
+          )}
         </div>
       </TableCell>
     </TableRow>
@@ -354,6 +472,9 @@ function ProductRow({
                   </TableHead>
                   <TableHead className="font-mono text-[10px] uppercase tracking-wider">
                     Stock
+                  </TableHead>
+                  <TableHead className="font-mono text-[10px] uppercase tracking-wider">
+                    COA
                   </TableHead>
                 </TableRow>
               </TableHeader>

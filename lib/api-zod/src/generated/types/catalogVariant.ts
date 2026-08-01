@@ -15,4 +15,8 @@ export interface CatalogVariant {
   retailPriceCents: number | null;
   inStock: boolean;
   unitType: CatalogVariantUnitType;
+  /** This SKU's COA link — an uploaded document's download path or an external verify URL. Null = no COA on file. */
+  coaUrl?: string | null;
+  /** Purity % extracted from the uploaded certificate, if any. */
+  coaPurityPercent?: number | null;
 }

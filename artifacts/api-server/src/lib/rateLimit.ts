@@ -94,6 +94,20 @@ export const createOrderRateLimit = rateLimit({
   message: TOO_MANY,
 });
 
+/** Public COA document downloads. Each hit pulls a stored file (up to 10 MB)
+ * into the Node heap and buffers it into the response, and /coa-library
+ * publishes every valid id — so unthrottled it is a cheap memory-amplification
+ * lever. Generous enough that a researcher browsing certificates never notices;
+ * responses are also cacheable (max-age=3600) so a CDN absorbs the rest. */
+export const coaDownloadRateLimit = rateLimit({
+  windowMs: WINDOW_MS,
+  limit: 60,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  keyGenerator: (req) => ipKeyGenerator(req.ip ?? "unknown"),
+  message: TOO_MANY,
+});
+
 /** Password-reset requests. Tight and keyed on IP+email like login — the
  * endpoint is always-200 (no user enumeration), but minting tokens and sending
  * mail must not be a spam/flood lever. */

@@ -8,10 +8,12 @@ import {
   jsonb,
   pgEnum,
   customType,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
-import { productsTable } from "./products";
+import { productsTable, productVariantsTable } from "./products";
 
 export const batchStatusEnum = pgEnum("batch_status", [
   "pending",
@@ -78,17 +80,43 @@ const bytea = customType<{ data: Buffer; default: false }>({
   },
 });
 
-export const coaDocumentsTable = pgTable("coa_documents", {
-  id: text("id").primaryKey(),
-  batchId: text("batch_id")
-    .notNull()
-    .references(() => batchesTable.id, { onDelete: "cascade" }),
-  filename: text("filename").notNull(),
-  mimeType: text("mime_type").notNull(),
-  sizeBytes: integer("size_bytes").notNull(),
-  data: bytea("data").notNull(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+// A COA document hangs off EITHER a production batch (lot-specific COA) or a
+// product variant (the peptide/SKU's current certificate) — never both, never
+// neither. Most first-party COAs are per-SKU, so variant-scoped is the common
+// case; batch-scoped stays for genuinely lot-specific results.
+export const coaDocumentsTable = pgTable(
+  "coa_documents",
+  {
+    id: text("id").primaryKey(),
+    batchId: text("batch_id").references(() => batchesTable.id, {
+      onDelete: "cascade",
+    }),
+    variantId: integer("variant_id").references(() => productVariantsTable.id, {
+      onDelete: "cascade",
+    }),
+    filename: text("filename").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    data: bytea("data").notNull(),
+    // Values read off the document by the AI extraction pass. Nullable: the
+    // extractor fails soft (no API key / unreadable scan), and an operator can
+    // correct or clear any field. Displayed alongside the COA link.
+    purityPercent: real("purity_percent"),
+    endotoxinEuPerMl: real("endotoxin_eu_per_ml"),
+    sterilityPass: boolean("sterility_pass"),
+    labName: text("lab_name"),
+    testedAt: timestamp("tested_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    // Exactly one owner. Enforced in the DB so no code path can orphan a
+    // document or attach it to both.
+    check(
+      "coa_documents_one_owner",
+      sql`(${t.batchId} IS NOT NULL AND ${t.variantId} IS NULL) OR (${t.batchId} IS NULL AND ${t.variantId} IS NOT NULL)`
+    ),
+  ]
+);
 
 export const insertCoaDocumentSchema = createInsertSchema(coaDocumentsTable).omit({
   createdAt: true,

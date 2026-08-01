@@ -17,6 +17,7 @@ import {
   ListCoaLibraryResponse,
 } from "@atlab/api-zod";
 import { resolveWholesaleAccount } from "../lib/wholesaleSession";
+import { coaDownloadRateLimit } from "../lib/rateLimit";
 
 const router: IRouter = Router();
 
@@ -43,9 +44,18 @@ router.get("/coa-library", async (_req, res) => {
         name: productVariantsTable.name,
         unitType: productVariantsTable.unitType,
         coaUrl: productVariantsTable.coaUrl,
+        // Values the AI extraction read off an uploaded certificate. Null for a
+        // SKU whose COA is an external link (nothing to extract from).
+        purityPercent: coaDocumentsTable.purityPercent,
+        labName: coaDocumentsTable.labName,
+        testedAt: coaDocumentsTable.testedAt,
       })
       .from(productVariantsTable)
       .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
+      .leftJoin(
+        coaDocumentsTable,
+        eq(coaDocumentsTable.variantId, productVariantsTable.id)
+      )
       .where(
         and(
           isNotNull(productVariantsTable.coaUrl),
@@ -56,10 +66,69 @@ router.get("/coa-library", async (_req, res) => {
       .orderBy(asc(productsTable.name), asc(productVariantsTable.priceCents));
 
     // coaUrl is non-null by the WHERE above; narrow the type for the schema.
-    const entries = rows.map((r) => ({ ...r, coaUrl: r.coaUrl! }));
+    const entries = rows.map((r) => ({
+      ...r,
+      coaUrl: r.coaUrl!,
+      testedAt: r.testedAt ? r.testedAt.toISOString() : null,
+    }));
     res.json(ListCoaLibraryResponse.parse(entries));
   } catch (err) {
     console.error("listCoaLibrary error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+// Public download for a per-SKU COA document uploaded in admin. Gated on the
+// owning product being published and not blocked — an unpublished SKU's
+// certificate is not public. Served as an attachment with nosniff, and the
+// filename is server-derived, never the uploaded originalname.
+router.get("/variants/:id/coa-file", coaDownloadRateLimit, async (req, res) => {
+  try {
+    const variantId = Number(req.params.id);
+    if (!Number.isInteger(variantId) || variantId <= 0) {
+      res.status(404).json({ error: "not_found", message: "No COA document available" });
+      return;
+    }
+
+    const [row] = await db
+      .select({
+        published: productsTable.published,
+        complianceStatus: productsTable.complianceStatus,
+        sku: productVariantsTable.sku,
+        mimeType: coaDocumentsTable.mimeType,
+        data: coaDocumentsTable.data,
+      })
+      .from(coaDocumentsTable)
+      .innerJoin(
+        productVariantsTable,
+        eq(coaDocumentsTable.variantId, productVariantsTable.id)
+      )
+      .innerJoin(productsTable, eq(productVariantsTable.productId, productsTable.id))
+      .where(eq(coaDocumentsTable.variantId, variantId))
+      .orderBy(desc(coaDocumentsTable.createdAt))
+      .limit(1);
+
+    if (!row || row.published !== true || row.complianceStatus === "blocked") {
+      res.status(404).json({ error: "not_found", message: "No COA document available" });
+      return;
+    }
+
+    const ext =
+      row.mimeType === "application/pdf" ? "pdf"
+      : row.mimeType === "image/png" ? "png"
+      : row.mimeType === "image/webp" ? "webp"
+      : "jpg";
+
+    // Scrub the SKU before it lands in a quoted header parameter — a stray quote
+    // would break out of the filename, and Node rejects control chars outright.
+    const safeSku = row.sku.replace(/[^A-Za-z0-9._-]/g, "-");
+    res.setHeader("Content-Type", row.mimeType);
+    res.setHeader("Content-Disposition", `inline; filename="coa-${safeSku}.${ext}"`);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.send(row.data);
+  } catch (err) {
+    console.error("getVariantCoaFile error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });
   }
 });
