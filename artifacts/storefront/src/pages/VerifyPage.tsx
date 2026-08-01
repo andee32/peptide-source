@@ -191,6 +191,15 @@ function BatchDetailView({ batchId, source }: { batchId: string; source: string 
           )}
 
           <div className="flex flex-wrap gap-3 mt-6 pt-6 border-t border-border/30">
+            {batch.hasCoaFile && (
+              <Button asChild variant="default" size="sm" className="font-mono gap-2">
+                <a href={`/api/batches/${batch.id}/coa-file`}>
+                  <Download className="h-4 w-4" />
+                  Download COA
+                </a>
+              </Button>
+            )}
+
             <Button asChild variant="outline" size="sm" className="font-mono gap-2">
               <a href={`/api/batches/${batch.id}/qr`} download={`batch-${batch.id}-qr.png`}>
                 <Download className="h-4 w-4" />

@@ -98,6 +98,13 @@ type AdminCoaResult = {
   janoshikTaskId: string | null;
 };
 
+type AdminCoaDocument = {
+  id: string;
+  filename: string;
+  sizeBytes: number;
+  createdAt: string;
+};
+
 type AdminBatch = {
   id: string;
   productId: number;
@@ -106,6 +113,7 @@ type AdminBatch = {
   status: BatchStatus;
   notes: string | null;
   coaResults: AdminCoaResult[];
+  documents: AdminCoaDocument[];
 };
 
 type CategoryValue = "metabolic" | "longevity" | "recovery" | "cognitive" | "other";
@@ -423,6 +431,75 @@ function AddCoaDialog({
   const [heavyMetalRows, setHeavyMetalRows] = useState<HeavyMetalRow[]>([{ ...DEFAULT_HEAVY_METAL_ROW }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadNotice, setUploadNotice] = useState("");
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+    setUploading(true);
+    setError("");
+    setUploadNotice("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      // adminFetch forces application/json; send raw fetch so the browser sets
+      // the multipart boundary. Admin key header only.
+      const res = await fetch(
+        `/api/admin/batches/${encodeURIComponent(batchId)}/coa-file`,
+        { method: "POST", headers: { "x-admin-key": adminKey }, body: fd },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message ?? `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as {
+        extracted: {
+          testType: TestType | null;
+          purityPercent: number | null;
+          endotoxinEuPerMl: number | null;
+          sterilityPass: boolean | null;
+          heavyMetals: { element: string; resultPpm: number; limitPpm: number; pass: boolean }[] | null;
+          labName: string | null;
+          testedAt: string | null;
+          janoshikTaskId: string | null;
+        } | null;
+      };
+      onCreated(); // refresh batch list so the new document shows on the row
+
+      const ex = data.extracted;
+      if (!ex) {
+        setUploadNotice("File saved. AI could not read it — enter values manually.");
+        return;
+      }
+      setForm((f) => ({
+        ...f,
+        testType: ex.testType ?? f.testType,
+        purityPercent: ex.purityPercent != null ? String(ex.purityPercent) : f.purityPercent,
+        endotoxinEuPerMl: ex.endotoxinEuPerMl != null ? String(ex.endotoxinEuPerMl) : f.endotoxinEuPerMl,
+        sterilityPass: ex.sterilityPass == null ? f.sterilityPass : ex.sterilityPass ? "true" : "false",
+        labName: ex.labName ?? f.labName,
+        testedAt: ex.testedAt ?? f.testedAt,
+        janoshikTaskId: ex.janoshikTaskId ?? f.janoshikTaskId,
+      }));
+      if (ex.heavyMetals && ex.heavyMetals.length > 0) {
+        setHeavyMetalRows(
+          ex.heavyMetals.map((h) => ({
+            element: h.element,
+            resultPpm: String(h.resultPpm),
+            limitPpm: String(h.limitPpm),
+            pass: h.pass,
+          })),
+        );
+      }
+      setUploadNotice("AI-extracted — verify every field against the document before saving.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const resetForm = () => {
     setForm({
@@ -498,6 +575,24 @@ function AddCoaDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          <div className="mb-4 rounded-lg border border-dashed border-border/60 p-3">
+            <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+              Upload COA (PDF / image) — AI prefills the fields
+            </Label>
+            <input
+              type="file"
+              accept="application/pdf,image/jpeg,image/png,image/webp"
+              onChange={handleFileUpload}
+              disabled={uploading}
+              className="mt-2 block w-full text-sm font-mono"
+            />
+            {uploading && (
+              <p className="mt-2 text-xs font-mono text-muted-foreground">Reading document…</p>
+            )}
+            {uploadNotice && (
+              <p className="mt-2 text-xs font-mono text-amber-600">{uploadNotice}</p>
+            )}
+          </div>
           <div>
             <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">COA ID</Label>
             <Input
@@ -906,6 +1001,30 @@ function BatchDetailPanel({
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          {batch.documents.length > 0 && (
+            <div className="mt-2 flex flex-col gap-1">
+              {batch.documents.map((doc) => (
+                <div key={doc.id} className="flex items-center gap-2 text-xs font-mono text-muted-foreground">
+                  <span className="truncate max-w-[220px]">{doc.filename}</span>
+                  <span>({Math.round(doc.sizeBytes / 1024)} KB)</span>
+                  <button
+                    type="button"
+                    className="text-destructive hover:underline"
+                    onClick={async () => {
+                      await adminFetch(
+                        `/admin/batches/${encodeURIComponent(batch.id)}/coa-file/${doc.id}`,
+                        adminKey,
+                        { method: "DELETE" },
+                      );
+                      onRefresh();
+                    }}
+                  >
+                    remove
+                  </button>
                 </div>
               ))}
             </div>

@@ -1,10 +1,12 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq, and, ne, asc, desc, count, inArray, notInArray, sql } from "drizzle-orm";
 import { createHash, timingSafeEqual } from "crypto";
+import multer from "multer";
 import { db } from "@atlab/db";
 import {
   batchesTable,
   coaResultsTable,
+  coaDocumentsTable,
   productsTable,
   productVariantsTable,
   adminUsersTable,
@@ -45,8 +47,52 @@ import {
   SETTLEABLE_ORDER_STATUSES,
   TERMINAL_ORDER_STATUSES,
 } from "../lib/orderStatus";
+import { extractCoaFromFile } from "../services/coaExtract";
 
 const router: IRouter = Router();
+
+const ALLOWED_COA_MIME = new Set([
+  "application/pdf",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
+
+const coaUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter(_req, file, cb) {
+    cb(null, ALLOWED_COA_MIME.has(file.mimetype));
+  },
+});
+
+// multer's `.single()` middleware reports rejections (oversize file,
+// malformed multipart body) by calling `next(err)` from the middleware
+// layer, before the route handler's own try/catch runs. There is no
+// app-wide (err, req, res, next) error handler, so an unwrapped chain
+// falls through to Express's default HTML error page, breaking the API's
+// JSON error contract. This wrapper converts multer rejections into the
+// same { error, message } JSON shape the rest of this router uses.
+function uploadCoaFile(req: Request, res: Response, next: NextFunction) {
+  coaUpload.single("file")(req, res, (err: unknown) => {
+    if (err instanceof multer.MulterError) {
+      const status = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+      res.status(status).json({
+        error: "bad_request",
+        message:
+          err.code === "LIMIT_FILE_SIZE"
+            ? "File too large (max 10 MB)"
+            : `Upload error: ${err.message}`,
+      });
+      return;
+    }
+    if (err) {
+      res.status(400).json({ error: "bad_request", message: "Upload failed" });
+      return;
+    }
+    next();
+  });
+}
 
 // Every /admin request resolves to a live admin_sessions row -> an active
 // admin_users row (or the ops break-glass secret). This is what makes
@@ -480,6 +526,10 @@ router.get("/admin/batches", async (_req, res) => {
       const coaResults = await db.query.coaResultsTable.findMany({
         where: eq(coaResultsTable.batchId, batch.id),
       });
+      const documents = await db.query.coaDocumentsTable.findMany({
+        where: eq(coaDocumentsTable.batchId, batch.id),
+        columns: { id: true, filename: true, sizeBytes: true, createdAt: true },
+      });
       return {
         id: batch.id,
         productId: batch.productId,
@@ -498,6 +548,7 @@ router.get("/admin/batches", async (_req, res) => {
           testedAt: c.testedAt,
           janoshikTaskId: c.janoshikTaskId ?? null,
         })),
+        documents,
       };
     }));
 
@@ -685,6 +736,69 @@ router.delete("/admin/coa/:coaId", async (req, res) => {
     res.json({ deleted: coaId });
   } catch (err) {
     console.error("admin deleteCoa error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+router.post("/admin/batches/:id/coa-file", uploadCoaFile, async (req, res) => {
+  try {
+    // multer's `.single()` middleware is typed as a plain (path-agnostic)
+    // RequestHandler, so chaining it here widens req.params to
+    // ParamsDictionary (string | string[]) instead of the path-literal-
+    // inferred `{ id: string }`. The route pattern guarantees a single value.
+    const batchId = req.params.id as string;
+
+    const batch = await db.query.batchesTable.findFirst({
+      where: eq(batchesTable.id, batchId),
+    });
+    if (!batch) {
+      res.status(404).json({ error: "not_found", message: "Batch not found" });
+      return;
+    }
+
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({
+        error: "bad_request",
+        message: "Missing or unsupported file (allowed: PDF, JPEG, PNG, WebP; max 10 MB)",
+      });
+      return;
+    }
+
+    const documentId = randomUUID();
+    await db.insert(coaDocumentsTable).values({
+      id: documentId,
+      batchId,
+      filename: file.originalname,
+      mimeType: file.mimetype,
+      sizeBytes: file.size,
+      data: file.buffer,
+    });
+
+    // Soft-fail: extraction never blocks the upload. Null => admin enters manually.
+    const extracted = await extractCoaFromFile(file.buffer, file.mimetype);
+
+    res.status(201).json({ documentId, filename: file.originalname, extracted });
+  } catch (err) {
+    console.error("admin uploadCoaFile error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+router.delete("/admin/batches/:id/coa-file/:docId", async (req, res) => {
+  try {
+    const { id: batchId, docId } = req.params;
+    const deleted = await db
+      .delete(coaDocumentsTable)
+      .where(and(eq(coaDocumentsTable.id, docId), eq(coaDocumentsTable.batchId, batchId)))
+      .returning({ id: coaDocumentsTable.id });
+    if (deleted.length === 0) {
+      res.status(404).json({ error: "not_found", message: "Document not found" });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("admin deleteCoaFile error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });
   }
 });

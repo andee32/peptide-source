@@ -13,6 +13,7 @@
     "test": "pnpm run test:unit && pnpm run test:integration"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.114.0",
     "@atlab/api-zod": "workspace:*",
     "@atlab/db": "workspace:*",
     "cookie-parser": "^1.4.7",
@@ -20,6 +21,7 @@
     "drizzle-orm": "catalog:",
     "express": "^5",
     "express-rate-limit": "^8.6.0",
+    "multer": "^2.2.0",
     "nodemailer": "^8.0.3",
     "qrcode": "^1.5.4",
     "zod": "catalog:"
@@ -28,6 +30,7 @@
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
     "@types/node": "catalog:",
     "@types/nodemailer": "^7.0.11",
     "@types/pg": "^8.18.0",

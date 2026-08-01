@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import { db } from "@atlab/db";
 import {
   batchesTable,
+  coaDocumentsTable,
   coaResultsTable,
   productsTable,
 } from "@atlab/db/schema";
@@ -122,6 +123,15 @@ router.get("/batches/:id", async (req, res) => {
 
     const purityCoa = coaResults.find((c) => c.testType === "purity");
 
+    const isReleasedReal = batch.status === "released" && batch.isDemo === false;
+    const coaDoc = isReleasedReal
+      ? await db.query.coaDocumentsTable.findFirst({
+          where: eq(coaDocumentsTable.batchId, batch.id),
+          orderBy: (d, { desc }) => [desc(d.createdAt)],
+          columns: { id: true },
+        })
+      : undefined;
+
     const responseData = {
       id: batch.id,
       productId: batch.productId,
@@ -131,6 +141,7 @@ router.get("/batches/:id", async (req, res) => {
       isDemo: batch.isDemo,
       purityPercent: purityCoa?.purityPercent ?? null,
       notes: batch.notes ?? null,
+      hasCoaFile: coaDoc !== undefined && coaDoc !== null,
       coaResults: coaResults.map((c) => ({
         id: c.id,
         testType: c.testType,
@@ -154,6 +165,46 @@ router.get("/batches/:id", async (req, res) => {
     res.json(validated);
   } catch (err) {
     console.error("getBatch error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+router.get("/batches/:id/coa-file", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const batch = await db.query.batchesTable.findFirst({
+      where: eq(batchesTable.id, id),
+    });
+
+    // Fail closed: a fabricated demo COA must never be served as a real document.
+    if (!batch || batch.status !== "released" || batch.isDemo !== false) {
+      res.status(404).json({ error: "not_found", message: "No COA document available" });
+      return;
+    }
+
+    const doc = await db.query.coaDocumentsTable.findFirst({
+      where: eq(coaDocumentsTable.batchId, id),
+      orderBy: (d, { desc }) => [desc(d.createdAt)],
+    });
+    if (!doc) {
+      res.status(404).json({ error: "not_found", message: "No COA document available" });
+      return;
+    }
+
+    const ext =
+      doc.mimeType === "application/pdf" ? "pdf"
+      : doc.mimeType === "image/png" ? "png"
+      : doc.mimeType === "image/webp" ? "webp"
+      : "jpg";
+
+    res.setHeader("Content-Type", doc.mimeType);
+    res.setHeader("Content-Disposition", `attachment; filename="coa-${id}.${ext}"`);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.send(doc.data);
+  } catch (err) {
+    console.error("getBatchCoaFile error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });
   }
 });

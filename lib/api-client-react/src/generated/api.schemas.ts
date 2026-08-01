@@ -655,12 +655,16 @@ export interface CoaResult {
 export type BatchDetail = BatchSummary & {
   coaResults: CoaResult[];
   notes?: string | null;
+  /** True when a downloadable COA document is attached AND the batch is released and non-demo. */
+  hasCoaFile: boolean;
 };
 
 export type ProductDetail = Product & {
   longDescription: string;
   researchUses: string[];
   latestBatch?: BatchDetail | null;
+  /** True only when the latest batch is released, non-demo, AND has a downloadable COA document. Gates the public "Download COA" link. */
+  latestBatchHasCoaFile: boolean;
 };
 
 export interface OrderLineItem {
@@ -1278,6 +1282,8 @@ export type RetailProductDetail = RetailProduct & {
   latestBatchPurity?: number | null;
   /** True when the latest batch is seeded sample data (no real COA). */
   latestBatchIsDemo?: boolean | null;
+  /** True only when the latest batch is released, non-demo, AND has a downloadable COA document. Gates the public "Download COA" link. */
+  latestBatchHasCoaFile: boolean;
 };
 
 export type PatchProductRequestSourcingPath =

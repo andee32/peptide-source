@@ -11,4 +11,6 @@ import type { CoaResult } from "./coaResult";
 export type BatchDetail = BatchSummary & {
   coaResults: CoaResult[];
   notes?: string | null;
+  /** True when a downloadable COA document is attached AND the batch is released and non-demo. */
+  hasCoaFile: boolean;
 };

@@ -143,6 +143,14 @@ export function RetailProductPage() {
                   </Badge>
                 </Link>
               )}
+              {product.latestBatchHasCoaFile && (
+                <a
+                  href={`/api/batches/${product.latestBatchId}/coa-file`}
+                  className="text-xs font-mono underline text-muted-foreground hover:text-foreground"
+                >
+                  Download COA
+                </a>
+              )}
             </div>
           </div>
         )}
@@ -169,6 +177,14 @@ export function RetailProductPage() {
                     )}
                   </Badge>
                 </Link>
+              )}
+              {product.latestBatchHasCoaFile && (
+                <a
+                  href={`/api/batches/${product.latestBatchId}/coa-file`}
+                  className="text-xs font-mono underline text-muted-foreground hover:text-foreground"
+                >
+                  Download COA
+                </a>
               )}
             </div>
           )}

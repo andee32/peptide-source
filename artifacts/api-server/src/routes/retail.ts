@@ -7,6 +7,7 @@ import {
   categoryEnum,
   batchesTable,
   coaResultsTable,
+  coaDocumentsTable,
 } from "@atlab/db/schema";
 import {
   ListRetailProductsQueryParams,
@@ -169,6 +170,15 @@ router.get("/retail/products/:slug", async (req, res) => {
       latestBatchPurity = purityCoa?.purityPercent ?? null;
     }
 
+    let latestBatchHasCoaFile = false;
+    if (latestBatch && latestBatch.status === "released" && latestBatch.isDemo === false) {
+      const coaDoc = await db.query.coaDocumentsTable.findFirst({
+        where: eq(coaDocumentsTable.batchId, latestBatch.id),
+        columns: { id: true },
+      });
+      latestBatchHasCoaFile = coaDoc !== undefined && coaDoc !== null;
+    }
+
     const responseData = {
       ...toRetail(product, retailVariants),
       longDescription: product.longDescription,
@@ -176,6 +186,7 @@ router.get("/retail/products/:slug", async (req, res) => {
       latestBatchId: latestBatch?.id ?? null,
       latestBatchPurity,
       latestBatchIsDemo: latestBatch?.isDemo ?? null,
+      latestBatchHasCoaFile,
     };
 
     const validated = GetRetailProductResponse.parse(responseData);

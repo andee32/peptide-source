@@ -183,9 +183,19 @@ export const GetProductResponse = zod
               }),
             ),
             notes: zod.string().nullish(),
+            hasCoaFile: zod
+              .boolean()
+              .describe(
+                "True when a downloadable COA document is attached AND the batch is released and non-demo.",
+              ),
           }),
         )
         .nullish(),
+      latestBatchHasCoaFile: zod
+        .boolean()
+        .describe(
+          'True only when the latest batch is released, non-demo, AND has a downloadable COA document. Gates the public \"Download COA\" link.',
+        ),
     }),
   );
 
@@ -334,6 +344,11 @@ export const GetRetailProductResponse = zod
         .describe(
           "True when the latest batch is seeded sample data (no real COA).",
         ),
+      latestBatchHasCoaFile: zod
+        .boolean()
+        .describe(
+          'True only when the latest batch is released, non-demo, AND has a downloadable COA document. Gates the public \"Download COA\" link.',
+        ),
     }),
   );
 
@@ -420,8 +435,21 @@ export const GetBatchResponse = zod
         }),
       ),
       notes: zod.string().nullish(),
+      hasCoaFile: zod
+        .boolean()
+        .describe(
+          "True when a downloadable COA document is attached AND the batch is released and non-demo.",
+        ),
     }),
   );
+
+/**
+ * Streams the most recent uploaded COA file as an attachment. Only released, non-demo batches serve a file; all others return 404.
+ * @summary Download the batch COA document
+ */
+export const GetBatchCoaFileParams = zod.object({
+  id: zod.coerce.string(),
+});
 
 /**
  * Creates an order. Retail orders paid with crypto receive the admin-configured crypto payment discount (store settings, basis points); wholesale orders never do.
@@ -2422,9 +2450,19 @@ export const AdminPatchProductResponse = zod
               }),
             ),
             notes: zod.string().nullish(),
+            hasCoaFile: zod
+              .boolean()
+              .describe(
+                "True when a downloadable COA document is attached AND the batch is released and non-demo.",
+              ),
           }),
         )
         .nullish(),
+      latestBatchHasCoaFile: zod
+        .boolean()
+        .describe(
+          'True only when the latest batch is released, non-demo, AND has a downloadable COA document. Gates the public \"Download COA\" link.',
+        ),
     }),
   );
 

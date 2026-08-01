@@ -12,4 +12,6 @@ export type ProductDetail = Product & {
   longDescription: string;
   researchUses: string[];
   latestBatch?: BatchDetail | null;
+  /** True only when the latest batch is released, non-demo, AND has a downloadable COA document. Gates the public "Download COA" link. */
+  latestBatchHasCoaFile: boolean;
 };
