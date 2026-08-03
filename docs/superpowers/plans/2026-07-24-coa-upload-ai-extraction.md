@@ -12,8 +12,8 @@
 
 - Package manager is **pnpm** only (preinstall rejects npm/yarn).
 - `pnpm run typecheck` is the green-signal gate — must pass before any task is done (Stop hook enforces it).
-- **Never hand-edit** `lib/api-zod` or `lib/api-client-react` — they are generated. Edit `lib/api-spec/openapi.yaml` then run `pnpm --filter @atlab/api-spec run codegen`.
-- Workspaces are `@atlab/*`. Server env loads from root `.env` via `--env-file-if-exists`.
+- **Never hand-edit** `lib/api-zod` or `lib/api-client-react` — they are generated. Edit `lib/api-spec/openapi.yaml` then run `pnpm --filter @app/api-spec run codegen`.
+- Workspaces are `@app/*`. Server env loads from root `.env` via `--env-file-if-exists`.
 - Admin routes use `x-admin-key` header + `authenticateAdmin` middleware (already applied to the `/admin` router); they are NOT in the OpenAPI spec — use ad-hoc Zod.
 - Fail-closed security posture: no stub/placeholder documents; demo or non-released batches never serve a real COA file.
 - Client never receives the `ANTHROPIC_API_KEY`; all AI calls are server-side.
@@ -66,7 +66,7 @@ Note: `customType`, `integer`, `text`, `timestamp`, `pgTable` are already import
 
 - [ ] **Step 2: Typecheck the db package**
 
-Run: `pnpm --filter @atlab/db run typecheck` (or `pnpm run typecheck` from root)
+Run: `pnpm --filter @app/db run typecheck` (or `pnpm run typecheck` from root)
 Expected: PASS (no errors).
 
 - [ ] **Step 3: Commit**
@@ -76,7 +76,7 @@ git add lib/db/src/schema/batches.ts
 git commit -m "feat(db): add coa_documents table for uploaded COA files"
 ```
 
-Note: `pnpm --filter @atlab/db run push` applies the table to a live DB; run only against a scratch DB with `DATABASE_URL` set. Not part of this commit.
+Note: `pnpm --filter @app/db run push` applies the table to a live DB; run only against a scratch DB with `DATABASE_URL` set. Not part of this commit.
 
 ---
 
@@ -105,7 +105,7 @@ Note: `pnpm --filter @atlab/db run push` applies the table to a live DB; run onl
 - [ ] **Step 1: Add the SDK dependency**
 
 ```bash
-pnpm --filter @atlab/api-server add @anthropic-ai/sdk
+pnpm --filter @app/api-server add @anthropic-ai/sdk
 ```
 
 Expected: `@anthropic-ai/sdk` added to `dependencies` in `artifacts/api-server/package.json`.
@@ -222,7 +222,7 @@ export async function extractCoaFromFile(
 
 - [ ] **Step 3: Typecheck**
 
-Run: `pnpm --filter @atlab/api-server run typecheck`
+Run: `pnpm --filter @app/api-server run typecheck`
 Expected: PASS. If `output_config` is not a known field on the SDK's create params for the installed version, fall back to a tool-based extraction (define a single `record_coa` tool with the same schema as `input_schema`, `tool_choice: { type: "tool", name: "record_coa" }`, read the `tool_use` block's `.input`). Keep the same `ExtractedCoa` return shape and soft-fail behavior.
 
 - [ ] **Step 4: Commit**
@@ -250,8 +250,8 @@ git commit -m "feat(api): add server-side Claude COA extraction service"
 - [ ] **Step 1: Add multer**
 
 ```bash
-pnpm --filter @atlab/api-server add multer
-pnpm --filter @atlab/api-server add -D @types/multer
+pnpm --filter @app/api-server add multer
+pnpm --filter @app/api-server add -D @types/multer
 ```
 
 - [ ] **Step 2: Add imports and the multer instance to admin.ts**
@@ -260,11 +260,11 @@ At the top of `artifacts/api-server/src/routes/admin.ts`, add to imports:
 
 ```ts
 import multer from "multer";
-import { coaDocumentsTable } from "@atlab/db/schema";
+import { coaDocumentsTable } from "@app/db/schema";
 import { extractCoaFromFile } from "../services/coaExtract";
 ```
 
-(Add `coaDocumentsTable` to the existing `@atlab/db/schema` import block rather than a duplicate import.)
+(Add `coaDocumentsTable` to the existing `@app/db/schema` import block rather than a duplicate import.)
 
 After the `const router = Router();` line, add:
 
@@ -367,7 +367,7 @@ and add `documents,` to the returned object literal for each batch.
 
 - [ ] **Step 5: Typecheck**
 
-Run: `pnpm --filter @atlab/api-server run typecheck`
+Run: `pnpm --filter @app/api-server run typecheck`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
@@ -445,12 +445,12 @@ In `lib/api-spec/openapi.yaml`, after the `/batches/{id}/qr` path block, add:
 
 - [ ] **Step 3: Regenerate the client + zod packages**
 
-Run: `pnpm --filter @atlab/api-spec run codegen`
+Run: `pnpm --filter @app/api-spec run codegen`
 Expected: `lib/api-zod` and `lib/api-client-react` updated; `GetBatchResponse` now includes `hasCoaFile`.
 
 - [ ] **Step 4: Set `hasCoaFile` in the getBatch handler**
 
-In `artifacts/api-server/src/routes/batches.ts`, add `coaDocumentsTable` to the `@atlab/db/schema` import. In the `GET /batches/:id` handler, after the `coaResults` query and before building `responseData`, add:
+In `artifacts/api-server/src/routes/batches.ts`, add `coaDocumentsTable` to the `@app/db/schema` import. In the `GET /batches/:id` handler, after the `coaResults` query and before building `responseData`, add:
 
 ```ts
     const isReleasedReal = batch.status === "released" && batch.isDemo === false;
@@ -688,7 +688,7 @@ The batch card component (the one that renders the batch's `coaResults` and moun
 
 - [ ] **Step 5: Typecheck the storefront**
 
-Run: `pnpm --filter @atlab/storefront run typecheck`
+Run: `pnpm --filter @app/storefront run typecheck`
 Expected: PASS.
 
 - [ ] **Step 6: Commit**
@@ -764,7 +764,7 @@ Note: the download endpoint fails closed server-side, so a link on a demo/unrele
 
 - [ ] **Step 4: Typecheck the storefront**
 
-Run: `pnpm --filter @atlab/storefront run typecheck`
+Run: `pnpm --filter @app/storefront run typecheck`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -805,7 +805,7 @@ git commit -m "docs: document ANTHROPIC_API_KEY for COA extraction"
 
 - [ ] **Step 4: Manual smoke test (report results, do not skip)**
 
-Requires a scratch `DATABASE_URL` and `pnpm --filter @atlab/db run push` applied so `coa_documents` exists. With `ANTHROPIC_API_KEY` set:
+Requires a scratch `DATABASE_URL` and `pnpm --filter @app/db run push` applied so `coa_documents` exists. With `ANTHROPIC_API_KEY` set:
 1. Start API + storefront dev servers.
 2. Admin → Batches → open Add COA on a released, non-demo batch → upload a real Janoshik PDF.
 3. Confirm fields prefill and the amber "verify" notice shows.

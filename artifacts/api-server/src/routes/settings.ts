@@ -1,8 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db } from "@atlab/db";
-import { storeSettingsTable } from "@atlab/db/schema";
-import { GetSettingsResponse } from "@atlab/api-zod";
+import { db } from "@app/db";
+import { storeSettingsTable } from "@app/db/schema";
+import { GetSettingsResponse } from "@app/api-zod";
 import { getPaymentMethodStates } from "../lib/paymentMethods";
 
 const router: IRouter = Router();

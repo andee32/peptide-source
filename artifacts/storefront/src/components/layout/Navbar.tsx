@@ -6,6 +6,7 @@ import { useWholesaleSession } from "@/hooks/useWholesaleSession";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useState } from "react";
+import { brand } from "@/lib/brand";
 
 export function Navbar() {
   const { totalItems, setIsCartOpen } = useCart();
@@ -73,12 +74,12 @@ export function Navbar() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
           <img
-            src="/images/wolf-logo-t.png"
-            alt="AT Lab Sourcing"
+            src={brand.logoSrc}
+            alt={brand.name}
             className="h-9 w-9 object-contain"
           />
           <span className="font-display text-xl md:text-2xl font-extrabold tracking-tight">
-            AT <span className="text-[var(--atl-blue)]">LAB</span> SOURCING
+            {brand.wordmark}
           </span>
         </Link>
 

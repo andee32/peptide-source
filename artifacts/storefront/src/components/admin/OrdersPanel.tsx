@@ -44,7 +44,7 @@ import {
   AdminListOrdersChannel,
   type AdminOrderSummary,
   type OrderStatus as OrderStatusValue,
-} from "@atlab/api-client-react";
+} from "@app/api-client-react";
 
 const STATUS_VALUES = Object.values(OrderStatus) as OrderStatusValue[];
 const CHANNEL_VALUES = Object.values(AdminListOrdersChannel);
@@ -69,7 +69,7 @@ function statusLabel(status: string): string {
 function OrderStatusBadge({ status }: { status: OrderStatusValue }) {
   const cls: Record<OrderStatusValue, string> = {
     confirmed: "bg-primary/15 text-teal-ink border-primary/30",
-    shipped: "bg-[var(--atl-blue-tint)] text-[var(--atl-blue)] border-[var(--atl-blue)]/30",
+    shipped: "bg-[var(--brand-blue-tint)] text-[var(--brand-blue)] border-[var(--brand-blue)]/30",
     awaiting_payment: "bg-warn-tint text-warn border-warn/30",
     pending: "bg-secondary text-secondary-foreground border-border/40",
     refunded: "bg-muted text-muted-foreground border-border/40",

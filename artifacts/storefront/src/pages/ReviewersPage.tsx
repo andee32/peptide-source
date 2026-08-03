@@ -25,7 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   useListReviewerSubmissions,
   useGetReviewerSubmissionStats,
-} from "@atlab/api-client-react";
+} from "@app/api-client-react";
 
 type SortKey = "submittedAt" | "purityPercent" | "productName";
 type SortDir = "asc" | "desc";

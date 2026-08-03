@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { Product, ProductVariant } from "@atlab/api-client-react";
+import type { Product, ProductVariant } from "@app/api-client-react";
 import { useCart } from "@/contexts/cart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

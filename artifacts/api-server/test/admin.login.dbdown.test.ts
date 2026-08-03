@@ -2,8 +2,8 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
-import { db, pool } from "@atlab/db";
-import { adminUsersTable } from "@atlab/db/schema";
+import { db, pool } from "@app/db";
+import { adminUsersTable } from "@app/db/schema";
 import app from "../src/app";
 import { hashPassword } from "../src/lib/password";
 

@@ -1,12 +1,12 @@
 import { createHash, randomBytes } from "crypto";
 import { eq } from "drizzle-orm";
 import type { Request } from "express";
-import { db } from "@atlab/db";
+import { db } from "@app/db";
 import {
   customerSessionsTable,
   customerUsersTable,
   type CustomerUser,
-} from "@atlab/db/schema";
+} from "@app/db/schema";
 
 export const SESSION_TTL_DAYS = 30;
 

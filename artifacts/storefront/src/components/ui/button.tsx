@@ -11,13 +11,13 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-           // AT Lab: teal CTA (primary action)
+           // Brand: teal CTA (primary action)
            "bg-primary text-primary-foreground border border-primary-border",
         navy:
-          // AT Lab: structural / secondary emphasis action (navy)
+          // Brand: structural / secondary emphasis action (navy)
           "bg-secondary text-secondary-foreground border border-secondary-border",
         gold:
-          // AT Lab: premium / COA-verified emphasis (gold)
+          // Brand: premium / COA-verified emphasis (gold)
           "bg-brand-gold text-structure-900 border border-brand-gold font-semibold",
         destructive:
           "bg-destructive text-destructive-foreground shadow-sm border border-destructive-border",

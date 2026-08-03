@@ -3,7 +3,7 @@ import {
   useGetAccount,
   useGetCurrentCustomer,
   type AccountStatus,
-} from "@atlab/api-client-react";
+} from "@app/api-client-react";
 import { useCustomerSession, bearerHeaders } from "@/hooks/useCustomerAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -191,7 +191,7 @@ export function WholesaleAccountPage() {
               )}
 
               {wholesale.status === "approved" ? (
-                <div className="flex items-start gap-3 rounded-lg border border-[color-mix(in_srgb,var(--atl-teal)_35%,transparent)] bg-[color-mix(in_srgb,var(--atl-teal)_10%,transparent)] p-4">
+                <div className="flex items-start gap-3 rounded-lg border border-[color-mix(in_srgb,var(--brand-teal)_35%,transparent)] bg-[color-mix(in_srgb,var(--brand-teal)_10%,transparent)] p-4">
                   <PackageCheck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
                   <p className="text-sm text-foreground">
                     You can place wholesale orders — <strong>5-kit minimum</strong>, and your tier
@@ -199,8 +199,8 @@ export function WholesaleAccountPage() {
                   </p>
                 </div>
               ) : wholesale.status === "pending" ? (
-                <div className="flex items-start gap-3 rounded-lg border border-[color-mix(in_srgb,var(--atl-gold)_45%,transparent)] bg-[color-mix(in_srgb,var(--atl-gold)_10%,transparent)] p-4">
-                  <Clock className="h-5 w-5 text-[color-mix(in_srgb,var(--atl-gold)_70%,#0e1117)] mt-0.5 shrink-0" />
+                <div className="flex items-start gap-3 rounded-lg border border-[color-mix(in_srgb,var(--brand-gold)_45%,transparent)] bg-[color-mix(in_srgb,var(--brand-gold)_10%,transparent)] p-4">
+                  <Clock className="h-5 w-5 text-[color-mix(in_srgb,var(--brand-gold)_70%,#0e1117)] mt-0.5 shrink-0" />
                   <p className="text-sm text-muted-foreground">
                     Your application is under review. We'll assign a pricing tier once your business is verified.
                   </p>

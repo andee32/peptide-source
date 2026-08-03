@@ -1,8 +1,9 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { brandPlugin } from "./vite-plugin-brand";
 
 // Dev/build defaults: standalone storefront serves at root on 5173. Override
 // PORT / BASE_PATH via env for sub-path or alternate-port deployments.
@@ -16,11 +17,17 @@ const basePath = process.env.BASE_PATH ?? "/";
 
 const apiTarget = process.env.API_PROXY_TARGET ?? "http://localhost:8080";
 
-export default defineConfig({
+// Brand env lives in the repo-root `.env` (the same file the API loads) and is
+// read unprefixed, so a rebrand needs one set of BRAND_* keys rather than a
+// VITE_-prefixed duplicate of each.
+const rootDir = path.resolve(import.meta.dirname, "..", "..");
+
+export default defineConfig(async ({ mode }) => ({
   base: basePath,
   plugins: [
     react(),
     tailwindcss(),
+    brandPlugin({ ...loadEnv(mode, rootDir, ""), ...process.env }),
     runtimeErrorOverlay(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
@@ -68,4 +75,4 @@ export default defineConfig({
     host: "0.0.0.0",
     allowedHosts: true,
   },
-});
+}));

@@ -1,4 +1,4 @@
-import { db } from "@atlab/db";
+import { db } from "@app/db";
 import {
   productsTable,
   productVariantsTable,
@@ -7,7 +7,7 @@ import {
   priceTiersTable,
   storeSettingsTable,
   paymentMethodsTable,
-} from "@atlab/db/schema";
+} from "@app/db/schema";
 import { sql } from "drizzle-orm";
 import coaLinks from "./coaLinks.json" with { type: "json" };
 
@@ -533,7 +533,7 @@ const SINGLE_VIALS: SingleVialSeed[] = [
 ];
 
 async function seed() {
-  console.log("Seeding AT Lab Sourcing wholesale KIT catalog...");
+  console.log("Seeding wholesale KIT catalog...");
 
   // Reset the CATALOG only. Do NOT truncate price_tiers: customer_accounts.
   // price_tier_id is an FK to it, so `TRUNCATE price_tiers CASCADE` would wipe

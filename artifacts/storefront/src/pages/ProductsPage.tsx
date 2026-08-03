@@ -1,4 +1,4 @@
-import { useListProducts } from "@atlab/api-client-react";
+import { useListProducts } from "@app/api-client-react";
 import { ProductCard } from "@/components/product/ProductCard";
 import { WholesaleListView } from "@/components/wholesale/WholesaleListView";
 import { WholesaleOrderPanel } from "@/components/wholesale/WholesaleOrderPanel";

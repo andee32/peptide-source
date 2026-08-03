@@ -4,7 +4,7 @@ import {
   useApplyForAccount,
   ApplyAccountRequestBusinessType,
   type AccountCreated,
-} from "@atlab/api-client-react";
+} from "@app/api-client-react";
 import { useCustomerSession, bearerHeaders } from "@/hooks/useCustomerAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,7 +46,7 @@ function SuccessCard({ account }: { account: AccountCreated }) {
     <Card className="border-border">
       <CardHeader>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-[color-mix(in_srgb,var(--atl-teal)_12%,transparent)] flex items-center justify-center border border-[color-mix(in_srgb,var(--atl-teal)_35%,transparent)]">
+          <div className="w-10 h-10 rounded-lg bg-[color-mix(in_srgb,var(--brand-teal)_12%,transparent)] flex items-center justify-center border border-[color-mix(in_srgb,var(--brand-teal)_35%,transparent)]">
             <CheckCircle2 className="h-5 w-5 text-primary" />
           </div>
           <div>

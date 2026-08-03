@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 import { eq, and, isNull, gt } from "drizzle-orm";
-import { db } from "@atlab/db";
-import { passwordResetTokensTable } from "@atlab/db/schema";
+import { db } from "@app/db";
+import { passwordResetTokensTable } from "@app/db/schema";
 
 // Password-reset / migration-invite tokens. Same discipline as customer
 // sessions: only the sha256 of the token is stored; the raw token is returned

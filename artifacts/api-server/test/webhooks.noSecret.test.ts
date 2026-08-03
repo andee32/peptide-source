@@ -4,8 +4,8 @@ import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { createHmac } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { db, pool } from "@atlab/db";
-import { paymentRecordsTable } from "@atlab/db/schema";
+import { db, pool } from "@app/db";
+import { paymentRecordsTable } from "@app/db/schema";
 import { resetDb } from "./helpers/db";
 import { seedOrderWithPayment } from "./helpers/factories";
 

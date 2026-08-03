@@ -1,6 +1,6 @@
 // Preloaded via `node --import` BEFORE any test file is evaluated.
 //
-// This has to run first because both @atlab/db (lib/db/src/index.ts) and
+// This has to run first because both @app/db (lib/db/src/index.ts) and
 // services/btcpay.ts read process.env at module-evaluation time — importing
 // either one before these are set either throws or bakes in the wrong config.
 //
@@ -9,7 +9,7 @@
 
 const TEST_DB_URL =
   process.env.TEST_DATABASE_URL ??
-  "postgres://localhost:5432/atlab_sourcing_test";
+  "postgres://localhost:5432/app_test";
 
 process.env.DATABASE_URL = TEST_DB_URL;
 process.env.NODE_ENV = "test";

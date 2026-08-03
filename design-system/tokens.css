@@ -1,89 +1,89 @@
 /* ============================================================
-   AT Lab Sourcing — Design System Tokens
-   Extracted + elevated from atlabsourcing.org brand.
+   Design System Tokens
+   Brand-neutral palette; override per deployment.
    Light-first (warm off-white) with deep-navy dark sections.
    Signature action color: teal. Premium/trust accent: gold.
    ============================================================ */
 
 :root {
   /* --- Brand core --- */
-  --atl-navy:        #1a4d6e;  /* structure, headings on light */
-  --atl-navy-700:    #123a54;
-  --atl-navy-900:    #0a1628;  /* deep section ground */
-  --atl-blue:        #2e7da8;  /* secondary / links */
-  --atl-blue-tint:   #d6eaf5;  /* soft fills, selected states */
-  --atl-teal:        #00b4c4;  /* PRIMARY ACTION (CTAs) */
-  --atl-teal-600:    #0797a6;  /* teal hover/active */
-  --atl-gold:        #c8a84b;  /* premium / trust / verified */
-  --atl-gold-tint:   #f3ecd3;
+  --brand-navy:        #1a4d6e;  /* structure, headings on light */
+  --brand-navy-700:    #123a54;
+  --brand-navy-900:    #0a1628;  /* deep section ground */
+  --brand-blue:        #2e7da8;  /* secondary / links */
+  --brand-blue-tint:   #d6eaf5;  /* soft fills, selected states */
+  --brand-teal:        #00b4c4;  /* PRIMARY ACTION (CTAs) */
+  --brand-teal-600:    #0797a6;  /* teal hover/active */
+  --brand-gold:        #c8a84b;  /* premium / trust / verified */
+  --brand-gold-tint:   #f3ecd3;
 
   /* --- Neutrals (warm, biased toward the navy ground) --- */
-  --atl-bg:          #f5f4f0;  /* app ground */
-  --atl-surface:     #ffffff;  /* cards / panels */
-  --atl-surface-2:   #ecefec;  /* subtle raised / table header */
-  --atl-ink:         #0e1117;  /* primary text */
-  --atl-ink-muted:   #6b7280;  /* secondary text */
-  --atl-ink-faint:   #9aa3ad;  /* captions / disabled */
-  --atl-border:      #d1d9e0;
-  --atl-border-soft: #e4e9ec;
+  --brand-bg:          #f5f4f0;  /* app ground */
+  --brand-surface:     #ffffff;  /* cards / panels */
+  --brand-surface-2:   #ecefec;  /* subtle raised / table header */
+  --brand-ink:         #0e1117;  /* primary text */
+  --brand-ink-muted:   #6b7280;  /* secondary text */
+  --brand-ink-faint:   #9aa3ad;  /* captions / disabled */
+  --brand-border:      #d1d9e0;
+  --brand-border-soft: #e4e9ec;
 
   /* --- Semantic (distinct from the teal accent) --- */
-  --atl-good:        #167a52;
-  --atl-good-tint:   #d6ece1;
-  --atl-warn:        #b5750a;
-  --atl-warn-tint:   #f4e8cf;
-  --atl-crit:        #c0392b;
-  --atl-crit-tint:   #f6dcd8;
-  --atl-verified:    var(--atl-gold);   /* COA / lab-verified badge */
+  --brand-good:        #167a52;
+  --brand-good-tint:   #d6ece1;
+  --brand-warn:        #b5750a;
+  --brand-warn-tint:   #f4e8cf;
+  --brand-crit:        #c0392b;
+  --brand-crit-tint:   #f6dcd8;
+  --brand-verified:    var(--brand-gold);   /* COA / lab-verified badge */
 
   /* --- Typography --- */
-  --atl-font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --atl-font-body:    "Lato", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --atl-font-mono:    "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --brand-font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --brand-font-body:    "Lato", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --brand-font-mono:    "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  --atl-step--1: 0.812rem;   /* 13px  captions, labels */
-  --atl-step-0:  1rem;       /* 16px  body */
-  --atl-step-1:  1.25rem;    /* 20px  lead / h4 */
-  --atl-step-2:  1.6rem;     /* 25.6px h3 */
-  --atl-step-3:  2.05rem;    /* 33px  h2 */
-  --atl-step-4:  2.7rem;     /* 43px  h1 */
-  --atl-step-5:  3.6rem;     /* 58px  hero */
+  --brand-step--1: 0.812rem;   /* 13px  captions, labels */
+  --brand-step-0:  1rem;       /* 16px  body */
+  --brand-step-1:  1.25rem;    /* 20px  lead / h4 */
+  --brand-step-2:  1.6rem;     /* 25.6px h3 */
+  --brand-step-3:  2.05rem;    /* 33px  h2 */
+  --brand-step-4:  2.7rem;     /* 43px  h1 */
+  --brand-step-5:  3.6rem;     /* 58px  hero */
 
-  --atl-tracking-tight: -0.02em;  /* display headings */
-  --atl-tracking-label:  0.14em;  /* uppercase mono labels */
+  --brand-tracking-tight: -0.02em;  /* display headings */
+  --brand-tracking-label:  0.14em;  /* uppercase mono labels */
 
   /* --- Space / radius / elevation --- */
-  --atl-radius-sm: 4px;
-  --atl-radius:    8px;
-  --atl-radius-lg: 14px;
-  --atl-shadow-1: 0 1px 2px rgba(10,22,40,.06), 0 6px 16px -10px rgba(10,22,40,.18);
-  --atl-shadow-2: 0 2px 6px rgba(10,22,40,.08), 0 18px 40px -18px rgba(10,22,40,.30);
+  --brand-radius-sm: 4px;
+  --brand-radius:    8px;
+  --brand-radius-lg: 14px;
+  --brand-shadow-1: 0 1px 2px rgba(10,22,40,.06), 0 6px 16px -10px rgba(10,22,40,.18);
+  --brand-shadow-2: 0 2px 6px rgba(10,22,40,.08), 0 18px 40px -18px rgba(10,22,40,.30);
 
   /* --- Applied roles (light theme = default) --- */
-  --bg:        var(--atl-bg);
-  --surface:   var(--atl-surface);
-  --surface-2: var(--atl-surface-2);
-  --ink:       var(--atl-ink);
-  --ink-muted: var(--atl-ink-muted);
-  --border:    var(--atl-border);
-  --primary:   var(--atl-teal);
+  --bg:        var(--brand-bg);
+  --surface:   var(--brand-surface);
+  --surface-2: var(--brand-surface-2);
+  --ink:       var(--brand-ink);
+  --ink-muted: var(--brand-ink-muted);
+  --border:    var(--brand-border);
+  --primary:   var(--brand-teal);
   --primary-ink:#053e44;
-  --structure: var(--atl-navy);
-  --accent:    var(--atl-gold);
+  --structure: var(--brand-navy);
+  --accent:    var(--brand-gold);
 }
 
 /* Deep-navy dark treatment — used for hero sections, the wholesale
    portal, and (optionally) a full dark theme. Applied via [data-atl-theme="dark"]
    on a container OR the <html> element. */
 [data-atl-theme="dark"], .atl-dark {
-  --bg:        var(--atl-navy-900);
+  --bg:        var(--brand-navy-900);
   --surface:   #0f2136;
   --surface-2: #142a44;
   --ink:       #eaf1f6;
   --ink-muted: #9fb3c4;
   --border:    #24405c;
-  --primary:   var(--atl-teal);
+  --primary:   var(--brand-teal);
   --primary-ink:#012a2f;
   --structure: #dbe8f2;
-  --accent:    var(--atl-gold);
+  --accent:    var(--brand-gold);
 }

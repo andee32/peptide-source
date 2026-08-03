@@ -19,7 +19,7 @@ import {
   customerUsersTable,
   passwordResetTokensTable,
   ordersTable,
-} from "@atlab/db";
+} from "@app/db";
 
 const COMMIT = process.argv.includes("--commit");
 const INVITE_TTL_MS = 21 * 24 * 60 * 60 * 1000;

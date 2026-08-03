@@ -1,5 +1,5 @@
 {
-  "name": "@atlab/api-server",
+  "name": "@app/api-server",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,8 +14,9 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.114.0",
-    "@atlab/api-zod": "workspace:*",
-    "@atlab/db": "workspace:*",
+    "@app/api-zod": "workspace:*",
+    "@app/brand": "workspace:*",
+    "@app/db": "workspace:*",
     "cookie-parser": "^1.4.7",
     "cors": "^2",
     "drizzle-orm": "catalog:",

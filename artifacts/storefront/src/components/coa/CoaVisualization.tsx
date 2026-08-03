@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { CheckCircle2, XCircle, AlertCircle, Clock, AlertTriangle } from "lucide-react";
 import { JanoshikBadge } from "./JanoshikBadge";
 import { useAnalytics } from "@/contexts/analytics";
-import type { BatchDetail } from "@atlab/api-client-react";
+import type { BatchDetail } from "@app/api-client-react";
 
 interface CoaVisualizationProps {
   batch: BatchDetail;

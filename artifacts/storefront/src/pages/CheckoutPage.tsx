@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { useCart } from "@/contexts/cart";
 import { useWholesaleSession } from "@/hooks/useWholesaleSession";
 import { useStoreSettings } from "@/hooks/useStoreSettings";
-import { useGetPaymentMethods } from "@atlab/api-client-react";
+import { useGetPaymentMethods } from "@app/api-client-react";
 import { bearerHeaders, useCustomerSession, useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

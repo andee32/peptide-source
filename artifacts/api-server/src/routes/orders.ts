@@ -3,7 +3,7 @@ import { z } from "zod/v4";
 import { eq, and, inArray, isNull, sql, desc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import QRCode from "qrcode";
-import { db } from "@atlab/db";
+import { db } from "@app/db";
 import {
   ordersTable,
   paymentRecordsTable,
@@ -15,7 +15,7 @@ import {
   orderAttestationsTable,
   storeSettingsTable,
   discountCodesTable,
-} from "@atlab/db/schema";
+} from "@app/db/schema";
 import { btcpayService, PaymentRailUnavailableError, type CryptoCurrency } from "../services/btcpay";
 import { resolveCustomerUser } from "../lib/customerSession";
 import {

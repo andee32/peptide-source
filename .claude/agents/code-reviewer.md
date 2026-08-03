@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Read-only correctness + convention review of the current diff for the AT Lab monorepo. Use before committing non-trivial changes.
+description: Read-only correctness + convention review of the current diff for this monorepo. Use before committing non-trivial changes.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -15,7 +15,7 @@ Check for:
 2. **Spec-driven API rule** — `lib/api-zod` and `lib/api-client-react` are GENERATED
    from `lib/api-spec/openapi.yaml` via Orval. Flag ANY hand-edit to the generated
    packages; API shape changes must edit `openapi.yaml` then run
-   `pnpm --filter @atlab/api-spec run codegen`.
+   `pnpm --filter @app/api-spec run codegen`.
 3. **Server-derives-price** — the client must never send a price; wholesale prices
    resolve from the account's assigned tier server-side.
 4. **B2B invariants** — kit-only line items for wholesale orders, 5-kit MOQ enforced

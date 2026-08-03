@@ -2,7 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, RefreshCw, Users, PackageX, ShieldAlert } from "lucide-react";
-import { useAdminGetStats } from "@atlab/api-client-react";
+import { useAdminGetStats } from "@app/api-client-react";
 
 const formatUsd = (cents: number) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(

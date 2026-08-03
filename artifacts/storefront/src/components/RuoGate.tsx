@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ShieldCheck, FlaskConical, Building2, FileText, type LucideIcon } from "lucide-react";
+import { brand } from "@/lib/brand";
 
 /**
  * RuoGate — a single research-use-only entry gate shared by both channels.
@@ -173,13 +174,13 @@ export function RuoGate({
       <div className="w-full max-w-lg rounded-lg border border-border bg-card text-card-foreground shadow-2xl">
         <div className="flex flex-col items-center gap-5 p-8 text-center">
           <img
-            src="/images/wolf-logo-t.png"
-            alt="AT Lab Sourcing"
+            src={brand.logoSrc}
+            alt={brand.name}
             className="h-14 w-14 opacity-90"
           />
 
           <div className="space-y-2">
-            <p className="font-mono text-xs uppercase tracking-widest text-[var(--atl-gold)]">
+            <p className="font-mono text-xs uppercase tracking-widest text-[var(--brand-gold)]">
               {config.eyebrow}
             </p>
             <h2
@@ -206,11 +207,11 @@ export function RuoGate({
                     onCheckedChange={(v) =>
                       setChecked((prev) => ({ ...prev, [item.key]: v === true }))
                     }
-                    className="mt-0.5 border-[var(--atl-gold)] data-[state=checked]:bg-[var(--atl-gold)] data-[state=checked]:text-[var(--atl-navy-900)]"
+                    className="mt-0.5 border-[var(--brand-gold)] data-[state=checked]:bg-[var(--brand-gold)] data-[state=checked]:text-[var(--brand-navy-900)]"
                     aria-label={item.aria}
                   />
                   <span className="flex items-start gap-2 text-sm leading-relaxed">
-                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[var(--atl-gold)]" />
+                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[var(--brand-gold)]" />
                     {item.content}
                   </span>
                 </label>

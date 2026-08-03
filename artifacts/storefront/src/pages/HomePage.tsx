@@ -2,9 +2,10 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProductCard } from "@/components/product/ProductCard";
-import { useListRetailProducts } from "@atlab/api-client-react";
+import { useListRetailProducts } from "@app/api-client-react";
 import { ShieldCheck, Beaker, PackageCheck, Truck, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { brand } from "@/lib/brand";
 
 export function HomePage() {
   // Featured strip reads the public retail catalog — the wholesale kit catalog
@@ -109,7 +110,7 @@ export function HomePage() {
       <section className="py-24 bg-muted/40 border-y border-border">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-3xl font-bold tracking-tight mb-4">Why partners source with AT Lab</h2>
+            <h2 className="text-3xl font-bold tracking-tight mb-4">Why partners source with {brand.name}</h2>
             <p className="text-muted-foreground text-lg">
               First-party COAs and a direct owner relationship &mdash; no anonymous middlemen,
               no guessing at what&apos;s in the vial.

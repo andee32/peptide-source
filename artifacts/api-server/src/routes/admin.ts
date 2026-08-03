@@ -2,7 +2,7 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { eq, and, ne, asc, desc, count, inArray, notInArray, isNotNull, sql } from "drizzle-orm";
 import { createHash, timingSafeEqual } from "crypto";
 import multer from "multer";
-import { db } from "@atlab/db";
+import { db } from "@app/db";
 import {
   batchesTable,
   coaResultsTable,
@@ -28,7 +28,7 @@ import {
   complianceStatusEnum,
   sourcingPathEnum,
   unitTypeEnum,
-} from "@atlab/db/schema";
+} from "@app/db/schema";
 import { z } from "zod/v4";
 import { randomUUID } from "crypto";
 import { hashPassword, verifyPassword, verifyDummyPassword } from "../lib/password";

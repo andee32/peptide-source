@@ -6,7 +6,7 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [
         "--filter",
-        "@atlab/api-server",
+        "@app/api-server",
         "run",
         "dev"
       ],
@@ -21,7 +21,7 @@
         "pnpm",
         "--config.verify-deps-before-run=false",
         "--filter",
-        "@atlab/storefront",
+        "@app/storefront",
         "run",
         "dev"
       ],
@@ -33,7 +33,7 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [
         "--filter",
-        "@atlab/mockup-sandbox",
+        "@app/mockup-sandbox",
         "run",
         "dev"
       ],

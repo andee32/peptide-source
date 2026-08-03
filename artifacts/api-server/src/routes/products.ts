@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, asc, desc, ne, isNotNull } from "drizzle-orm";
-import { db } from "@atlab/db";
+import { db } from "@app/db";
 import {
   productsTable,
   productVariantsTable,
@@ -8,14 +8,14 @@ import {
   coaResultsTable,
   coaDocumentsTable,
   categoryEnum,
-} from "@atlab/db/schema";
+} from "@app/db/schema";
 import {
   ListProductsQueryParams,
   ListProductsResponse,
   GetProductParams,
   GetProductResponse,
   ListCoaLibraryResponse,
-} from "@atlab/api-zod";
+} from "@app/api-zod";
 import { resolveWholesaleAccount } from "../lib/wholesaleSession";
 import { coaDownloadRateLimit } from "../lib/rateLimit";
 
@@ -32,7 +32,7 @@ const WHOLESALE_REQUIRED = {
 
 // Public COA library — every published, non-blocked SKU that has a COA on file.
 // No pricing, so it's safe to expose without wholesale auth (mirrors the public
-// COA library on atlabsourcing.org). Backs the searchable COA library UI.
+// COA library). Backs the searchable COA library UI.
 router.get("/coa-library", async (_req, res) => {
   try {
     const rows = await db

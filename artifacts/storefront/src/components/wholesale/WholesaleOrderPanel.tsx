@@ -84,7 +84,7 @@ export function WholesaleOrderPanel() {
           <div className="px-5 pb-3">
             <div className="h-1.5 rounded-full bg-muted overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all ${moqMet ? "bg-primary" : "bg-[color-mix(in_srgb,var(--atl-gold)_80%,transparent)]"}`}
+                className={`h-full rounded-full transition-all ${moqMet ? "bg-primary" : "bg-[color-mix(in_srgb,var(--brand-gold)_80%,transparent)]"}`}
                 style={{ width: `${pct}%` }}
               />
             </div>

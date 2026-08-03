@@ -160,7 +160,7 @@ export function ResearchKitsPage() {
               },
               {
                 q: "Are kit peptides tri-verified?",
-                a: "Yes. Every peptide included in a research kit undergoes the full Lab Standard tri-verification — HPLC purity, endotoxin (LAL), and sterility. COAs are batch-linked in the lab portal.",
+                a: "Yes. Every peptide included in a research kit undergoes full tri-verification — HPLC purity, endotoxin (LAL), and sterility. COAs are batch-linked in the lab portal.",
               },
             ].map((faq) => (
               <div key={faq.q} className="border border-border rounded-lg p-5">

@@ -9,7 +9,7 @@ import {
   useAdminListPaymentMethods,
   useAdminPatchPaymentMethod,
   type PaymentMethodState,
-} from "@atlab/api-client-react";
+} from "@app/api-client-react";
 
 function ConfigBadge({ method }: { method: PaymentMethodState }) {
   if (method.configured) {

@@ -8,7 +8,7 @@ import {
   getListRetailProductsQueryKey,
   type CustomerOrderSummary,
   type OrderStatus,
-} from "@atlab/api-client-react";
+} from "@app/api-client-react";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { useCart } from "@/contexts/cart";
 import { useToast } from "@/hooks/use-toast";

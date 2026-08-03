@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { Phone, Mail } from "lucide-react";
+import { brand } from "@/lib/brand";
 
 const linkColumns = [
   {
@@ -33,17 +34,17 @@ export function Footer() {
             <div className="flex items-center gap-3">
               <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white shadow-sm">
                 <img
-                  src="/images/wolf-logo-t.png"
-                  alt="AT Lab Sourcing"
+                  src={brand.logoSrc}
+                  alt={brand.name}
                   className="h-7 w-7 object-contain"
                 />
               </span>
               <span className="font-display text-xl font-extrabold tracking-tight">
-                AT LAB SOURCING
+                {brand.wordmark}
               </span>
             </div>
             <p className="mt-3 text-sm text-muted-foreground max-w-xs leading-relaxed">
-              Lab-verified research peptide sourcing, built for wholesale.
+              {brand.tagline}
             </p>
           </div>
 
@@ -71,19 +72,21 @@ export function Footer() {
 
         {/* Contact line */}
         <div className="mt-12 flex flex-col sm:flex-row gap-4 sm:gap-8 text-sm text-muted-foreground">
+          {brand.supportPhone && (
+            <a
+              href={`tel:${brand.supportPhone.replace(/[^0-9+]/g, "")}`}
+              className="flex items-center gap-2 hover:text-primary transition-colors"
+            >
+              <Phone className="h-4 w-4" />
+              {brand.supportPhone}
+            </a>
+          )}
           <a
-            href="tel:14236035487"
-            className="flex items-center gap-2 hover:text-primary transition-colors"
-          >
-            <Phone className="h-4 w-4" />
-            423-603-5487
-          </a>
-          <a
-            href="mailto:info@atlabsourcing.com"
+            href={`mailto:${brand.supportEmail}`}
             className="flex items-center gap-2 hover:text-primary transition-colors"
           >
             <Mail className="h-4 w-4" />
-            info@atlabsourcing.com
+            {brand.supportEmail}
           </a>
         </div>
 
@@ -94,7 +97,7 @@ export function Footer() {
             for human or veterinary use.
           </p>
           <p className="text-xs text-muted-foreground whitespace-nowrap">
-            &copy; 2026 AT Lab Sourcing
+            &copy; {new Date().getFullYear()} {brand.name}
           </p>
         </div>
       </div>

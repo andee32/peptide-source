@@ -1,4 +1,4 @@
-# AT Lab Sourcing — Account Unification Design
+# Account Unification Design
 
 **Status:** design, ready to build. **Owner:** Andy. **Date:** 2026-07-24.
 **Depends on:** merge of `origin/remediation/payments-email-authz` into `main` (Phase 1, hard prerequisite).
@@ -173,7 +173,7 @@ Same `WholesaleAccount` return shape → call sites change transport only. `extr
 **Reconcile targets:**
 - `paymentMethodEnum` → union `[crypto_btc, crypto_usdc, ach, wire, zelle]`; the `orders` table keeps **main's** discount-provenance columns (`discountSource`, `discountCode`, `discountCodeId`, `promoDiscountCents`, `cryptoDiscountCents`) **AND** gains the `zelle` value.
 - `priceOrderRequest` keeps **main's** `resolveDiscounts` pipeline **AND** gains the branch's Zelle handling.
-- `openapi.yaml`: reconcile by hand, then `pnpm --filter @atlab/api-spec run codegen`. **Never hand-edit** `api-zod` / `api-client-react` (regenerate `paymentMethod.ts`, `zelleInstructions.ts`, etc.).
+- `openapi.yaml`: reconcile by hand, then `pnpm --filter @app/api-spec run codegen`. **Never hand-edit** `api-zod` / `api-client-react` (regenerate `paymentMethod.ts`, `zelleInstructions.ts`, etc.).
 - Pull in the branch's payment hardening (webhook verify, ACH replay/TOCTOU, admin re-auth, settled-order payment rejection, `lib/orderStatus.ts`) and its **integration-test harness** — the harness becomes the green-signal gate for the merge and for unification.
 
 **Composition with unification (the coupling to get right).** Zelle's wholesale-only enforcement reads two signals:
@@ -199,7 +199,7 @@ Net: because `isWholesale` is now server-derived, a spoofed `accountId` can no l
 
 ## 8. API surface (OpenAPI changes)
 
-Edit `openapi.yaml`, then `pnpm --filter @atlab/api-spec run codegen`. Never hand-edit generated packages.
+Edit `openapi.yaml`, then `pnpm --filter @app/api-spec run codegen`. Never hand-edit generated packages.
 
 **Added**
 - `POST /auth/forgot-password` → 200 always (rate-limited).

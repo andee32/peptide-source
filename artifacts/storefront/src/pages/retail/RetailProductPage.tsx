@@ -1,6 +1,6 @@
 import { useParams, Link } from "wouter";
 import { useState, useEffect } from "react";
-import { useGetRetailProduct } from "@atlab/api-client-react";
+import { useGetRetailProduct } from "@app/api-client-react";
 import { useCart } from "@/contexts/cart";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

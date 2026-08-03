@@ -2,12 +2,12 @@ import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { db } from "@atlab/db";
+import { db } from "@app/db";
 import {
   customerUsersTable,
   customerSessionsTable,
   passwordResetTokensTable,
-} from "@atlab/db/schema";
+} from "@app/db/schema";
 import { startTestServer, type TestServer } from "./helpers/server";
 import { resetDb } from "./helpers/db";
 import { hashPassword, verifyPassword } from "../src/lib/password";

@@ -7,7 +7,7 @@ import {
   useRegisterCustomer,
   type CustomerSession,
   type CustomerUser,
-} from "@atlab/api-client-react";
+} from "@app/api-client-react";
 
 /**
  * B2C retail shopper session. Optional by design — guest checkout still works;

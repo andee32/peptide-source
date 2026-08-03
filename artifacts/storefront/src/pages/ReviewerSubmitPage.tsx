@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useListProducts } from "@atlab/api-client-react";
+import { useListProducts } from "@app/api-client-react";
 
 const JANOSHIK_RE = /^[A-Z]{1,4}[0-9]{4,12}$/i;
 

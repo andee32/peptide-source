@@ -1,12 +1,12 @@
 import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { and, eq, isNull } from "drizzle-orm";
 import type { Request } from "express";
-import { db } from "@atlab/db";
+import { db } from "@app/db";
 import {
   adminSessionsTable,
   adminUsersTable,
   type AdminUser,
-} from "@atlab/db/schema";
+} from "@app/db/schema";
 
 export const ADMIN_SESSION_TTL_HOURS = 12;
 

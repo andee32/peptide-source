@@ -1,8 +1,8 @@
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { eq } from "drizzle-orm";
-import { db } from "@atlab/db";
-import { ordersTable, paymentRecordsTable } from "@atlab/db/schema";
+import { db } from "@app/db";
+import { ordersTable, paymentRecordsTable } from "@app/db/schema";
 import { startTestServer, type TestServer } from "./helpers/server";
 import { resetDb } from "./helpers/db";
 import { seedOrderWithPayment } from "./helpers/factories";

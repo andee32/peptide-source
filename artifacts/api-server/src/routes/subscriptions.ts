@@ -1,13 +1,13 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { eq, and, desc, lte, gte, or, sql } from "drizzle-orm";
-import { db } from "@atlab/db";
+import { db } from "@app/db";
 import {
   subscriptionPlansTable,
   subscriptionsTable,
   subscriptionEventsTable,
   subscriptionStatusEnum,
-} from "@atlab/db/schema";
+} from "@app/db/schema";
 import { z } from "zod/v4";
 import {
   sendSubscriptionConfirmEmail,
