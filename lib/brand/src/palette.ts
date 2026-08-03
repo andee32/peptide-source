@@ -151,13 +151,38 @@ const cssVars: Record<keyof BrandPalette, string | null> = {
 
 const paletteKeys = Object.keys(paletteDefaults) as (keyof BrandPalette)[];
 
+/**
+ * dotenv treats a leading `#` as a comment, so `BRAND_COLOR_PRIMARY=#00b4c4`
+ * arrives empty unless quoted. Bare six/three-digit hex is therefore accepted
+ * too, and normalised back to `#rrggbb`.
+ */
+function normalizeColor(value: string): string {
+  return /^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$|^[0-9a-fA-F]{8}$/.test(value)
+    ? `#${value}`
+    : value;
+}
+
+/** Keys that are meaningful when set to an empty string (opt-out, not unset). */
+const emptyIsMeaningful = new Set<keyof BrandPalette>(["fontCssUrl"]);
+
 export function resolveBrandPalette(env: BrandEnv = {}): BrandPalette {
   const resolved = {} as BrandPalette;
 
   for (const key of paletteKeys) {
-    const raw = env[envKeys[key]] ?? env[`VITE_${envKeys[key]}`];
+    const envKey = envKeys[key];
+    const raw = env[envKey] ?? env[`VITE_${envKey}`];
     const trimmed = raw?.trim();
-    resolved[key] = trimmed ? trimmed : paletteDefaults[key];
+
+    if (trimmed) {
+      resolved[key] = emptyIsMeaningful.has(key)
+        ? trimmed
+        : normalizeColor(trimmed);
+    } else if (raw !== undefined && emptyIsMeaningful.has(key)) {
+      // Explicitly emptied: honour the opt-out instead of falling back.
+      resolved[key] = "";
+    } else {
+      resolved[key] = paletteDefaults[key];
+    }
   }
 
   return resolved;
