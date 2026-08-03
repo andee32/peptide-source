@@ -131,7 +131,7 @@ export function RetailProductPage() {
                 <Link href={`/verify/${verifiedBatchId}`} className="w-fit">
                   <Badge
                     variant="outline"
-                    className="w-fit bg-background/80 backdrop-blur-sm border-[#c8a84b]/40 text-[#c8a84b] text-sm px-4 py-1 flex items-center gap-2 cursor-pointer hover:bg-[#c8a84b]/10 transition-colors"
+                    className="w-fit bg-background/80 backdrop-blur-sm border-brand-gold/40 text-brand-gold text-sm px-4 py-1 flex items-center gap-2 cursor-pointer hover:bg-brand-gold/10 transition-colors"
                     title="View this batch's certificate of analysis"
                   >
                     <ShieldCheck className="h-4 w-4" /> COA-Verified
@@ -166,7 +166,7 @@ export function RetailProductPage() {
                 <Link href={`/verify/${verifiedBatchId}`} className="w-fit">
                   <Badge
                     variant="outline"
-                    className="w-fit border-[#c8a84b]/40 text-[#c8a84b] text-sm px-4 py-1 flex items-center gap-2 cursor-pointer hover:bg-[#c8a84b]/10 transition-colors"
+                    className="w-fit border-brand-gold/40 text-brand-gold text-sm px-4 py-1 flex items-center gap-2 cursor-pointer hover:bg-brand-gold/10 transition-colors"
                     title="View this batch's certificate of analysis"
                   >
                     <ShieldCheck className="h-4 w-4" /> COA-Verified

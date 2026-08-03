@@ -200,7 +200,7 @@ export function WholesaleAccountPage() {
                 </div>
               ) : wholesale.status === "pending" ? (
                 <div className="flex items-start gap-3 rounded-lg border border-[color-mix(in_srgb,var(--brand-gold)_45%,transparent)] bg-[color-mix(in_srgb,var(--brand-gold)_10%,transparent)] p-4">
-                  <Clock className="h-5 w-5 text-[color-mix(in_srgb,var(--brand-gold)_70%,#0e1117)] mt-0.5 shrink-0" />
+                  <Clock className="h-5 w-5 text-[color-mix(in_srgb,var(--brand-gold)_70%,var(--brand-ink))] mt-0.5 shrink-0" />
                   <p className="text-sm text-muted-foreground">
                     Your application is under review. We'll assign a pricing tier once your business is verified.
                   </p>
