@@ -34,7 +34,7 @@ import {
   ComplianceStatus,
   type CatalogProduct,
   type CatalogVariant,
-} from "@atlab/api-client-react";
+} from "@app/api-client-react";
 
 const COMPLIANCE_OPTIONS: ComplianceStatus[] = [
   ComplianceStatus.cleared,

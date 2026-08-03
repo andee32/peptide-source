@@ -1,6 +1,6 @@
 import { Link } from "wouter";
-import { useListRetailProducts } from "@atlab/api-client-react";
-import type { RetailProduct, RetailVariant } from "@atlab/api-client-react";
+import { useListRetailProducts } from "@app/api-client-react";
+import type { RetailProduct, RetailVariant } from "@app/api-client-react";
 import { useCart } from "@/contexts/cart";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

@@ -10,7 +10,7 @@ untouched at `482995a`. Typecheck green across all 4 workspaces; **64 tests, all
 
 ### Test harness (was: nothing)
 
-`pnpm --filter @atlab/api-server run test` — scratch DB (`atlab_sourcing_test`), refuses to
+`pnpm --filter @app/api-server run test` — scratch DB (`atlab_sourcing_test`), refuses to
 drop any database whose name does not end in `_test`. Every fix below was verified by
 **deliberately breaking the source and confirming the tests fail**; where a test passed
 against both old and new code it is labelled inline as characterisation rather than proof.
@@ -58,7 +58,7 @@ at request time (tokens are never rotated), fails closed until `ZELLE_RECIPIENT`
 
 ### 1. Schema drift — `drizzle push` is currently unsafe
 
-**The highest-priority item here.** `pnpm --filter @atlab/db run push` wants to drop:
+**The highest-priority item here.** `pnpm --filter @app/db run push` wants to drop:
 
 - `discount_codes` (1 row)
 - `orders.crypto_discount_cents` (**5 rows of live data**)

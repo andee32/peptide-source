@@ -32,13 +32,14 @@ import {
   X,
 } from "lucide-react";
 import { format } from "date-fns";
+import { brand } from "@/lib/brand";
 import {
   useAdminListAdminUsers,
   useAdminCreateAdminUser,
   useAdminPatchAdminUser,
   useAdminSetAdminUserPassword,
   type AdminUser,
-} from "@atlab/api-client-react";
+} from "@app/api-client-react";
 
 function errText(err: unknown, fallback: string): string {
   return err instanceof Error ? err.message : fallback;
@@ -266,7 +267,7 @@ function CreateUserDialog({
               autoComplete="off"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="operator@atlabsourcing.org"
+              placeholder={`operator@${brand.domain}`}
               className="font-mono text-sm"
             />
           </div>

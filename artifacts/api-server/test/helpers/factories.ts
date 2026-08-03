@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { db } from "@atlab/db";
+import { db } from "@app/db";
 import {
   productsTable,
   productVariantsTable,
   ordersTable,
   paymentRecordsTable,
-} from "@atlab/db/schema";
+} from "@app/db/schema";
 
 let seq = 0;
 const uniq = () => `${Date.now()}-${++seq}`;

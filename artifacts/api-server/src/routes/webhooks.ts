@@ -1,7 +1,7 @@
 import { Router, type Request } from "express";
 import { eq, and, inArray } from "drizzle-orm";
-import { db } from "@atlab/db";
-import { ordersTable, paymentRecordsTable } from "@atlab/db/schema";
+import { db } from "@app/db";
+import { ordersTable, paymentRecordsTable } from "@app/db/schema";
 import { btcpayService } from "../services/btcpay";
 import { SETTLEABLE_ORDER_STATUSES } from "../lib/orderStatus";
 import { notifyOnOrderConfirmed } from "../lib/fulfillment";

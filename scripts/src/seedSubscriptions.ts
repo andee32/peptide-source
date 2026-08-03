@@ -1,9 +1,9 @@
-import { db } from "@atlab/db";
+import { db } from "@app/db";
 import {
   subscriptionPlansTable,
   subscriptionsTable,
   subscriptionEventsTable,
-} from "@atlab/db/schema";
+} from "@app/db/schema";
 import { sql } from "drizzle-orm";
 
 async function seedSubscriptions() {

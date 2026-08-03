@@ -19,7 +19,7 @@ import {
   FileText,
 } from "lucide-react";
 import { Link } from "wouter";
-import { useGetBatch, useListCoaLibrary } from "@atlab/api-client-react";
+import { useGetBatch, useListCoaLibrary } from "@app/api-client-react";
 import { CoaVisualization } from "@/components/coa/CoaVisualization";
 import { useAnalytics } from "@/contexts/analytics";
 import { format } from "date-fns";

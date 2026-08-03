@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { db } from "@atlab/db";
-import { paymentMethodsTable } from "@atlab/db/schema";
+import { db } from "@app/db";
+import { paymentMethodsTable } from "@app/db/schema";
 import { btcpayService } from "../services/btcpay";
 import { isAchProvisioned, isZelleProvisioned } from "../services/ach";
 

@@ -3,7 +3,7 @@
 //
 // SAFETY: this issues DROP DATABASE. It refuses to run against any database
 // whose name does not end in `_test`, so pointing TEST_DATABASE_URL at the dev
-// database (atlab_sourcing) aborts instead of destroying it.
+// database (the dev database) aborts instead of destroying it.
 
 import { execFileSync } from "node:child_process";
 import pg from "pg";
@@ -31,7 +31,7 @@ await admin.end();
 // push-force skips drizzle-kit's interactive rename prompt. That prompt is the
 // documented cause of a push silently not applying; on a database we just
 // created there is nothing to rename, so forcing is safe here.
-execFileSync("pnpm", ["--filter", "@atlab/db", "run", "push-force"], {
+execFileSync("pnpm", ["--filter", "@app/db", "run", "push-force"], {
   stdio: "inherit",
   env: { ...process.env, DATABASE_URL: TEST_DATABASE_URL },
 });

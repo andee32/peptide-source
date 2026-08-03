@@ -1,5 +1,5 @@
 {
-  "name": "@atlab/api-client-react",
+  "name": "@app/api-client-react",
   "version": "0.0.0",
   "private": true,
   "type": "module",

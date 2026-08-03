@@ -1,5 +1,5 @@
 {
-  "name": "@atlab/storefront",
+  "name": "@app/storefront",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -48,7 +48,8 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
-    "@atlab/api-client-react": "workspace:*",
+    "@app/api-client-react": "workspace:*",
+    "@app/brand": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "cmdk": "^1.1.1",

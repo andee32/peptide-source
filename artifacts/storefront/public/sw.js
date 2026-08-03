@@ -1,4 +1,4 @@
-const CACHE = 'lab-standard-v1';
+const CACHE = 'app-v1';
 
 self.addEventListener('install', e => {
   const base = self.registration.scope;

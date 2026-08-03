@@ -17,8 +17,8 @@
     ],
     "ask": [
       "Bash(git push*)",
-      "Bash(pnpm --filter @atlab/db run push*)",
-      "Bash(pnpm --filter @atlab/db run push-force*)",
+      "Bash(pnpm --filter @app/db run push*)",
+      "Bash(pnpm --filter @app/db run push-force*)",
       "Write(**/openapi.yaml)"
     ],
     "deny": [

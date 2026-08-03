@@ -1,7 +1,7 @@
 import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { db } from "@atlab/db";
-import { paymentMethodsTable } from "@atlab/db/schema";
+import { db } from "@app/db";
+import { paymentMethodsTable } from "@app/db/schema";
 import { startTestServer, type TestServer } from "./helpers/server";
 import { resetDb } from "./helpers/db";
 import { makeVariant, orderPayload } from "./helpers/factories";

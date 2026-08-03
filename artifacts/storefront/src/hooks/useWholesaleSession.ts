@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useGetCurrentCustomer } from "@atlab/api-client-react";
+import { useGetCurrentCustomer } from "@app/api-client-react";
 import { useCustomerSession, bearerHeaders } from "./useCustomerAuth";
 
 /**

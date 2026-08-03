@@ -1,4 +1,7 @@
 import { createTransport, type Transporter } from "nodemailer";
+import { resolveBrand } from "@app/brand";
+
+const brand = resolveBrand(process.env);
 
 export interface SubscriptionConfirmEmailData {
   to: string;
@@ -35,8 +38,8 @@ function getTransport(): Transporter | null {
   });
 }
 
-const FROM = process.env.SMTP_FROM ?? "noreply@thelabstandard.com";
-const SITE_URL = process.env.SITE_URL ?? "https://thelabstandard.com";
+const FROM = brand.fromEmail;
+const SITE_URL = brand.siteUrl;
 
 export async function sendSubscriptionConfirmEmail(
   data: SubscriptionConfirmEmailData
@@ -67,7 +70,7 @@ export async function sendSubscriptionConfirmEmail(
   await transport.sendMail({
     from: FROM,
     to: data.to,
-    subject: `Subscription Confirmed — ${data.planName} | The Lab Standard`,
+    subject: `Subscription Confirmed — ${data.planName} | ${brand.name}`,
     text: `
 Hello ${data.customerName},
 
@@ -82,7 +85,7 @@ ${dashboardUrl}
 
 Thank you for your research.
 
-— The Lab Standard
+— ${brand.name}
 `.trim(),
     html: `
 <!DOCTYPE html>
@@ -98,7 +101,7 @@ Thank you for your research.
       <tr><td style="padding:8px 0;color:#a3a3a3;">Subscription ID</td><td style="padding:8px 0;color:#e5e5e5;text-align:right;">#${data.subscriptionId}</td></tr>
     </table>
     <a href="${dashboardUrl}" style="display:inline-block;background:#29a98b;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;">Manage Subscription</a>
-    <p style="color:#555;font-size:12px;margin:24px 0 0;">The Lab Standard — Research Peptides</p>
+    <p style="color:#555;font-size:12px;margin:24px 0 0;">${brand.name} — Research Peptides</p>
   </div>
 </body>
 </html>
@@ -124,7 +127,7 @@ export async function sendManagementLinkEmail(data: ManagementLinkEmailData): Pr
   await transport.sendMail({
     from: FROM,
     to: data.to,
-    subject: `Subscription Management Link | The Lab Standard`,
+    subject: `Subscription Management Link | ${brand.name}`,
     text: `
 Click the link below to manage your subscriptions. This link expires in ${data.expiresInMinutes} minutes.
 
@@ -132,7 +135,7 @@ ${data.managementUrl}
 
 If you did not request this link, you can safely ignore this email.
 
-— The Lab Standard
+— ${brand.name}
 `.trim(),
     html: `
 <!DOCTYPE html>
@@ -173,7 +176,7 @@ export async function sendSubscriptionReminderEmail(
   await transport.sendMail({
     from: FROM,
     to: data.to,
-    subject: `Upcoming Renewal in 3 Days — ${data.planName} | The Lab Standard`,
+    subject: `Upcoming Renewal in 3 Days — ${data.planName} | ${brand.name}`,
     text: `
 Hello ${data.customerName},
 
@@ -182,7 +185,7 @@ Your ${data.planName} subscription will renew on ${nextDate}.
 To skip or cancel, visit:
 ${dashboardUrl}
 
-— The Lab Standard
+— ${brand.name}
 `.trim(),
     html: `
 <!DOCTYPE html>
@@ -226,8 +229,8 @@ export async function sendPasswordResetEmail(
     from: FROM,
     to: data.to,
     subject: isInvite
-      ? "Set your AT Lab Sourcing password"
-      : "Reset your AT Lab Sourcing password",
+      ? `Set your ${brand.name} password`
+      : `Reset your ${brand.name} password`,
     text: `
 ${
       isInvite
@@ -239,7 +242,7 @@ ${data.resetUrl}
 
 If you did not request this, you can safely ignore this email.
 
-— AT Lab Sourcing
+— ${brand.name}
 `.trim(),
   });
 }
@@ -266,7 +269,7 @@ export async function sendShipmentEmail(data: ShipmentEmailData): Promise<void> 
   await transport.sendMail({
     from: FROM,
     to: data.to,
-    subject: "Your AT Lab Sourcing order has shipped",
+    subject: `Your ${brand.name} order has shipped`,
     text: `
 Your order has shipped.
 
@@ -274,7 +277,7 @@ ${trackingLine}
 
 Track your order: ${orderUrl}
 
-— AT Lab Sourcing
+— ${brand.name}
 `.trim(),
   });
 }
@@ -334,7 +337,7 @@ ${items}
 Ship to:
 ${address}
 
-— AT Lab Sourcing
+— ${brand.name}
 `.trim(),
   });
 }
@@ -400,7 +403,7 @@ export async function sendPaymentInstructionsEmail(
   await transport.sendMail({
     from: FROM,
     to: data.to,
-    subject: "Complete payment for your AT Lab Sourcing order",
+    subject: `Complete payment for your ${brand.name} order`,
     text: `
 Thanks for your order — it's reserved and awaiting payment.
 
@@ -411,7 +414,7 @@ ${paymentRailInstructions(data.paymentMethod, orderUrl)}
 
 All products are research use only (RUO) — not for human or animal consumption.
 
-— AT Lab Sourcing
+— ${brand.name}
 `.trim(),
   });
 }
@@ -459,7 +462,7 @@ ${
         : "Crypto order — it confirms automatically once the payment settles on-chain."
     }
 
-— AT Lab Sourcing
+— ${brand.name}
 `.trim(),
   });
 }
@@ -490,7 +493,7 @@ export async function sendPaymentFailedEmail(
   await transport.sendMail({
     from: FROM,
     to: data.to,
-    subject: "Payment not completed for your AT Lab Sourcing order",
+    subject: `Payment not completed for your ${brand.name} order`,
     text: `
 ${reasonLine}
 
@@ -502,7 +505,7 @@ ${shopUrl}
 If you believe you paid and are seeing this in error, reply to this email so we
 can reconcile the payment.
 
-— AT Lab Sourcing
+— ${brand.name}
 `.trim(),
   });
 }
@@ -530,7 +533,7 @@ export async function sendUnpaidRecoveryEmail(
   await transport.sendMail({
     from: FROM,
     to: data.to,
-    subject: "Your AT Lab Sourcing order is still waiting for payment",
+    subject: `Your ${brand.name} order is still waiting for payment`,
     text: `
 Your order is reserved but we haven't received payment yet.
 
@@ -542,7 +545,7 @@ ${paymentRailInstructions(data.paymentMethod, orderUrl)}
 If you no longer want this order, you can ignore this email and it will be
 released.
 
-— AT Lab Sourcing
+— ${brand.name}
 `.trim(),
   });
 }
@@ -582,7 +585,7 @@ ${loginUrl}
 
 All products are research use only (RUO) — not for human or animal consumption.
 
-— AT Lab Sourcing
+— ${brand.name}
 `
       : `
 Hello ${data.contactName},
@@ -593,15 +596,15 @@ After review, we're unable to approve your application at this time.
 If you believe this was in error or would like to provide additional
 documentation, just reply to this email.
 
-— AT Lab Sourcing
+— ${brand.name}
 `;
   await transport.sendMail({
     from: FROM,
     to: data.to,
     subject:
       data.decision === "approved"
-        ? "Your AT Lab Sourcing wholesale account is approved"
-        : "Update on your AT Lab Sourcing wholesale application",
+        ? `Your ${brand.name} wholesale account is approved`
+        : `Update on your ${brand.name} wholesale application`,
     text: body.trim(),
   });
 }
@@ -636,7 +639,7 @@ export async function sendOrderConfirmationEmail(data: OrderConfirmationEmailDat
   await transport.sendMail({
     from: FROM,
     to: data.to,
-    subject: "Your AT Lab Sourcing order is confirmed",
+    subject: `Your ${brand.name} order is confirmed`,
     text: `
 Thanks — your payment is confirmed and your order is being prepared.
 
@@ -651,7 +654,7 @@ View your order: ${orderUrl}
 
 All products are research use only (RUO) — not for human or animal consumption.
 
-— AT Lab Sourcing
+— ${brand.name}
 `.trim(),
   });
 }

@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { brandPlugin } from "./vite-plugin-brand";
 
 // Dev/build defaults: standalone storefront serves at root on 5173. Override
 // PORT / BASE_PATH via env for sub-path or alternate-port deployments.
@@ -21,6 +22,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    brandPlugin(process.env),
     runtimeErrorOverlay(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined

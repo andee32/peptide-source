@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, or, asc, isNotNull } from "drizzle-orm";
-import { db } from "@atlab/db";
+import { db } from "@app/db";
 import {
   productsTable,
   productVariantsTable,
@@ -8,13 +8,13 @@ import {
   batchesTable,
   coaResultsTable,
   coaDocumentsTable,
-} from "@atlab/db/schema";
+} from "@app/db/schema";
 import {
   ListRetailProductsQueryParams,
   ListRetailProductsResponse,
   GetRetailProductParams,
   GetRetailProductResponse,
-} from "@atlab/api-zod";
+} from "@app/api-zod";
 
 const router: IRouter = Router();
 

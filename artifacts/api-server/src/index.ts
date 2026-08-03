@@ -1,11 +1,11 @@
 import app from "./app";
-import { db } from "@atlab/db";
+import { db } from "@app/db";
 import { eq, and, gte, lte, isNull, inArray } from "drizzle-orm";
 import {
   subscriptionsTable,
   subscriptionPlansTable,
   ordersTable,
-} from "@atlab/db/schema";
+} from "@app/db/schema";
 import {
   sendSubscriptionReminderEmail,
   sendUnpaidRecoveryEmail,

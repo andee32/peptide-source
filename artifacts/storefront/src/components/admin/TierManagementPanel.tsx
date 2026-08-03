@@ -12,7 +12,7 @@ import {
   useAdminPatchPriceTier,
   useAdminDeletePriceTier,
   type PriceTier,
-} from "@atlab/api-client-react";
+} from "@app/api-client-react";
 
 /** Basis points -> percent for display. */
 function bpsToPercent(bps: number): number {

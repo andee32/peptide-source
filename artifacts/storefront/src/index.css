@@ -1,4 +1,4 @@
-/* AT Lab Sourcing — fonts loaded via <link> in index.html (Syne, Lato, DM Mono) */
+/* Fonts loaded via <link> in index.html. Brand palette: design-system/tokens.css */
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -37,21 +37,21 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive-border: var(--destructive-border);
 
-  /* AT Lab brand roles as utilities */
-  --color-structure: var(--atl-navy);
-  --color-structure-900: var(--atl-navy-900);
-  --color-brand-teal: var(--atl-teal);
-  --color-brand-gold: var(--atl-gold);
-  --color-verified: var(--atl-gold);
-  --color-teal-ink: var(--atl-teal-600);
+  /* Brand roles as utilities */
+  --color-structure: var(--brand-navy);
+  --color-structure-900: var(--brand-navy-900);
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-gold: var(--brand-gold);
+  --color-verified: var(--brand-gold);
+  --color-teal-ink: var(--brand-teal-600);
 
   /* Semantic status colors (from design-system/tokens.css) */
-  --color-good: var(--atl-good);
-  --color-good-tint: var(--atl-good-tint);
-  --color-warn: var(--atl-warn);
-  --color-warn-tint: var(--atl-warn-tint);
-  --color-crit: var(--atl-crit);
-  --color-crit-tint: var(--atl-crit-tint);
+  --color-good: var(--brand-good);
+  --color-good-tint: var(--brand-good-tint);
+  --color-warn: var(--brand-warn);
+  --color-warn-tint: var(--brand-warn-tint);
+  --color-crit: var(--brand-crit);
+  --color-crit-tint: var(--brand-crit-tint);
 
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -62,10 +62,10 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --font-display: var(--atl-font-display);
-  --font-body: var(--atl-font-body);
-  --font-sans: var(--atl-font-body);
-  --font-mono: var(--atl-font-mono);
+  --font-display: var(--brand-font-display);
+  --font-body: var(--brand-font-body);
+  --font-sans: var(--brand-font-body);
+  --font-mono: var(--brand-font-mono);
 
   --radius-sm: 0.25rem;
   --radius-md: 0.5rem;
@@ -74,86 +74,86 @@
 }
 
 :root {
-  /* ---- AT Lab brand core (from design-system/tokens.css) ---- */
-  --atl-navy:        #1a4d6e;
-  --atl-navy-700:    #123a54;
-  --atl-navy-900:    #0a1628;
-  --atl-blue:        #2e7da8;
-  --atl-blue-tint:   #d6eaf5;
-  --atl-teal:        #00b4c4;
-  --atl-teal-600:    #0797a6;
-  --atl-gold:        #c8a84b;
-  --atl-gold-tint:   #f3ecd3;
+  /* ---- Brand core (from design-system/tokens.css) ---- */
+  --brand-navy:        #1a4d6e;
+  --brand-navy-700:    #123a54;
+  --brand-navy-900:    #0a1628;
+  --brand-blue:        #2e7da8;
+  --brand-blue-tint:   #d6eaf5;
+  --brand-teal:        #00b4c4;
+  --brand-teal-600:    #0797a6;
+  --brand-gold:        #c8a84b;
+  --brand-gold-tint:   #f3ecd3;
 
-  --atl-bg:          #f5f4f0;
-  --atl-surface:     #ffffff;
-  --atl-surface-2:   #ecefec;
-  --atl-ink:         #0e1117;
-  --atl-ink-muted:   #6b7280;
-  --atl-border:      #d1d9e0;
+  --brand-bg:          #f5f4f0;
+  --brand-surface:     #ffffff;
+  --brand-surface-2:   #ecefec;
+  --brand-ink:         #0e1117;
+  --brand-ink-muted:   #6b7280;
+  --brand-border:      #d1d9e0;
 
-  --atl-good:        #167a52;
-  --atl-good-tint:   #d6ece1;
-  --atl-warn:        #b5750a;
-  --atl-warn-tint:   #f4e8cf;
-  --atl-crit:        #c0392b;
-  --atl-crit-tint:   #f6dcd8;
+  --brand-good:        #167a52;
+  --brand-good-tint:   #d6ece1;
+  --brand-warn:        #b5750a;
+  --brand-warn-tint:   #f4e8cf;
+  --brand-crit:        #c0392b;
+  --brand-crit-tint:   #f6dcd8;
 
-  --atl-font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --atl-font-body:    "Lato", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --atl-font-mono:    "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --brand-font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --brand-font-body:    "Lato", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --brand-font-mono:    "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
-  /* ---- shadcn semantic vars mapped to AT Lab (LIGHT default) ---- */
-  --background: var(--atl-bg);
-  --foreground: var(--atl-ink);
+  /* ---- shadcn semantic vars mapped to the brand palette (LIGHT default) ---- */
+  --background: var(--brand-bg);
+  --foreground: var(--brand-ink);
 
-  --card: var(--atl-surface);
-  --card-foreground: var(--atl-ink);
-  --card-border: var(--atl-border);
+  --card: var(--brand-surface);
+  --card-foreground: var(--brand-ink);
+  --card-border: var(--brand-border);
 
-  --popover: var(--atl-surface);
-  --popover-foreground: var(--atl-ink);
+  --popover: var(--brand-surface);
+  --popover-foreground: var(--brand-ink);
 
-  --primary: var(--atl-teal);              /* PRIMARY ACTION = teal */
+  --primary: var(--brand-teal);              /* PRIMARY ACTION = teal */
   --primary-foreground: #053e44;           /* --primary-ink: white on teal fails contrast */
 
-  --secondary: var(--atl-navy);            /* structural = navy */
+  --secondary: var(--brand-navy);            /* structural = navy */
   --secondary-foreground: #ffffff;
 
-  --muted: var(--atl-surface-2);
-  --muted-foreground: var(--atl-ink-muted);
+  --muted: var(--brand-surface-2);
+  --muted-foreground: var(--brand-ink-muted);
 
-  --accent: var(--atl-blue-tint);
-  --accent-foreground: var(--atl-navy);
+  --accent: var(--brand-blue-tint);
+  --accent-foreground: var(--brand-navy);
 
-  --destructive: var(--atl-crit);
+  --destructive: var(--brand-crit);
   --destructive-foreground: #ffffff;
 
-  --border: var(--atl-border);
-  --input: var(--atl-border);
-  --ring: var(--atl-teal);
+  --border: var(--brand-border);
+  --input: var(--brand-border);
+  --ring: var(--brand-teal);
 
   /* Replit-injected border tokens (were undeclared in the donor) */
-  --primary-border: var(--atl-teal-600);
-  --secondary-border: var(--atl-navy-700);
+  --primary-border: var(--brand-teal-600);
+  --secondary-border: var(--brand-navy-700);
   --destructive-border: #97281c;
-  --button-outline: var(--atl-border);
-  --badge-outline: var(--atl-border);
+  --button-outline: var(--brand-border);
+  --badge-outline: var(--brand-border);
 
-  --sidebar: var(--atl-surface);
-  --sidebar-foreground: var(--atl-ink);
-  --sidebar-border: var(--atl-border);
-  --sidebar-primary: var(--atl-teal);
+  --sidebar: var(--brand-surface);
+  --sidebar-foreground: var(--brand-ink);
+  --sidebar-border: var(--brand-border);
+  --sidebar-primary: var(--brand-teal);
   --sidebar-primary-foreground: #053e44;
-  --sidebar-accent: var(--atl-blue-tint);
-  --sidebar-accent-foreground: var(--atl-navy);
-  --sidebar-ring: var(--atl-teal);
+  --sidebar-accent: var(--brand-blue-tint);
+  --sidebar-accent-foreground: var(--brand-navy);
+  --sidebar-ring: var(--brand-teal);
 
-  --chart-1: var(--atl-teal);
-  --chart-2: var(--atl-blue);
-  --chart-3: var(--atl-gold);
-  --chart-4: var(--atl-crit);
-  --chart-5: var(--atl-navy);
+  --chart-1: var(--brand-teal);
+  --chart-2: var(--brand-blue);
+  --chart-3: var(--brand-gold);
+  --chart-4: var(--brand-crit);
+  --chart-5: var(--brand-navy);
 
   --radius: 0.5rem;
 }
@@ -161,10 +161,10 @@
 /* Deep-navy band for hero / CTA sections only. Teal + gold still pop here.
    Overrides the semantic vars for descendants so shadcn primitives invert. */
 .section-deep {
-  background-color: var(--atl-navy-900);
+  background-color: var(--brand-navy-900);
   color: #eaf1f6;
 
-  --background: var(--atl-navy-900);
+  --background: var(--brand-navy-900);
   --foreground: #eaf1f6;
   --card: #0f2136;
   --card-foreground: #eaf1f6;

@@ -12,5 +12,5 @@ images:
 
 notes:
   - Using generated hooks from @workspace/api-client-react
-  - Defaulting to a forced dark mode aesthetic matching "The Lab Standard" brand guidelines
+  - Defaulting to a forced dark mode aesthetic
   - Implement Zustand for cart state to avoid complex context nesting

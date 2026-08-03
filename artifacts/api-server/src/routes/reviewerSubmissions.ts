@@ -1,12 +1,12 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { eq, and, desc, count } from "drizzle-orm";
-import { db } from "@atlab/db";
+import { db } from "@app/db";
 import {
   reviewerSubmissionsTable,
   reviewerSubmissionStatusEnum,
   reviewerPlatformEnum,
   productsTable,
-} from "@atlab/db/schema";
+} from "@app/db/schema";
 import { z } from "zod/v4";
 import { isAdminRequest } from "../lib/adminSession";
 

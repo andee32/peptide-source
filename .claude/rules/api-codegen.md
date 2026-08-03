@@ -14,8 +14,8 @@ on the next codegen.
 
 To change the API:
 1. Edit `lib/api-spec/openapi.yaml` (the source of truth).
-2. Run `pnpm --filter @atlab/api-spec run codegen`.
-3. If a consuming package (e.g. `@atlab/api-server`, `@atlab/storefront`) starts
+2. Run `pnpm --filter @app/api-spec run codegen`.
+3. If a consuming package (e.g. `@app/api-server`, `@app/storefront`) starts
    depending on a newly generated type, ensure its `tsconfig.json` `references`
    include the source package, or the root `tsc --build` breaks.
 

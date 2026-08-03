@@ -1,20 +1,20 @@
 import { Router, type IRouter } from "express";
 import { eq, asc } from "drizzle-orm";
 import QRCode from "qrcode";
-import { db } from "@atlab/db";
+import { db } from "@app/db";
 import { coaDownloadRateLimit } from "../lib/rateLimit";
 import {
   batchesTable,
   coaDocumentsTable,
   coaResultsTable,
   productsTable,
-} from "@atlab/db/schema";
+} from "@app/db/schema";
 import {
   ListBatchesQueryParams,
   ListBatchesResponse,
   GetBatchParams,
   GetBatchResponse,
-} from "@atlab/api-zod";
+} from "@app/api-zod";
 
 const router: IRouter = Router();
 

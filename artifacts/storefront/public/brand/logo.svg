@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Logo placeholder">
+  <title>Logo placeholder</title>
+  <polygon points="32,4 55,17 55,47 32,60 9,47 9,17" fill="none" stroke="#00b4c4" stroke-width="5" stroke-linejoin="round"/>
+  <polygon points="32,20 44,27 44,41 32,48 20,41 20,27" fill="none" stroke="#1a4d6e" stroke-width="4" stroke-linejoin="round"/>
+</svg>

@@ -1,4 +1,4 @@
-import { orderStatusEnum } from "@atlab/db/schema";
+import { orderStatusEnum } from "@app/db/schema";
 
 // Shared order status predicates.
 //

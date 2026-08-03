@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { db } from "@atlab/db";
-import { storeSettingsTable, ordersTable } from "@atlab/db/schema";
+import { db } from "@app/db";
+import { storeSettingsTable, ordersTable } from "@app/db/schema";
 import {
   sendFulfillmentEmail,
   sendOrderConfirmationEmail,

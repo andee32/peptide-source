@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useSearch, useLocation } from "wouter";
-import { useResetPassword } from "@atlab/api-client-react";
+import { useResetPassword } from "@app/api-client-react";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";

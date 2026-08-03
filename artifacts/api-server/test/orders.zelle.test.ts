@@ -2,12 +2,12 @@ import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { db } from "@atlab/db";
+import { db } from "@app/db";
 import {
   ordersTable,
   customerAccountsTable,
   customerUsersTable,
-} from "@atlab/db/schema";
+} from "@app/db/schema";
 import { startTestServer, type TestServer } from "./helpers/server";
 import { resetDb } from "./helpers/db";
 import { makeVariant, orderPayload } from "./helpers/factories";
@@ -136,7 +136,7 @@ test("Zelle fails closed until a recipient handle is provisioned", async () => {
 // idempotent path.
 test("a de-approved account stops being served the Zelle handle", async () => {
   process.env.ZELLE_RECIPIENT = "payments@example.test";
-  process.env.ZELLE_RECIPIENT_NAME = "AT Lab Sourcing LLC";
+  process.env.ZELLE_RECIPIENT_NAME = "Test Merchant LLC";
   const { variant } = await makeVariant({ unitType: "kit" });
   const { account, token } = await approvedAccount();
 
@@ -186,7 +186,7 @@ test("a malformed Zelle handle keeps the rail closed", async () => {
   );
   const { id } = (await created.json()) as { id: string };
 
-  process.env.ZELLE_RECIPIENT_NAME = "AT Lab Sourcing LLC";
+  process.env.ZELLE_RECIPIENT_NAME = "Test Merchant LLC";
   // Each of these would have flipped the rail live under a non-empty check.
   for (const bad of ["TODO", "changeme", "0000000000", "not-an-email", "555"]) {
     process.env.ZELLE_RECIPIENT = bad;
@@ -225,7 +225,7 @@ test("a missing recipient name keeps the rail closed", async () => {
 
 test("a provisioned Zelle order returns the handle and a reference code", async () => {
   process.env.ZELLE_RECIPIENT = "payments@example.test";
-  process.env.ZELLE_RECIPIENT_NAME = "AT Lab Sourcing LLC";
+  process.env.ZELLE_RECIPIENT_NAME = "Test Merchant LLC";
   const { variant } = await makeVariant({ unitType: "kit" });
   const { token } = await approvedAccount();
 

@@ -1,5 +1,5 @@
 import { useParams, Link } from "wouter";
-import { useGetProduct, useListProducts } from "@atlab/api-client-react";
+import { useGetProduct, useListProducts } from "@app/api-client-react";
 import { useCart } from "@/contexts/cart";
 import { useAnalytics } from "@/contexts/analytics";
 import { CoaVisualization } from "@/components/coa/CoaVisualization";

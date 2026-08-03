@@ -57,7 +57,7 @@ import {
   useAdminPatchAccount,
   type AdminCustomer,
   type AccountStatus,
-} from "@atlab/api-client-react";
+} from "@app/api-client-react";
 import { DashboardPanel } from "@/components/admin/DashboardPanel";
 import { OrdersPanel } from "@/components/admin/OrdersPanel";
 import { CatalogPanel } from "@/components/admin/CatalogPanel";
@@ -66,6 +66,7 @@ import { UsersPanel } from "@/components/admin/UsersPanel";
 import { DiscountsPanel } from "@/components/admin/DiscountsPanel";
 import { TierManagementPanel } from "@/components/admin/TierManagementPanel";
 import { PaymentMethodsPanel } from "@/components/admin/PaymentMethodsPanel";
+import { brand } from "@/lib/brand";
 
 type BatchStatus = "pending" | "released" | "quarantined";
 type TestType = "purity" | "endotoxin" | "sterility" | "heavyMetals";
@@ -223,13 +224,13 @@ function LoginForm({ onLogin }: { onLogin: (key: string) => void }) {
         <div className="flex items-center gap-3 mb-8">
           <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white shadow-sm">
             <img
-              src="/images/wolf-logo-t.png"
-              alt="AT Lab Sourcing"
+              src={brand.logoSrc}
+              alt={brand.name}
               className="h-7 w-7 object-contain"
             />
           </span>
           <div>
-            <div className="font-display text-base font-extrabold tracking-tight">AT Lab Sourcing</div>
+            <div className="font-display text-base font-extrabold tracking-tight">{brand.name}</div>
             <div className="text-muted-foreground text-xs font-mono">Admin Portal</div>
           </div>
         </div>
@@ -1105,12 +1106,12 @@ function Dashboard({ adminKey, onLogout, initialTab = "dashboard" }: { adminKey:
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <img
-              src="/images/wolf-logo-t.png"
-              alt="AT Lab Sourcing"
+              src={brand.logoSrc}
+              alt={brand.name}
               className="h-7 w-7 object-contain shrink-0"
             />
             <span className="font-display text-sm sm:text-base font-extrabold tracking-tight truncate">
-              AT <span className="text-[var(--atl-blue)]">Lab</span> Sourcing
+              {brand.name}
             </span>
             <span className="text-muted-foreground/60 text-sm font-mono hidden sm:inline">/</span>
             <span className="text-muted-foreground text-sm font-mono hidden sm:inline">Admin</span>
@@ -1405,7 +1406,7 @@ function AdminSubscriptionsPanel({ adminKey }: { adminKey: string }) {
           { label: "Total", value: data?.total ?? 0, color: "text-foreground" },
           { label: "Active", value: data?.active ?? 0, color: "text-teal-ink" },
           { label: "Renewing (7d)", value: data?.renewingIn7Days ?? 0, color: "text-warn" },
-          { label: "Renewing (30d)", value: data?.renewingIn30Days ?? 0, color: "text-[var(--atl-blue)]" },
+          { label: "Renewing (30d)", value: data?.renewingIn30Days ?? 0, color: "text-[var(--brand-blue)]" },
         ].map((stat) => (
           <Card key={stat.label} className="border border-border bg-card/60 rounded-xl">
             <CardContent className="p-4">

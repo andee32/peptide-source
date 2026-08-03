@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import { resolveBrand } from "@app/brand";
 
 // ACH / wire is the non-crypto rail. We NEVER touch card processors (Stripe /
 // PayPal / Square) — they prohibit this vertical. Payment is reconciled manually
@@ -117,7 +118,8 @@ export function buildZelleInstructions(referenceCode: string): ZelleInstructions
 export function buildBankInstructions(referenceCode: string): BankInstructions {
   return {
     // PLACEHOLDER — replace with counsel/finance-approved banking details before launch.
-    beneficiaryName: process.env.ACH_BENEFICIARY_NAME ?? "AT Lab Sourcing LLC",
+    beneficiaryName:
+      process.env.ACH_BENEFICIARY_NAME ?? resolveBrand(process.env).legalName,
     bankName: process.env.ACH_BANK_NAME ?? "PLACEHOLDER BANK — NOT YET PROVISIONED",
     routingNumber: process.env.ACH_ROUTING_NUMBER ?? "000000000",
     accountNumber: process.env.ACH_ACCOUNT_NUMBER ?? "0000000000",

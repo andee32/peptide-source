@@ -1,4 +1,4 @@
-import { pool } from "@atlab/db";
+import { pool } from "@app/db";
 
 // Empties every table in the public schema between tests. Enumerating from
 // information_schema rather than hardcoding a list means a newly added table is

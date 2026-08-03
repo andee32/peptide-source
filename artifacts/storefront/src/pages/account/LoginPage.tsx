@@ -82,7 +82,7 @@ export function LoginPage() {
           </CardHeader>
           <CardContent>
             {justReset && (
-              <div className="mb-4 flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--atl-teal)_35%,transparent)] bg-[color-mix(in_srgb,var(--atl-teal)_10%,transparent)] p-3 text-sm">
+              <div className="mb-4 flex items-start gap-2 rounded-lg border border-[color-mix(in_srgb,var(--brand-teal)_35%,transparent)] bg-[color-mix(in_srgb,var(--brand-teal)_10%,transparent)] p-3 text-sm">
                 <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
                 <span>Password updated — sign in with your new password.</span>
               </div>

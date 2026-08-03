@@ -5,7 +5,7 @@
 // provably correct. Idempotent: only touches rows whose provenance columns are
 // still zero. Safe to re-run; must run before the first code-bearing order.
 import { sql } from "drizzle-orm";
-import { db, pool } from "@atlab/db";
+import { db, pool } from "@app/db";
 
 const result = await db.execute(sql`
   UPDATE orders

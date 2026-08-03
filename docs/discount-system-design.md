@@ -1,4 +1,4 @@
-# AT Lab Discount System — Design Spec
+# Discount System — Design Spec
 
 **Status:** approved design, ready to implement. Supersedes the hardcoded-crypto-discount era.
 **Grounding verified against this tree (2026-07-22):** the `cryptoDiscountBps` conversion is **already landed** — `orders.ts` L32–38/L287 reads the setting via `getCryptoDiscountBps()`, `routes/settings.ts` L18 returns it, `admin.ts` L1298–1330 accepts it. Do not re-plan that wiring. The only stale remnant is the "10% Transparency Discount" copy at `lib/api-spec/openapi.yaml` L225.

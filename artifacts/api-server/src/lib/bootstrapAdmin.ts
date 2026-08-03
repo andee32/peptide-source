@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
-import { db } from "@atlab/db";
-import { adminUsersTable } from "@atlab/db/schema";
+import { db } from "@app/db";
+import { adminUsersTable } from "@app/db/schema";
 
 // Migrate the single env-provisioned admin credential into admin_users so the
 // original owner login keeps working once the table becomes the source of

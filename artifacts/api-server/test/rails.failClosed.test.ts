@@ -2,8 +2,8 @@ import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
-import { db, pool } from "@atlab/db";
-import { paymentRecordsTable } from "@atlab/db/schema";
+import { db, pool } from "@app/db";
+import { paymentRecordsTable } from "@app/db/schema";
 import { resetDb } from "./helpers/db";
 import { makeVariant, orderPayload } from "./helpers/factories";
 

@@ -1,5 +1,5 @@
 /* ============================================================
-   AT Lab Sourcing — Tailwind v4 theme mapping
+   Tailwind v4 theme mapping
    Import AFTER tokens.css. Exposes brand tokens as Tailwind
    utilities (bg-primary, text-structure, font-display, etc.)
    for the Lab-Standard storefront fork (Tailwind v4 + shadcn).
@@ -19,30 +19,30 @@
   --color-ink-muted:   var(--ink-muted);
   --color-border:      var(--border);
 
-  --color-primary:     var(--atl-teal);
-  --color-primary-600: var(--atl-teal-600);
-  --color-structure:   var(--atl-navy);
-  --color-structure-900:var(--atl-navy-900);
-  --color-blue:        var(--atl-blue);
-  --color-accent:      var(--atl-gold);
+  --color-primary:     var(--brand-teal);
+  --color-primary-600: var(--brand-teal-600);
+  --color-structure:   var(--brand-navy);
+  --color-structure-900:var(--brand-navy-900);
+  --color-blue:        var(--brand-blue);
+  --color-accent:      var(--brand-gold);
 
-  --color-good:        var(--atl-good);
-  --color-warn:        var(--atl-warn);
-  --color-crit:        var(--atl-crit);
-  --color-verified:    var(--atl-gold);
+  --color-good:        var(--brand-good);
+  --color-warn:        var(--brand-warn);
+  --color-crit:        var(--brand-crit);
+  --color-verified:    var(--brand-gold);
 
   /* Fonts -> font-display / font-body / font-mono */
-  --font-display: var(--atl-font-display);
-  --font-body:    var(--atl-font-body);
-  --font-mono:    var(--atl-font-mono);
+  --font-display: var(--brand-font-display);
+  --font-body:    var(--brand-font-body);
+  --font-mono:    var(--brand-font-mono);
 
   /* Radii */
-  --radius-sm: var(--atl-radius-sm);
-  --radius:    var(--atl-radius);
-  --radius-lg: var(--atl-radius-lg);
+  --radius-sm: var(--brand-radius-sm);
+  --radius:    var(--brand-radius);
+  --radius-lg: var(--brand-radius-lg);
 }
 
-/* Map shadcn's semantic CSS vars to the AT Lab palette so existing
+/* Map shadcn's semantic CSS vars to the brand palette so existing
    shadcn components (button, card, badge, table, input) inherit the
    brand without rewriting each primitive. Values are HSL-free direct
    colors, which shadcn v4 + Tailwind v4 accept. */
@@ -53,17 +53,17 @@
   --card-foreground: var(--ink);
   --popover: var(--surface);
   --popover-foreground: var(--ink);
-  --primary: var(--atl-teal);
+  --primary: var(--brand-teal);
   --primary-foreground: #ffffff;
-  --secondary: var(--atl-navy);
+  --secondary: var(--brand-navy);
   --secondary-foreground: #ffffff;
   --muted: var(--surface-2);
   --muted-foreground: var(--ink-muted);
-  --accent: var(--atl-blue-tint);
-  --accent-foreground: var(--atl-navy);
-  --destructive: var(--atl-crit);
+  --accent: var(--brand-blue-tint);
+  --accent-foreground: var(--brand-navy);
+  --destructive: var(--brand-crit);
   --destructive-foreground: #ffffff;
   --border: var(--border);
   --input: var(--border);
-  --ring: var(--atl-teal);
+  --ring: var(--brand-teal);
 }

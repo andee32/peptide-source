@@ -115,7 +115,7 @@ corruption. Recommend excluding the folder from sync.
 ## Dev notes
 
 - This worktree's API runs on **8081** (`PORT=8081 pnpm --filter
-  @atlab/api-server run dev`); 8080 belongs to the main checkout.
+  @app/api-server run dev`); 8080 belongs to the main checkout.
 - `pnpm` may need `--config.verify-deps-before-run=false` in this worktree.
 - Gate before "done": `pnpm run typecheck` **and**
-  `pnpm --filter @atlab/api-server run test`.
+  `pnpm --filter @app/api-server run test`.

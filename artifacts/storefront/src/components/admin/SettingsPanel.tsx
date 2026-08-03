@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, AlertTriangle, Check } from "lucide-react";
-import { useAdminGetSettings, useAdminPatchSettings } from "@atlab/api-client-react";
+import { useAdminGetSettings, useAdminPatchSettings } from "@app/api-client-react";
 
 export function SettingsPanel({ adminKey }: { adminKey: string }) {
   const settingsQuery = useAdminGetSettings({

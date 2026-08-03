@@ -1,27 +1,27 @@
-# Local Postgres for AT Lab dev + tests. Optional — production and hosted dev
+# Local Postgres for local dev + tests. Optional — production and hosted dev
 # use Neon (see .env.example). Bring it up with `docker compose up -d`, then point
 # DATABASE_URL at it:
-#   DATABASE_URL=postgres://atlab:atlab@localhost:5432/atlab
-# The init script also creates an `atlab_test` database for the integration suite.
+#   DATABASE_URL=postgres://app:app@localhost:5432/app
+# The init script also creates an `app_test` database for the integration suite.
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: atlab-postgres
+    container_name: app-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: atlab
-      POSTGRES_PASSWORD: atlab
-      POSTGRES_DB: atlab
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
     ports:
       - "5432:5432"
     volumes:
-      - atlab_pgdata:/var/lib/postgresql/data
+      - app_pgdata:/var/lib/postgresql/data
       - ./scripts/db/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U atlab -d atlab"]
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
       interval: 5s
       timeout: 5s
       retries: 5
 
 volumes:
-  atlab_pgdata:
+  app_pgdata:

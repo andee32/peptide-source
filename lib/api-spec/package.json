@@ -1,5 +1,5 @@
 {
-  "name": "@atlab/api-spec",
+  "name": "@app/api-spec",
   "version": "0.0.0",
   "private": true,
   "scripts": {

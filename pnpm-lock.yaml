@@ -165,10 +165,13 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.114.0
         version: 0.114.0(zod@3.25.76)
-      '@atlab/api-zod':
+      '@app/api-zod':
         specifier: workspace:*
         version: link:../../lib/api-zod
-      '@atlab/db':
+      '@app/brand':
+        specifier: workspace:*
+        version: link:../../lib/brand
+      '@app/db':
         specifier: workspace:*
         version: link:../../lib/db
       cookie-parser:
@@ -421,9 +424,12 @@ importers:
 
   artifacts/storefront:
     devDependencies:
-      '@atlab/api-client-react':
+      '@app/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@app/brand':
+        specifier: workspace:*
+        version: link:../../lib/brand
       '@hookform/resolvers':
         specifier: ^3.10.0
         version: 3.10.0(react-hook-form@7.71.2(react@19.1.0))
@@ -629,6 +635,12 @@ importers:
         specifier: 'catalog:'
         version: 3.25.76
 
+  lib/brand:
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.3.5
+
   lib/db:
     dependencies:
       drizzle-orm:
@@ -656,7 +668,7 @@ importers:
 
   scripts:
     dependencies:
-      '@atlab/db':
+      '@app/db':
         specifier: workspace:*
         version: link:../lib/db
       drizzle-orm:

@@ -1,7 +1,7 @@
 import type { Request } from "express";
 import { eq } from "drizzle-orm";
-import { db } from "@atlab/db";
-import { customerAccountsTable } from "@atlab/db/schema";
+import { db } from "@app/db";
+import { customerAccountsTable } from "@app/db/schema";
 import { resolveCustomerUser } from "./customerSession";
 
 /**

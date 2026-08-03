@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { randomUUID } from "crypto";
 import { eq, and, desc, inArray } from "drizzle-orm";
-import { db } from "@atlab/db";
+import { db } from "@app/db";
 import {
   customerUsersTable,
   customerSessionsTable,
@@ -10,7 +10,7 @@ import {
   productVariantsTable,
   productsTable,
   type CustomerUser,
-} from "@atlab/db/schema";
+} from "@app/db/schema";
 import { z } from "zod/v4";
 import {
   hashPassword,
