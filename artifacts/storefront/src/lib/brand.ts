@@ -1,10 +1,10 @@
-import { resolveBrand } from "@app/brand";
+import type { Brand } from "@app/brand";
 
 /**
- * Brand for the browser bundle. Values come from `VITE_BRAND_*` env at build
- * time — never hardcode a company name, contact detail or logo path in a
- * component.
+ * Brand for the browser bundle, inlined at build time by
+ * `vite-plugin-brand.ts` from the unprefixed `BRAND_*` env — never hardcode a
+ * company name, contact detail or logo path in a component.
  */
-export const brand = resolveBrand(
-  import.meta.env as unknown as Record<string, string | undefined>,
-);
+declare const __BRAND__: Brand;
+
+export const brand: Brand = __BRAND__;

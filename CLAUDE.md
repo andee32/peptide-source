@@ -33,9 +33,10 @@ compliance gate (HARD launch blocker) · **4** B2C revival.
   when unconfigured, and rejects unsigned/unconfigured webhooks. Do not reintroduce stubs.
 - **No secrets in the tree.** Env comes from `.env` (gitignored); see `.env.example`.
 - **No hardcoded branding.** Company name, legal entity, domain, contact details,
-  logos and PWA colours live in `lib/brand` (`@app/brand`), resolved from `BRAND_*`
-  env (`VITE_BRAND_*` for the browser). Server code calls `resolveBrand(process.env)`;
-  the storefront imports `@/lib/brand`; `index.html` + `manifest.json` are rendered by
+  logos and PWA colours live in `lib/brand` (`@app/brand`), resolved from one
+  unprefixed `BRAND_*` set in the root `.env`. Server code calls
+  `resolveBrand(process.env)`; the storefront imports `@/lib/brand`, which the
+  vite plugin inlines via the `__BRAND__` define; `index.html` + `manifest.json` are rendered by
   `artifacts/storefront/vite-plugin-brand.ts`. Palette lives in `design-system/tokens.css`
   as `--brand-*` vars. A rebrand must stay a config/asset change — never a code change.
 

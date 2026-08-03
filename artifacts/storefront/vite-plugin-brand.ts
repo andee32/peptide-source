@@ -21,15 +21,18 @@ function manifest(brand: Brand): string {
 }
 
 /**
- * Renders the brand into the shell that React never owns: the `index.html`
- * head (title, icons, social tags) and the PWA manifest. Keeps those in sync
- * with the same `BRAND_*` env the app and the API read.
+ * Resolves the brand once at config time and hands it to every consumer: the
+ * app bundle (via the `__BRAND__` define — the browser has no access to the
+ * unprefixed env), the `index.html` head, and the PWA manifest.
  */
 export function brandPlugin(env: Record<string, string | undefined>): Plugin {
   const brand = resolveBrand(env);
 
   return {
     name: "brand",
+    config() {
+      return { define: { __BRAND__: JSON.stringify(brand) } };
+    },
     transformIndexHtml(html) {
       return html
         .replace(/%BRAND_NAME%/g, brand.name)
