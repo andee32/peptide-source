@@ -2248,10 +2248,22 @@ components:
         notes:
           type: string
           nullable: true
+        ruoAffirmed:
+          type: boolean
+          description: Research Use Only attestation. Must be true; the server rejects anything else.
+        recurringConsent:
+          type: boolean
+          description: Express consent to recurring billing, given separately from the RUO attestation. Must be true.
+        signerName:
+          type: string
+          description: Name signed on the attestation and the recurring-billing consent.
       required:
         - customerEmail
         - planId
         - intervalDays
+        - ruoAffirmed
+        - recurringConsent
+        - signerName
 
     SubscriptionCreated:
       type: object

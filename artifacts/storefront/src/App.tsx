@@ -28,6 +28,7 @@ import { KitSubscribePage } from "@/pages/KitSubscribePage";
 import { WholesaleApplyPage } from "@/pages/WholesaleApplyPage";
 import { WholesaleAccountPage } from "@/pages/WholesaleAccountPage";
 import { ContactPage } from "@/pages/ContactPage";
+import { LegalPage } from "@/pages/legal/LegalPage";
 
 // Retail (B2C) portal
 import { RetailShopPage } from "@/pages/retail/RetailShopPage";
@@ -76,6 +77,7 @@ function StorefrontRouter() {
           <Route path="/wholesale" component={WholesaleApplyPage} />
           <Route path="/wholesale/account" component={WholesaleAccountPage} />
           <Route path="/contact" component={ContactPage} />
+          <Route path="/legal/:slug" component={LegalPage} />
           <Route path="/kits/subscribe" component={KitSubscribePage} />
           <Route path="/account/subscriptions" component={CustomerSubscriptionsPage} />
           <Route path="/account/subscriptions/new" component={CustomerSubscriptionsPage} />

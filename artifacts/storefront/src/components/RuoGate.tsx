@@ -22,7 +22,8 @@ import { brand } from "@/lib/brand";
  *
  * COPY NOTE: the visible wording below is a reasonable default. Final gate copy
  * is a compliance decision — have counsel approve it (as with the server-side
- * ATTESTATION_TEXT) before launch.
+ * ATTESTATION_TEXT) before launch. The referenced policies must stay linked:
+ * asking a visitor to agree to a document they cannot open is not an agreement.
  */
 
 type GateItem = {
@@ -54,13 +55,33 @@ const NOT_FOR_CONSUMPTION: GateItem = {
   ),
 };
 
+/**
+ * Opens a policy in a new tab. Each row is a <label>, so the click must not
+ * bubble or it would toggle the checkbox the visitor is reading about.
+ */
+function PolicyLink({ href, children }: { href: string; children: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className="font-semibold underline underline-offset-2 hover:text-primary"
+    >
+      {children}
+    </a>
+  );
+}
+
 const AGREE_TERMS: GateItem = {
   key: "terms",
   icon: FileText,
-  aria: "I agree to the Terms of Use and RUO compliance policy",
+  aria: "I agree to the Terms of Use and the Research Use Only Policy",
   content: (
     <span>
-      I agree to the <strong>Terms of Use</strong> and RUO compliance policy.
+      I agree to the <PolicyLink href="/legal/terms">Terms of Use</PolicyLink>{" "}
+      and the{" "}
+      <PolicyLink href="/legal/ruo-policy">Research Use Only Policy</PolicyLink>.
     </span>
   ),
 };

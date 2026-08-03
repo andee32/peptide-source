@@ -1450,6 +1450,46 @@ export function CheckoutPage() {
                 {attestErrors.ruo && (
                   <p className="text-crit text-xs mt-2">{attestErrors.ruo}</p>
                 )}
+
+                <p className="text-muted-foreground text-xs leading-relaxed mt-4">
+                  Placing this order also accepts our{" "}
+                  <a
+                    href="/legal/terms"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    Terms of Use
+                  </a>
+                  ,{" "}
+                  <a
+                    href="/legal/ruo-policy"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    Research Use Only Policy
+                  </a>
+                  ,{" "}
+                  <a
+                    href="/legal/shipping"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    Shipping Policy
+                  </a>{" "}
+                  and{" "}
+                  <a
+                    href="/legal/refunds"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    Returns &amp; Refunds policy
+                  </a>
+                  . Your attestation is recorded with this order.
+                </p>
               </div>
 
               {submitError && (

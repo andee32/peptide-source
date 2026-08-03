@@ -6,6 +6,10 @@ import {
 } from "@app/db/schema";
 import { sql } from "drizzle-orm";
 
+// Plan bundles contain research materials only. Reconstitution and injection
+// consumables (bacteriostatic water, syringes, swabs) must never be bundled with
+// a peptide: FDA treats their presence alongside a product as evidence of human
+// intended use, which defeats the RUO posture the whole platform depends on.
 async function seedSubscriptions() {
   console.log("Seeding subscription plans...");
 
@@ -17,17 +21,12 @@ async function seedSubscriptions() {
     .insert(subscriptionPlansTable)
     .values([
       {
-        name: "GLP-1 Metabolic Kit",
-        slug: "glp1-metabolic-kit",
+        name: "Incretin Receptor Assay Kit",
+        slug: "incretin-receptor-assay-kit",
         description:
-          "The complete GLP-1 research protocol bundle. Includes one 5mg Semaglutide vial, bacteriostatic water (30mL), 10x insulin syringes (1cc/27g), and 10x alcohol swabs. Designed for 30-90 day research protocols targeting metabolic function and GLP-1 receptor binding studies.",
+          "Recurring supply for in-vitro incretin receptor work. Includes one 5mg Semaglutide vial per interval. For laboratory research use only \u2014 not for human or veterinary use.",
         intervalDays: 30,
-        productBundle: [
-          { productId: 1, name: "Semaglutide 5mg", qty: 1 },
-          { name: "Bacteriostatic Water 30mL", qty: 1 },
-          { name: "Insulin Syringes 1cc/27g x10", qty: 1 },
-          { name: "Alcohol Swabs x10", qty: 1 },
-        ],
+        productBundle: [{ productId: 1, name: "Semaglutide 5mg", qty: 1 }],
         pricePerIntervalCents: 8499,
         featured: 1,
       },
@@ -35,30 +34,22 @@ async function seedSubscriptions() {
         name: "Longevity Starter Kit",
         slug: "longevity-starter-kit",
         description:
-          "The foundational longevity research bundle. Includes Epithalon 20mg plus BPC-157 5mg for combined telomere and tissue regeneration research. Includes bacteriostatic water (30mL), syringes, and swabs. Ideal for researchers studying longevity pathways and cellular repair mechanisms.",
+          "Recurring supply of Epithalon 20mg and BPC-157 5mg for in-vitro telomere and cell-migration assays. For laboratory research use only \u2014 not for human or veterinary use.",
         intervalDays: 60,
         productBundle: [
           { productId: 5, name: "Epithalon 20mg", qty: 1 },
           { productId: 2, name: "BPC-157 5mg", qty: 1 },
-          { name: "Bacteriostatic Water 30mL", qty: 2 },
-          { name: "Insulin Syringes 1cc/27g x10", qty: 2 },
-          { name: "Alcohol Swabs x10", qty: 2 },
         ],
         pricePerIntervalCents: 14499,
         featured: 1,
       },
       {
-        name: "Next-Gen Metabolic Kit",
-        slug: "next-gen-metabolic-kit",
+        name: "Dual Agonist Assay Kit",
+        slug: "dual-agonist-assay-kit",
         description:
-          "For researchers working with next-generation dual or triple agonist peptides. Includes Tirzepatide 5mg, bacteriostatic water (30mL), 10x syringes, and swabs. Optimal for comparative metabolic research protocols and dual-receptor binding studies.",
+          "Recurring supply of Tirzepatide 5mg for comparative in-vitro dual-receptor binding assays. For laboratory research use only \u2014 not for human or veterinary use.",
         intervalDays: 90,
-        productBundle: [
-          { productId: 3, name: "Tirzepatide 5mg", qty: 1 },
-          { name: "Bacteriostatic Water 30mL", qty: 1 },
-          { name: "Insulin Syringes 1cc/27g x10", qty: 1 },
-          { name: "Alcohol Swabs x10", qty: 1 },
-        ],
+        productBundle: [{ productId: 3, name: "Tirzepatide 5mg", qty: 1 }],
         pricePerIntervalCents: 10999,
         featured: 0,
       },

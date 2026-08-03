@@ -598,8 +598,9 @@ function SubscriptionCard({
               <div className="flex items-start gap-2 text-xs text-muted-foreground bg-secondary/30 rounded-lg px-3 py-2.5 mt-1">
                 <Lock className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                 <span>
-                  To skip or cancel, use the browser you originally checked out from. Your
-                  management token is stored locally on that device.
+                  To skip or cancel from this device, request a management link
+                  and we'll email it to you — it verifies you without the browser
+                  you originally checked out from.
                 </span>
               </div>
             )}

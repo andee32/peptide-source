@@ -25,6 +25,10 @@ import {
 import { quoteRateLimit, createOrderRateLimit } from "../lib/rateLimit";
 import { isPaymentMethodEnabled } from "../lib/paymentMethods";
 import {
+  evaluateShippingDestination,
+  resolveShippingPolicy,
+} from "../lib/shippingPolicy";
+import {
   resolveDiscounts,
   normalizeCode,
   type DiscountCodeRecord,
@@ -542,6 +546,20 @@ router.post("/orders", createOrderRateLimit, async (req, res) => {
     res.status(400).json({
       error: "ruo_not_affirmed",
       message: "The Research Use Only (RUO) attestation must be affirmed to place an order.",
+    });
+    return;
+  }
+
+  // Destination gate: where we may ship is a legal question, so it is checked
+  // server-side before any pricing or write, not left to the address form.
+  const destination = evaluateShippingDestination(
+    { state: data.shippingState, country: data.shippingCountry },
+    resolveShippingPolicy(process.env)
+  );
+  if (!destination.allowed) {
+    res.status(400).json({
+      error: "destination_not_served",
+      message: destination.message,
     });
     return;
   }

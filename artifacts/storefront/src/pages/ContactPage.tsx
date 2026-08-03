@@ -85,7 +85,7 @@ export function ContactPage() {
         </Card>
 
         <div className="rounded-lg border border-border bg-secondary/40 p-5 text-sm text-muted-foreground leading-relaxed">
-          Wholesale buyer? Labs, clinics, resellers, and distributors can apply for tiered
+          Wholesale buyer? Labs, research organisations, resellers, and distributors can apply for tiered
           pricing on our{" "}
           <Link href="/wholesale" className="text-primary font-medium hover:underline">
             wholesale program

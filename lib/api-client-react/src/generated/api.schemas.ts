@@ -143,6 +143,12 @@ export interface CreateSubscriptionRequest {
   intervalDays: CreateSubscriptionRequestIntervalDays;
   shippingAddress?: CreateSubscriptionRequestShippingAddress;
   notes?: string | null;
+  /** Research Use Only attestation. Must be true; the server rejects anything else. */
+  ruoAffirmed: boolean;
+  /** Express consent to recurring billing, given separately from the RUO attestation. Must be true. */
+  recurringConsent: boolean;
+  /** Name signed on the attestation and the recurring-billing consent. */
+  signerName: string;
 }
 
 export type SubscriptionCreatedStatus =
