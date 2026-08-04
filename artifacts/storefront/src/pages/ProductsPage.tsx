@@ -56,9 +56,10 @@ function WholesaleCatalog({ accountId, wholesaleHeaders }: { accountId: string; 
         <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">Wholesale Kit Catalog</h1>
         <p className="text-lg text-muted-foreground">
           10-vial kits, 5-kit minimum — list prices shown; your account&apos;s tier
-          pricing is applied at checkout. Every batch ships with an active
-          third-party COA, sourced across the USA and Asia. For in-vitro and
-          laboratory research only — not for human or veterinary use.
+          pricing is applied at checkout. Every lot ships with its certificate of
+          analysis, linked by lot number, and each product states its sourcing
+          path. For in-vitro and laboratory research only — not for human or
+          veterinary use.
         </p>
       </div>
 
