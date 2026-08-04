@@ -1196,6 +1196,21 @@ export const CreateSubscriptionBody = zod.object({
   intervalDays: zod.union([zod.literal(30), zod.literal(60), zod.literal(90)]),
   shippingAddress: zod.record(zod.string(), zod.unknown()).optional(),
   notes: zod.string().nullish(),
+  ruoAffirmed: zod
+    .boolean()
+    .describe(
+      "Research Use Only attestation. Must be true; the server rejects anything else.",
+    ),
+  recurringConsent: zod
+    .boolean()
+    .describe(
+      "Express consent to recurring billing, given separately from the RUO attestation. Must be true.",
+    ),
+  signerName: zod
+    .string()
+    .describe(
+      "Name signed on the attestation and the recurring-billing consent.",
+    ),
 });
 
 /**

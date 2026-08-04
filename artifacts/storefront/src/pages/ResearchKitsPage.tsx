@@ -77,12 +77,12 @@ export function ResearchKitsPage() {
             </span>
           </div>
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-6">
-            Subscribe & Save on Complete Research Protocols
+            Subscribe & Save on Recurring Research Supply
           </h1>
           <p className="text-muted-foreground text-lg leading-relaxed">
             Pre-bundled research kits ship on your schedule — 30, 60, or 90 day intervals.
-            Every kit includes everything you need: verified peptide, bacteriostatic water,
-            syringes, and swabs. Skip or cancel any time.
+            Every kit contains lab-verified research materials only, supplied with their
+            certificates of analysis. Skip or cancel any time.
           </p>
         </div>
 
@@ -92,12 +92,12 @@ export function ResearchKitsPage() {
             {
               icon: RefreshCw,
               title: "Auto-Replenishment",
-              desc: "Never run short mid-protocol. Kits ship automatically on your research schedule.",
+              desc: "Never run short mid-study. Kits ship automatically on your research schedule.",
             },
             {
               icon: CheckCircle2,
-              title: "All-In-One Bundle",
-              desc: "Tri-verified peptide plus all ancillaries: water, syringes, and swabs included.",
+              title: "Lot-Verified Materials",
+              desc: "Every lot ships with its certificate of analysis, verifiable by lot number.",
             },
             {
               icon: Clock,
@@ -159,8 +159,8 @@ export function ResearchKitsPage() {
                 a: "Cancel any time from your dashboard at /account/subscriptions. No penalties, no lock-in.",
               },
               {
-                q: "Are kit peptides tri-verified?",
-                a: "Yes. Every peptide included in a research kit undergoes full tri-verification — HPLC purity, endotoxin (LAL), and sterility. COAs are batch-linked in the lab portal.",
+                q: "How is kit material verified?",
+                a: "Every lot ships with its certificate of analysis, stating the tests that lab actually ran on that lot. COAs are linked by lot number, so you can check the document before it ships and again on arrival.",
               },
             ].map((faq) => (
               <div key={faq.q} className="border border-border rounded-lg p-5">

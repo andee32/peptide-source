@@ -15,6 +15,10 @@ import {
   sendManagementLinkEmail,
 } from "../services/email";
 import { isAdminRequest } from "../lib/adminSession";
+import {
+  evaluateShippingDestination,
+  resolveShippingPolicy,
+} from "../lib/shippingPolicy";
 
 const router: IRouter = Router();
 
@@ -92,10 +96,30 @@ function verifyMgmtToken(token: string): { email: string } | null {
   }
 }
 
+// A subscription is a sale, so it carries the same RUO record as a one-off
+// order, plus its own express consent to being billed on a recurring basis
+// (ROSCA / state auto-renewal laws require that consent to be separate from
+// the rest of the purchase, not bundled into a single "I agree").
+export const SUBSCRIPTION_CONSENT_VERSION = "v1-2026-08";
+export const SUBSCRIPTION_RUO_TEXT =
+  "I affirm that all materials in this subscription are purchased strictly for " +
+  "laboratory research use only (RUO). They are not intended for, and will not " +
+  "be used in, human or veterinary diagnostic, therapeutic or personal use.";
+export const SUBSCRIPTION_RECURRING_TEXT =
+  "I authorise a recurring charge for this subscription at the stated price and " +
+  "interval, continuing until I cancel. I understand I can skip a shipment or " +
+  "cancel at any time before the next billing date.";
+
 const CreateSubscriptionSchema = z.object({
   customerEmail: z.string().email(),
   customerName: z.string().min(1).max(200).default(""),
   planId: z.number().int().positive(),
+  /** RUO attestation — must be exactly true. */
+  ruoAffirmed: z.boolean(),
+  /** Express consent to recurring billing — must be exactly true. */
+  recurringConsent: z.boolean(),
+  /** Name signed on both affirmations. */
+  signerName: z.string().min(1).max(200),
   intervalDays: z.number().int().refine((v) => [30, 60, 90].includes(v), {
     message: "intervalDays must be 30, 60, or 90",
   }),
@@ -162,8 +186,52 @@ router.post("/subscriptions", async (req: Request, res: Response) => {
     return;
   }
 
-  const { customerEmail, customerName, planId, intervalDays, shippingAddress, notes } =
-    parsed.data;
+  const {
+    customerEmail,
+    customerName,
+    planId,
+    intervalDays,
+    shippingAddress,
+    notes,
+    ruoAffirmed,
+    recurringConsent,
+    signerName,
+  } = parsed.data;
+
+  if (ruoAffirmed !== true) {
+    res.status(400).json({
+      error: "ruo_not_affirmed",
+      message:
+        "The Research Use Only (RUO) attestation must be affirmed to start a subscription.",
+    });
+    return;
+  }
+
+  if (recurringConsent !== true) {
+    res.status(400).json({
+      error: "recurring_consent_required",
+      message:
+        "Express consent to recurring billing is required to start a subscription.",
+    });
+    return;
+  }
+
+  // Same destination policy as one-off orders — a recurring shipment to a
+  // destination we may not serve is the same problem, repeated.
+  const destination = evaluateShippingDestination(
+    {
+      state: shippingAddress.state,
+      country: shippingAddress.country,
+    },
+    resolveShippingPolicy(process.env)
+  );
+  if (!destination.allowed) {
+    res.status(400).json({
+      error: "destination_not_served",
+      message: destination.message,
+    });
+    return;
+  }
 
   try {
     const plan = await db
@@ -197,10 +265,22 @@ router.post("/subscriptions", async (req: Request, res: Response) => {
       })
       .returning();
 
+    // Record what was affirmed, verbatim, alongside the signer and request
+    // metadata: this event is the consent record for the recurring charge.
     await db.insert(subscriptionEventsTable).values({
       subscriptionId: subscription.id,
       eventType: "created",
-      metadata: { planName: plan.name, intervalDays },
+      metadata: {
+        planName: plan.name,
+        intervalDays,
+        pricePerIntervalCents: plan.pricePerIntervalCents,
+        consentVersion: SUBSCRIPTION_CONSENT_VERSION,
+        ruoText: SUBSCRIPTION_RUO_TEXT,
+        recurringText: SUBSCRIPTION_RECURRING_TEXT,
+        signerName,
+        ipAddress: req.ip ?? null,
+        userAgent: req.headers["user-agent"] ?? null,
+      },
     });
 
     sendSubscriptionConfirmEmail({

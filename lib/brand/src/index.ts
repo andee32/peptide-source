@@ -28,6 +28,14 @@ export interface Brand {
   fromEmail: string;
   /** Contact phone in display form; empty string hides it. */
   supportPhone: string;
+  /**
+   * Full postal address of the legal entity, newline-separated. Required on the
+   * legal pages and in any promotional email (CAN-SPAM); empty string means it
+   * has not been provisioned yet and dependent surfaces stay guarded.
+   */
+  postalAddress: string;
+  /** Jurisdiction whose law governs the Terms, e.g. "Delaware". */
+  governingLaw: string;
   /** Logo used in the header, footer, admin and RUO gate. */
   logoSrc: string;
   /** Square icon used for favicon / apple-touch-icon / PWA. */
@@ -56,6 +64,8 @@ export const brandDefaults: Brand = {
   supportEmail: "info@example.com",
   fromEmail: "noreply@example.com",
   supportPhone: "",
+  postalAddress: "",
+  governingLaw: "",
   logoSrc: "/brand/logo.svg",
   iconSrc: "/brand/icon.svg",
   ogImageSrc: "/brand/logo.svg",
@@ -92,6 +102,9 @@ export function resolveBrand(env: BrandEnv = {}): Brand {
       read(env, "BRAND_SUPPORT_EMAIL") ??
       `noreply@${domain}`,
     supportPhone: read(env, "BRAND_SUPPORT_PHONE") ?? brandDefaults.supportPhone,
+    postalAddress:
+      read(env, "BRAND_POSTAL_ADDRESS") ?? brandDefaults.postalAddress,
+    governingLaw: read(env, "BRAND_GOVERNING_LAW") ?? brandDefaults.governingLaw,
     logoSrc: read(env, "BRAND_LOGO_SRC") ?? brandDefaults.logoSrc,
     iconSrc: read(env, "BRAND_ICON_SRC") ?? brandDefaults.iconSrc,
     ogImageSrc: read(env, "BRAND_OG_IMAGE_SRC") ?? brandDefaults.ogImageSrc,

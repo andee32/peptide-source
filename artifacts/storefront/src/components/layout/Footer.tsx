@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { Phone, Mail } from "lucide-react";
 import { brand } from "@/lib/brand";
+import { legalNav } from "@/pages/legal/documents";
 
 const linkColumns = [
   {
@@ -22,13 +23,17 @@ const linkColumns = [
     heading: "Company",
     links: [{ href: "/contact", label: "Contact" }],
   },
+  {
+    heading: "Legal",
+    links: legalNav,
+  },
 ];
 
 export function Footer() {
   return (
     <footer className="section-deep border-t border-border">
       <div className="container mx-auto px-4 py-14">
-        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-5">
           {/* Wordmark + positioning */}
           <div className="lg:col-span-1">
             <div className="flex items-center gap-3">
@@ -92,10 +97,15 @@ export function Footer() {
 
         {/* RUO disclaimer + copyright */}
         <div className="mt-10 pt-8 border-t border-border flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <p className="text-xs text-muted-foreground max-w-2xl leading-relaxed">
-            All products are for in-vitro laboratory research use only &mdash; not
-            for human or veterinary use.
-          </p>
+          <div className="max-w-2xl space-y-2 text-xs text-muted-foreground leading-relaxed">
+            <p>
+              All products are for in-vitro laboratory research use only &mdash;
+              not for human or veterinary use.
+            </p>
+            {brand.postalAddress && (
+              <p className="whitespace-pre-line">{brand.postalAddress}</p>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground whitespace-nowrap">
             &copy; {new Date().getFullYear()} {brand.name}
           </p>

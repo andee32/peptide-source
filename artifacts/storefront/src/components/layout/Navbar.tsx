@@ -19,6 +19,7 @@ export function Navbar() {
   const navLinks = [
     { href: "/retail", label: "Shop" },
     ...(session ? [{ href: "/shop", label: "Wholesale Catalog" }] : []),
+    { href: "/kits", label: "Kits" },
     { href: "/verify", label: "COA Verification" },
     ...(session
       ? [{ href: "/wholesale/account", label: "Wholesale Account" }]

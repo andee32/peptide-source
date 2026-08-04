@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle2, Package, ArrowLeft, Beaker } from "lucide-react";
 import { Link } from "wouter";
@@ -12,6 +11,13 @@ import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const STORAGE_KEY = "lab_subscription_tokens";
+
+// Buyer-facing copies of what the server records on subscription creation
+// (see api-server routes/subscriptions.ts, which holds the authoritative text).
+const RUO_LABEL =
+  "I affirm these materials are purchased strictly for laboratory research use only — not for human or veterinary use.";
+const RECURRING_LABEL =
+  "I authorise the recurring charge described above, continuing until I cancel.";
 
 interface Plan {
   id: number;
@@ -58,6 +64,9 @@ export function KitSubscribePage() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [subId, setSubId] = useState<number | null>(null);
+  const [signerName, setSignerName] = useState("");
+  const [ruoAffirmed, setRuoAffirmed] = useState(false);
+  const [recurringConsent, setRecurringConsent] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -82,7 +91,10 @@ export function KitSubscribePage() {
     form.address1.trim() &&
     form.city.trim() &&
     form.state.trim() &&
-    form.zip.trim();
+    form.zip.trim() &&
+    signerName.trim() &&
+    ruoAffirmed &&
+    recurringConsent;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -98,6 +110,9 @@ export function KitSubscribePage() {
           customerName: form.name.trim(),
           planId: plan.id,
           intervalDays: plan.intervalDays,
+          ruoAffirmed,
+          recurringConsent,
+          signerName: signerName.trim(),
           shippingAddress: {
             name: form.name.trim(),
             address1: form.address1.trim(),
@@ -331,6 +346,65 @@ export function KitSubscribePage() {
             </CardContent>
           </Card>
 
+          <Card className="border border-border bg-card/60 rounded-2xl">
+            <CardHeader className="pb-0 pt-5">
+              <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
+                Subscription Terms &amp; Attestation
+              </p>
+            </CardHeader>
+            <CardContent className="pt-4 space-y-4">
+              <div className="rounded-lg border border-border bg-secondary/40 p-4 text-sm leading-relaxed">
+                You will be charged{" "}
+                <span className="font-semibold">${price}</span>{" "}
+                {intervalLabel(plan.intervalDays).toLowerCase()} (every{" "}
+                {plan.intervalDays} days), starting today and continuing until
+                you cancel. The first shipment goes out once payment settles.
+                You can skip a shipment or cancel at any time before the next
+                billing date from your{" "}
+                <Link
+                  href="/account/subscriptions"
+                  className="text-primary hover:underline"
+                >
+                  subscription dashboard
+                </Link>
+                , and we email you a management link so you never need the same
+                browser or device.
+              </div>
+
+              <div>
+                <Label className="text-xs font-mono uppercase text-muted-foreground mb-1.5 block">
+                  Signer Name
+                </Label>
+                <Input
+                  value={signerName}
+                  onChange={(e) => setSignerName(e.target.value)}
+                  placeholder="Dr. Jane Smith"
+                  required
+                />
+              </div>
+
+              <label className="flex items-start gap-3 cursor-pointer text-sm leading-relaxed">
+                <input
+                  type="checkbox"
+                  checked={ruoAffirmed}
+                  onChange={(e) => setRuoAffirmed(e.target.checked)}
+                  className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                />
+                <span>{RUO_LABEL}</span>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer text-sm leading-relaxed">
+                <input
+                  type="checkbox"
+                  checked={recurringConsent}
+                  onChange={(e) => setRecurringConsent(e.target.checked)}
+                  className="mt-1 h-4 w-4 shrink-0 accent-primary"
+                />
+                <span>{RECURRING_LABEL}</span>
+              </label>
+            </CardContent>
+          </Card>
+
           <Button
             type="submit"
             className="w-full font-mono uppercase tracking-wide h-12 text-base"
@@ -339,7 +413,15 @@ export function KitSubscribePage() {
             {submitting ? "Processing..." : `Activate Subscription — $${price}/${intervalLabel(plan.intervalDays).toLowerCase()}`}
           </Button>
           <p className="text-center text-xs text-muted-foreground">
-            Skip or cancel any time from your account dashboard.
+            Skip or cancel any time before the next billing date. See our{" "}
+            <Link href="/legal/refunds" className="text-primary hover:underline">
+              Returns &amp; Refunds
+            </Link>{" "}
+            and{" "}
+            <Link href="/legal/terms" className="text-primary hover:underline">
+              Terms of Use
+            </Link>
+            .
           </p>
         </form>
 
@@ -374,9 +456,14 @@ export function KitSubscribePage() {
                     </span>
                   </div>
                 </div>
-                <Badge className="mt-3 bg-teal-500/10 text-teal-400 border-teal-500/20 text-[10px] font-mono w-full justify-center py-1">
-                  All batches Tri-Verified — HPLC · LAL · Sterility
-                </Badge>
+                <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+                  Every lot ships with its certificate of analysis, which you
+                  can{" "}
+                  <Link href="/verify" className="text-primary hover:underline">
+                    verify by lot number
+                  </Link>
+                  . For laboratory research use only.
+                </p>
               </div>
             </CardContent>
           </Card>

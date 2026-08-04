@@ -132,7 +132,7 @@ export function WholesaleApplyPage() {
             Apply for a wholesale account
           </h1>
           <p className="text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            Labs, clinics, resellers, and distributors get tiered pricing on 10-vial kits
+            Labs, research organisations, resellers, and distributors get tiered pricing on 10-vial kits
             with a 5-kit minimum. Tell us about your business and we'll review your application.
           </p>
         </div>
