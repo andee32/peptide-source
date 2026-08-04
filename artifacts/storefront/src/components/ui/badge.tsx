@@ -27,7 +27,7 @@ const badgeVariants = cva(
           "border-[color-mix(in_srgb,var(--brand-teal)_35%,transparent)] bg-[color-mix(in_srgb,var(--brand-teal)_12%,transparent)] text-[var(--brand-teal-600)]",
         // Brand: premium accent (gold)
         gold:
-          "border-[color-mix(in_srgb,var(--brand-gold)_45%,transparent)] bg-[color-mix(in_srgb,var(--brand-gold)_16%,transparent)] text-[color-mix(in_srgb,var(--brand-gold)_70%,#0e1117)]",
+          "border-[color-mix(in_srgb,var(--brand-gold)_45%,transparent)] bg-[color-mix(in_srgb,var(--brand-gold)_16%,transparent)] text-[color-mix(in_srgb,var(--brand-gold)_70%,var(--brand-ink))]",
       },
     },
     defaultVariants: {

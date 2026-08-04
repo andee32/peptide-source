@@ -93,11 +93,15 @@ scripts                @app/scripts      seed.ts
 
 ## Design system
 
-Source of truth: `design-system/tokens.css` + `design-system/theme.tailwind.css`
-(brand-neutral `--brand-*` vars). Light-first: bg `#f5f4f0`, navy `#1a4d6e`
+Runtime source of truth is **env**: `BRAND_COLOR_*` / `BRAND_FONT_*` resolve
+through `lib/brand/src/palette.ts` and are emitted as a `:root` block by
+`vite-plugin-brand` (virtual module `virtual:brand-palette.css`, imported after
+`index.css`, so it overrides the fallbacks declared there). Re-skinning for
+another company = `.env` + logo SVGs; **never hardcode a colour in a component**
+(use the `--brand-*` vars or their Tailwind utilities). `design-system/tokens.css`
+documents the default AT Lab palette. Light-first: bg `#f5f4f0`, navy `#1a4d6e`
 = structure, teal `#00b4c4` = primary action, gold `#c8a84b` = premium/COA-verified.
-Deep-navy `#0a1628` is a section treatment, not the app default. Phase 2 rewrites
-`artifacts/storefront/src/index.css` from these tokens and self-hosts Syne/Lato/DM Mono.
+Known gap: the `.section-deep` band's dark inversions are still literal hexes.
 
 ## Built so far (through 2026-07-27) — Phase 1 largely complete
 

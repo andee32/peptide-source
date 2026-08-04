@@ -74,7 +74,9 @@
 }
 
 :root {
-  /* ---- Brand core (from design-system/tokens.css) ---- */
+  /* ---- Brand core: fallbacks only. The live values come from the
+         BRAND_COLOR_* / BRAND_FONT_* env via virtual:brand-palette.css,
+         which loads after this file. Re-skin there, not here. ---- */
   --brand-navy:        #1a4d6e;
   --brand-navy-700:    #123a54;
   --brand-navy-900:    #0a1628;
