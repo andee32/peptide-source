@@ -29,6 +29,13 @@
       "when": 1785549248466,
       "tag": "0003_acoustic_ultragirl",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1785802931065,
+      "tag": "0004_solid_black_queen",
+      "breakpoints": true
     }
   ]
 }

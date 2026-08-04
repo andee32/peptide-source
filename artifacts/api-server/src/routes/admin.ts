@@ -9,6 +9,7 @@ import {
   coaDocumentsTable,
   productsTable,
   productVariantsTable,
+  productImagesTable,
   adminUsersTable,
   customerAccountsTable,
   customerUsersTable,
@@ -66,6 +67,24 @@ const coaUpload = multer({
   },
 });
 
+const ALLOWED_IMAGE_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+]);
+
+// Catalog images are rendered in a card, so they never need to be large. The
+// cap is deliberately well under the COA limit: these bytes are read on every
+// storefront page view, not on demand.
+const imageUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter(_req, file, cb) {
+    cb(null, ALLOWED_IMAGE_MIME.has(file.mimetype));
+  },
+});
+
 // multer's `.single()` middleware reports rejections (oversize file,
 // malformed multipart body) by calling `next(err)` from the middleware
 // layer, before the route handler's own try/catch runs. There is no
@@ -82,6 +101,27 @@ function uploadCoaFile(req: Request, res: Response, next: NextFunction) {
         message:
           err.code === "LIMIT_FILE_SIZE"
             ? "File too large (max 10 MB)"
+            : `Upload error: ${err.message}`,
+      });
+      return;
+    }
+    if (err) {
+      res.status(400).json({ error: "bad_request", message: "Upload failed" });
+      return;
+    }
+    next();
+  });
+}
+
+function uploadImageFile(req: Request, res: Response, next: NextFunction) {
+  imageUpload.single("file")(req, res, (err: unknown) => {
+    if (err instanceof multer.MulterError) {
+      const status = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+      res.status(status).json({
+        error: "bad_request",
+        message:
+          err.code === "LIMIT_FILE_SIZE"
+            ? "Image too large (max 5 MB)"
             : `Upload error: ${err.message}`,
       });
       return;
@@ -1085,6 +1125,103 @@ router.put("/admin/products/:id", async (req, res) => {
     res.json(updated);
   } catch (err) {
     console.error("admin updateProduct error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+// ─── Catalog images ──────────────────────────────────────────────────────────
+// Uploading stores the bytes and points products.imageUrl at the public path,
+// so the storefront lights up with no further wiring. The path is per-product
+// and stable, so a re-upload overwrites in place (ETag handles cache busting).
+
+router.post("/admin/products/:id/image", uploadImageFile, async (req, res) => {
+  try {
+    // As with the COA uploads: chaining multer widens req.params, so the
+    // route-guaranteed single value is narrowed by hand.
+    const productId = Number(req.params.id as string);
+    if (!Number.isInteger(productId) || productId <= 0) {
+      res.status(400).json({ error: "bad_request", message: "Invalid product id" });
+      return;
+    }
+
+    const product = await db.query.productsTable.findFirst({
+      where: eq(productsTable.id, productId),
+    });
+    if (!product) {
+      res.status(404).json({ error: "not_found", message: "Product not found" });
+      return;
+    }
+
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({
+        error: "bad_request",
+        message:
+          "Missing or unsupported file (allowed: JPEG, PNG, WebP, AVIF; max 5 MB)",
+      });
+      return;
+    }
+
+    const imageUrl = `/api/products/${productId}/image`;
+    await db.transaction(async (tx) => {
+      await tx
+        .insert(productImagesTable)
+        .values({
+          productId,
+          filename: file.originalname,
+          mimeType: file.mimetype,
+          sizeBytes: file.size,
+          data: file.buffer,
+        })
+        .onConflictDoUpdate({
+          target: productImagesTable.productId,
+          set: {
+            filename: file.originalname,
+            mimeType: file.mimetype,
+            sizeBytes: file.size,
+            data: file.buffer,
+            updatedAt: new Date(),
+          },
+        });
+      await tx
+        .update(productsTable)
+        .set({ imageUrl, updatedAt: new Date() })
+        .where(eq(productsTable.id, productId));
+    });
+
+    res.status(201).json({ imageUrl, filename: file.originalname, sizeBytes: file.size });
+  } catch (err) {
+    console.error("admin uploadProductImage error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+router.delete("/admin/products/:id/image", async (req, res) => {
+  try {
+    const productId = Number(req.params.id);
+    if (!Number.isInteger(productId) || productId <= 0) {
+      res.status(400).json({ error: "bad_request", message: "Invalid product id" });
+      return;
+    }
+
+    // Also clears an externally hosted imageUrl, so "remove image" means the
+    // same thing to the operator whether the file was uploaded or linked.
+    const [product] = await db
+      .update(productsTable)
+      .set({ imageUrl: null, updatedAt: new Date() })
+      .where(eq(productsTable.id, productId))
+      .returning({ id: productsTable.id });
+    if (!product) {
+      res.status(404).json({ error: "not_found", message: "Product not found" });
+      return;
+    }
+    await db
+      .delete(productImagesTable)
+      .where(eq(productImagesTable.productId, productId));
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("admin deleteProductImage error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });
   }
 });

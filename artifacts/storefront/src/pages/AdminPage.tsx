@@ -1567,6 +1567,179 @@ function slugify(text: string): string {
   return text.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 }
 
+const IMAGE_ACCEPT = "image/jpeg,image/png,image/webp,image/avif";
+
+// Drag-and-drop catalog image for a saved product. Uploaded bytes live in the
+// API (/api/products/:id/image); the URL box stays for externally hosted images,
+// so an operator can use either without the two fighting each other.
+function ProductImageField({
+  adminKey,
+  productId,
+  imageUrl,
+  onImageUrlChange,
+  onSaved,
+}: {
+  adminKey: string;
+  productId: number | null;
+  imageUrl: string;
+  onImageUrlChange: (value: string) => void;
+  onSaved: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  // Bumped after an upload so the <img> refetches: the path is stable, so
+  // without this the browser keeps showing the previous image.
+  const [version, setVersion] = useState(0);
+
+  const upload = async (file: File) => {
+    if (productId === null) return;
+    setBusy(true);
+    setError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      // adminFetch forces application/json; raw fetch lets the browser set the
+      // multipart boundary.
+      const res = await fetch(`/api/admin/products/${productId}/image`, {
+        method: "POST",
+        headers: { "x-admin-key": adminKey },
+        body: fd,
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { message?: string };
+        throw new Error(body.message ?? `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as { imageUrl: string };
+      onImageUrlChange(data.imageUrl);
+      setVersion((v) => v + 1);
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    if (productId === null) {
+      onImageUrlChange("");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await adminFetch(`/admin/products/${productId}/image`, adminKey, {
+        method: "DELETE",
+      });
+      onImageUrlChange("");
+      setVersion((v) => v + 1);
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Remove failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const previewSrc = imageUrl
+    ? imageUrl.startsWith("/api/")
+      ? `${imageUrl}?v=${version}`
+      : imageUrl
+    : "";
+
+  return (
+    <div className="col-span-2">
+      <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+        Catalog Image
+      </Label>
+
+      {productId === null ? (
+        <p className="text-xs text-muted-foreground mt-1">
+          Create the product first, then reopen it to upload an image.
+        </p>
+      ) : (
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            const file = e.dataTransfer.files?.[0];
+            if (file) void upload(file);
+          }}
+          className={`mt-1 flex items-center gap-4 rounded-md border border-dashed p-3 transition-colors ${
+            dragging ? "border-primary bg-primary/5" : "border-input"
+          }`}
+        >
+          {previewSrc ? (
+            <img
+              src={previewSrc}
+              alt=""
+              className="h-20 w-20 shrink-0 rounded object-cover bg-muted"
+            />
+          ) : (
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded bg-muted">
+              <FlaskConical className="h-7 w-7 text-muted-foreground opacity-40" />
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="text-sm">
+              {busy ? "Working…" : "Drag an image here, or"}{" "}
+              {!busy && (
+                <button
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  className="font-semibold underline underline-offset-2"
+                >
+                  choose a file
+                </button>
+              )}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              JPEG, PNG, WebP or AVIF · max 5 MB. Vial and packaging only — no
+              syringes, no reconstitution supplies, no people.
+            </p>
+            {imageUrl && !busy && (
+              <button
+                type="button"
+                onClick={() => void remove()}
+                className="text-xs text-destructive underline underline-offset-2 mt-1"
+              >
+                Remove image
+              </button>
+            )}
+          </div>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={IMAGE_ACCEPT}
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void upload(file);
+            }}
+          />
+        </div>
+      )}
+
+      {error && <p className="text-destructive text-xs mt-1">{error}</p>}
+
+      <Input
+        value={imageUrl}
+        onChange={(e) => onImageUrlChange(e.target.value)}
+        placeholder="…or paste an externally hosted image URL"
+        className="mt-2 font-mono text-xs"
+      />
+    </div>
+  );
+}
+
 function ProductDialog({
   open,
   onClose,
@@ -1693,10 +1866,13 @@ function ProductDialog({
               <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Long Description</Label>
               <Textarea value={longDesc} onChange={e => setLongDesc(e.target.value)} placeholder="Detailed research background…" className="mt-1 min-h-[100px]" />
             </div>
-            <div className="col-span-2">
-              <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Image URL</Label>
-              <Input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://…" className="mt-1" type="url" />
-            </div>
+            <ProductImageField
+              adminKey={adminKey}
+              productId={product?.id ?? null}
+              imageUrl={imageUrl}
+              onImageUrlChange={setImageUrl}
+              onSaved={onSaved}
+            />
             <div className="col-span-2">
               <Label className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Research Uses</Label>
               <Input value={researchUses} onChange={e => setResearchUses(e.target.value)} placeholder="Weight management, Metabolic research" className="mt-1" />

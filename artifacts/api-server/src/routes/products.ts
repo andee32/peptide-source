@@ -4,6 +4,7 @@ import { db } from "@app/db";
 import {
   productsTable,
   productVariantsTable,
+  productImagesTable,
   batchesTable,
   coaResultsTable,
   coaDocumentsTable,
@@ -129,6 +130,53 @@ router.get("/variants/:id/coa-file", coaDownloadRateLimit, async (req, res) => {
     res.send(row.data);
   } catch (err) {
     console.error("getVariantCoaFile error:", err);
+    res.status(500).json({ error: "internal_error", message: "Server error" });
+  }
+});
+
+// Public catalog image for a product. Served from the API rather than a static
+// directory because the bytes live in Postgres; the path is stable across
+// re-uploads, so it is cached by ETag instead of a versioned URL.
+router.get("/products/:id/image", async (req, res) => {
+  try {
+    const productId = Number(req.params.id);
+    if (!Number.isInteger(productId) || productId <= 0) {
+      res.status(400).json({ error: "bad_request", message: "Invalid product id" });
+      return;
+    }
+
+    const [row] = await db
+      .select({
+        published: productsTable.published,
+        complianceStatus: productsTable.complianceStatus,
+        mimeType: productImagesTable.mimeType,
+        data: productImagesTable.data,
+        updatedAt: productImagesTable.updatedAt,
+      })
+      .from(productImagesTable)
+      .innerJoin(productsTable, eq(productImagesTable.productId, productsTable.id))
+      .where(eq(productImagesTable.productId, productId))
+      .limit(1);
+
+    if (!row || row.published !== true || row.complianceStatus === "blocked") {
+      res.status(404).json({ error: "not_found", message: "No image available" });
+      return;
+    }
+
+    // The path never changes, so the ETag is what lets a re-upload invalidate a
+    // cached image instead of serving the old bytes until max-age expires.
+    const etag = `W/"${productId}-${row.updatedAt.getTime()}"`;
+    res.setHeader("ETag", etag);
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.setHeader("Content-Type", row.mimeType);
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    if (req.headers["if-none-match"] === etag) {
+      res.status(304).end();
+      return;
+    }
+    res.send(row.data);
+  } catch (err) {
+    console.error("getProductImage error:", err);
     res.status(500).json({ error: "internal_error", message: "Server error" });
   }
 });

@@ -11,6 +11,7 @@ import {
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { bytea } from "./bytea";
 
 export const categoryEnum = pgEnum("category", [
   "metabolic",
@@ -90,6 +91,23 @@ export const insertProductVariantSchema = createInsertSchema(
 ).omit({ id: true, createdAt: true });
 export type InsertProductVariant = z.infer<typeof insertProductVariantSchema>;
 export type ProductVariant = typeof productVariantsTable.$inferSelect;
+
+// An uploaded catalog image, stored alongside the rest of the operator's binary
+// assets rather than in object storage. One row per product: an upload replaces
+// the previous image, so `products.imageUrl` can keep pointing at the stable
+// public path (/api/products/:id/image) instead of changing on every re-upload.
+export const productImagesTable = pgTable("product_images", {
+  productId: integer("product_id")
+    .primaryKey()
+    .references(() => productsTable.id, { onDelete: "cascade" }),
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  data: bytea("data").notNull(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type ProductImage = typeof productImagesTable.$inferSelect;
 
 export const productsRelations = relations(productsTable, ({ many }) => ({
   variants: many(productVariantsTable),
