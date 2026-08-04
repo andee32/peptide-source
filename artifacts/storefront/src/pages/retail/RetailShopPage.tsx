@@ -200,8 +200,9 @@ export function RetailShopPage() {
         </h1>
         <p className="text-lg text-muted-foreground">
           Buy individual research vials — and selected 10-vial kits — at retail
-          pricing. No account, no minimum order. Every batch ships with an active
-          third-party COA. For in-vitro and laboratory research only.
+          pricing. No account, no minimum order. Every lot ships with its
+          certificate of analysis, linked by lot number. For in-vitro and
+          laboratory research only.
         </p>
         <p className="mt-4 text-sm text-muted-foreground">
           Buying in volume?{" "}
