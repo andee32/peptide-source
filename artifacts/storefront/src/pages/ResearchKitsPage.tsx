@@ -159,8 +159,8 @@ export function ResearchKitsPage() {
                 a: "Cancel any time from your dashboard at /account/subscriptions. No penalties, no lock-in.",
               },
               {
-                q: "Are kit peptides tri-verified?",
-                a: "Yes. Every peptide included in a research kit undergoes full tri-verification — HPLC purity, endotoxin (LAL), and sterility. COAs are batch-linked in the lab portal.",
+                q: "How is kit material verified?",
+                a: "Every lot ships with its certificate of analysis, stating the tests that lab actually ran on that lot. COAs are linked by lot number, so you can check the document before it ships and again on arrival.",
               },
             ].map((faq) => (
               <div key={faq.q} className="border border-border rounded-lg p-5">

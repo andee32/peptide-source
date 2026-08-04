@@ -31,9 +31,9 @@ export function HomePage() {
           </h1>
 
           <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl leading-relaxed">
-            USA-manufactured &gt;99% RUO compounds plus vetted Asia-sourced options —
-            shipped as 10-vial kits with a 5-kit minimum. Active third-party COAs on 90%
-            of inventory, with 2&ndash;3 day domestic delivery.
+            Research-use-only compounds supplied as 10-vial kits with a 5-kit minimum,
+            or as single vials at retail. Every lot ships with its certificate of
+            analysis, linked by lot number so you can read it before you commit an order.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 mb-16 w-full sm:w-auto">
@@ -48,7 +48,7 @@ export function HomePage() {
           <div className="flex flex-wrap justify-center items-center gap-6 md:gap-12 text-sm font-medium text-muted-foreground border-t border-border pt-8 w-full">
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-primary" />
-              <span>&gt;99% RUO (USA)</span>
+              <span>Research use only</span>
             </div>
             <div className="flex items-center gap-2">
               <PackageCheck className="h-5 w-5 text-primary" />
@@ -56,7 +56,7 @@ export function HomePage() {
             </div>
             <div className="flex items-center gap-2">
               <Truck className="h-5 w-5 text-primary" />
-              <span>2&ndash;3 day domestic shipping</span>
+              <span>Per-lot COA on every order</span>
             </div>
           </div>
         </div>
@@ -124,8 +124,8 @@ export function HomePage() {
               </div>
               <h3 className="text-xl font-bold mb-3">COA-Verified Inventory</h3>
               <p className="text-muted-foreground leading-relaxed">
-                Active third-party certificates of analysis on 90% of stock, tied to the
-                exact lot. Verify any batch before you commit an order.
+                Each lot's certificate of analysis is published against that lot number,
+                stating the tests the lab actually ran. Look it up before you order.
               </p>
             </div>
 
@@ -146,8 +146,9 @@ export function HomePage() {
               </div>
               <h3 className="text-xl font-bold mb-3">Dual Sourcing, RUO-First</h3>
               <p className="text-muted-foreground leading-relaxed">
-                USA-manufactured &gt;99% research-use-only compounds alongside vetted
-                Asia-sourced options &mdash; you choose the lane that fits your program.
+                Research-use-only compounds from more than one manufacturing lane, with
+                each product&apos;s sourcing path stated on its page &mdash; you choose
+                the lane that fits your program.
               </p>
             </div>
           </div>

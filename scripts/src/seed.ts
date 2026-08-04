@@ -660,7 +660,7 @@ async function seed() {
       slug: "tirzepatide",
       status: "released",
       productionDate: "2026-01-15",
-      notes: "Released kit batch. Full tri-verification completed.",
+      notes: "Released kit batch. Demo data — COA values are fabricated.",
       purityPercent: 99.4,
       endotoxinEuPerMl: 0.21,
       janoshikBase: "JAN-90101",
