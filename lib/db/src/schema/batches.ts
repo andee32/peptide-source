@@ -7,13 +7,13 @@ import {
   timestamp,
   jsonb,
   pgEnum,
-  customType,
   check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { productsTable, productVariantsTable } from "./products";
+import { bytea } from "./bytea";
 
 export const batchStatusEnum = pgEnum("batch_status", [
   "pending",
@@ -71,14 +71,6 @@ export const insertCoaResultSchema = createInsertSchema(coaResultsTable).omit({
 });
 export type InsertCoaResult = z.infer<typeof insertCoaResultSchema>;
 export type CoaResult = typeof coaResultsTable.$inferSelect;
-
-// Postgres bytea <-> Node Buffer. COA files are small (a few hundred KB) and
-// low-volume, so storing bytes in the DB avoids standing up object storage.
-const bytea = customType<{ data: Buffer; default: false }>({
-  dataType() {
-    return "bytea";
-  },
-});
 
 // A COA document hangs off EITHER a production batch (lot-specific COA) or a
 // product variant (the peptide/SKU's current certificate) — never both, never
