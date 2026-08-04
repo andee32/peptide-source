@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response, type NextFunction } 
 import { eq, and, ne, asc, desc, count, inArray, notInArray, isNotNull, sql } from "drizzle-orm";
 import { createHash, timingSafeEqual } from "crypto";
 import multer from "multer";
+import { sniffImageMime } from "../lib/imageSniff";
 import { db } from "@app/db";
 import {
   batchesTable,
@@ -1162,6 +1163,18 @@ router.post("/admin/products/:id/image", uploadImageFile, async (req, res) => {
       return;
     }
 
+    // The declared MIME only got us past the multer filter; what we store and
+    // later serve as Content-Type must come from the bytes themselves.
+    const sniffedMime = sniffImageMime(file.buffer);
+    if (!sniffedMime) {
+      res.status(400).json({
+        error: "bad_request",
+        message:
+          "File content is not a valid JPEG, PNG, WebP or AVIF image",
+      });
+      return;
+    }
+
     const imageUrl = `/api/products/${productId}/image`;
     await db.transaction(async (tx) => {
       await tx
@@ -1169,7 +1182,7 @@ router.post("/admin/products/:id/image", uploadImageFile, async (req, res) => {
         .values({
           productId,
           filename: file.originalname,
-          mimeType: file.mimetype,
+          mimeType: sniffedMime,
           sizeBytes: file.size,
           data: file.buffer,
         })
@@ -1177,7 +1190,7 @@ router.post("/admin/products/:id/image", uploadImageFile, async (req, res) => {
           target: productImagesTable.productId,
           set: {
             filename: file.originalname,
-            mimeType: file.mimetype,
+            mimeType: sniffedMime,
             sizeBytes: file.size,
             data: file.buffer,
             updatedAt: new Date(),
