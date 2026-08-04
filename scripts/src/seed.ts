@@ -60,7 +60,7 @@ const CATALOG: ProductSeed[] = [
     category: "metabolic",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Retatrutide (LY3437943), a synthetic acylated peptide agonist of the GLP-1, GIP, and glucagon receptors, supplied as a 10-vial kit for in-vitro receptor-signaling and comparative pharmacology assays. For laboratory research use only.",
+      "Retatrutide (LY3437943), a synthetic acylated peptide agonist of the GLP-1, GIP, and glucagon receptors, for in-vitro receptor-signaling and comparative pharmacology assays. For laboratory research use only.",
     featured: true,
     // All products are research-use-only; not gating per-SKU. complianceStatus
     // stays available as an admin control but defaults to cleared for everything.
@@ -85,7 +85,7 @@ const CATALOG: ProductSeed[] = [
     category: "metabolic",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Acylated 37-residue amylin analog (AM833) 10-vial kit for in-vitro amylin (AMY1/2/3) and calcitonin receptor pharmacology. For laboratory research use only.",
+      "Acylated 37-residue amylin analog (AM833) for in-vitro amylin (AMY1/2/3) and calcitonin receptor pharmacology. For laboratory research use only.",
     researchUses: [
       "Amylin (AMY1/AMY2/AMY3) and calcitonin receptor binding and cAMP accumulation assays",
       "RAMP-dependent receptor pharmacology and agonist-selectivity profiling in CTR/RAMP-transfected cell lines",
@@ -104,7 +104,7 @@ const CATALOG: ProductSeed[] = [
     category: "other",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "DPP-4-resistant synthetic human GHRH analog ([trans-3-hexenoyl]hGHRH(1-44) amide, CAS 218949-48-5), supplied as a 10-vial kit for in-vitro GHRH-receptor and peptide-stability research. For laboratory research use only.",
+      "DPP-4-resistant synthetic human GHRH analog ([trans-3-hexenoyl]hGHRH(1-44) amide, CAS 218949-48-5), for in-vitro GHRH-receptor and peptide-stability research. For laboratory research use only.",
     researchUses: [
       "In-vitro plasma stability and metabolite profiling by LC-HRMS/MS, characterizing DPP-4 resistance conferred by the N-terminal trans-3-hexenoyl group",
       "Analytical reference standard for LC-HRMS/MS method development and immunoaffinity enrichment of GHRH analogues (PMC4830873)",
@@ -121,7 +121,7 @@ const CATALOG: ProductSeed[] = [
     category: "other",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Long Arg³ IGF-1 (Long R3 IGF-1), an 83-residue recombinant IGF-1 analog engineered for low IGF-binding-protein affinity, supplied as a 10-vial kit for in-vitro cell culture and IGF-1R signalling research. For laboratory research use only.",
+      "Long Arg³ IGF-1 (Long R3 IGF-1), an 83-residue recombinant IGF-1 analog engineered for low IGF-binding-protein affinity, for in-vitro cell culture and IGF-1R signalling research. For laboratory research use only.",
     researchUses: [
       "Serum-free and reduced-serum mammalian cell culture supplementation (HEK293, CHO) as a more potent in-vitro alternative to insulin or native IGF-1",
       "In-vitro cell proliferation and anti-apoptotic signalling assays",
@@ -135,7 +135,7 @@ const CATALOG: ProductSeed[] = [
     category: "other",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Research blend of CJC-1295 without DAC (modified GRF(1-29), a synthetic GHRH analog) and Ipamorelin (a selective GHS-R1a pentapeptide agonist), supplied as a 10-vial kit for in-vitro GHRH-receptor and ghrelin-receptor signaling research. Component identities and per-component masses are stated on the lot COA. For laboratory research use only.",
+      "Research blend of CJC-1295 without DAC (modified GRF(1-29), a synthetic GHRH analog) and Ipamorelin (a selective GHS-R1a pentapeptide agonist), for in-vitro GHRH-receptor and ghrelin-receptor signaling research. Component identities and per-component masses are stated on the lot COA. For laboratory research use only.",
     researchUses: [
       "GHRH receptor (GHRHR) Gs/cAMP reporter assays for the CJC-1295 (mod GRF 1-29) component in pituitary-derived cell lines",
       "GHS-R1a (ghrelin receptor) radioligand binding and Ca2+/IP signaling assays for the Ipamorelin component",
@@ -151,7 +151,7 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "BPC-157, a synthetic pentadecapeptide (GEPPPGKPADDAGLV) corresponding to a partial sequence of the gastric protein BPC, supplied as a 10-vial kit for in-vitro endothelial and fibroblast culture work. For laboratory research use only.",
+      "BPC-157, a synthetic pentadecapeptide (GEPPPGKPADDAGLV) corresponding to a partial sequence of the gastric protein BPC, for in-vitro endothelial and fibroblast culture work. For laboratory research use only.",
     featured: true,
     researchUses: [
       "In-vitro endothelial (HUVEC) tube-formation and migration assays",
@@ -166,7 +166,7 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Ac-LKKTETQ-OH, a synthetic acetylated heptapeptide corresponding to residues 17-23 of thymosin beta-4, supplied as a 10-vial kit for in-vitro cell migration and cytoskeletal research. For laboratory research use only.",
+      "Ac-LKKTETQ-OH, a synthetic acetylated heptapeptide corresponding to residues 17-23 of thymosin beta-4, for in-vitro cell migration and cytoskeletal research. For laboratory research use only.",
     researchUses: [
       "In-vitro endothelial cell (HUVEC) migration and adhesion assays",
       "Ex-vivo vessel-sprouting / angiogenesis explant assays (chick aortic arch)",
@@ -180,7 +180,7 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Cibinetide (ARA-290) 10-vial kit — a synthetic 11-amino-acid, non-erythropoietic mimetic of the erythropoietin helix-B surface, for in-vitro innate repair receptor (EPOR/CD131) signaling research. For laboratory research use only.",
+      "Cibinetide (ARA-290) a synthetic 11-amino-acid, non-erythropoietic mimetic of the erythropoietin helix-B surface, for in-vitro innate repair receptor (EPOR/CD131) signaling research. For laboratory research use only.",
     researchUses: [
       "In-vitro EPOR/CD131 (innate repair receptor) selectivity and receptor-dependence assays",
       "In-vitro macrophage and dendritic cell cytokine/chemokine expression assays (CCL2, CCL3, CXCL1; MHC-II, CD86)",
@@ -194,7 +194,7 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Lys-Pro-Val (KPV), the C-terminal tripeptide of alpha-MSH, 10-vial kit for in-vitro anti-inflammatory and NF-kB signaling research. For laboratory research use only.",
+      "Lys-Pro-Val (KPV), the C-terminal tripeptide of alpha-MSH, for in-vitro anti-inflammatory and NF-kB signaling research. For laboratory research use only.",
     researchUses: [
       "In-vitro NF-kB reporter / signaling inhibition assays in cytokine-stimulated intestinal epithelial cells (e.g. Caco2-BBE, HT29-Cl.19A) - Dalmasso 2008, Gastroenterology",
       "PepT1-mediated peptide-transporter uptake/competition studies ([3H]KPV kinetics)",
@@ -210,7 +210,7 @@ const CATALOG: ProductSeed[] = [
     category: "cognitive",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Synthetic heptapeptide (Thr-Lys-Pro-Arg-Pro-Gly-Pro), the tuftsin tetrapeptide extended with a C-terminal Pro-Gly-Pro; 10-vial kit for in-vitro peptidase and neuropeptide-stability research. For laboratory research use only.",
+      "Synthetic heptapeptide (Thr-Lys-Pro-Arg-Pro-Gly-Pro), the tuftsin tetrapeptide extended with a C-terminal Pro-Gly-Pro; for in-vitro peptidase and neuropeptide-stability research. For laboratory research use only.",
     researchUses: [
       "Cell-free enkephalin-degrading peptidase inhibition assays (human serum enzyme activity)",
       "Comparative protease-resistance and peptide stability characterization (vs. tuftsin)",
@@ -224,7 +224,7 @@ const CATALOG: ProductSeed[] = [
     category: "cognitive",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Synthetic acetylated analog of the ACTH(4-10)-derived peptide Semax, supplied as a 10-vial kit for in-vitro neuroscience research; exact sequence and mass per lot COA. For laboratory research use only.",
+      "Synthetic acetylated analog of the ACTH(4-10)-derived peptide Semax, for in-vitro neuroscience research; exact sequence and mass per lot COA. For laboratory research use only.",
     researchUses: [
       "Comparative in-vitro stability and purity characterization against Semax reference material (LC-MS / HPLC; the analog's exact mass is disputed in public sources and should be established empirically)",
       "Comparative BDNF-expression assays in cultured glia",
@@ -238,7 +238,7 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Two-component research blend of BPC-157 (synthetic pentadecapeptide) and TB-500 (thymosin beta-4 17-23 fragment), supplied as a 10-vial kit for in-vitro cell migration and cytoskeletal research. Component identities, per-component masses and salt forms are stated on the lot COA. For laboratory research use only.",
+      "Two-component research blend of BPC-157 (synthetic pentadecapeptide) and TB-500 (thymosin beta-4 17-23 fragment), for in-vitro cell migration and cytoskeletal research. Component identities, per-component masses and salt forms are stated on the lot COA. For laboratory research use only.",
     researchUses: [
       "In-vitro fibroblast outgrowth and transwell migration assays with FAK/paxillin phosphorylation readout",
       "In-vitro G-actin binding and cytoskeletal sequestration assays for the LKKTETQ actin-binding motif (TB-500 component)",
@@ -257,7 +257,7 @@ const CATALOG: ProductSeed[] = [
     category: "longevity",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Epithalon (Epitalon), the synthetic tetrapeptide Ala-Glu-Asp-Gly (CAS 307297-39-8, MW 390.35), supplied as a 10-vial kit for in-vitro telomerase activity and telomere-length assays in cultured cells. For laboratory research use only.",
+      "Epithalon (Epitalon), the synthetic tetrapeptide Ala-Glu-Asp-Gly (CAS 307297-39-8, MW 390.35), for in-vitro telomerase activity and telomere-length assays in cultured cells. For laboratory research use only.",
     researchUses: [
       "In-vitro telomerase activity and hTERT mRNA expression assays in cultured human cells",
       "Telomere-length quantification (qPCR) in cultured normal and immortalised cell lines",
@@ -271,7 +271,7 @@ const CATALOG: ProductSeed[] = [
     category: "longevity",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "MOTS-c, a 16-amino-acid mitochondrial-derived peptide (encoded in the 12S rRNA/MT-RNR1 region), supplied as a 10-vial kit for in-vitro study of AMPK signaling and metabolic-pathway regulation. For laboratory research use only.",
+      "MOTS-c, a 16-amino-acid mitochondrial-derived peptide (encoded in the 12S rRNA/MT-RNR1 region), for in-vitro study of AMPK signaling and metabolic-pathway regulation. For laboratory research use only.",
     researchUses: [
       "In-vitro AMPK activation / signaling assays in cultured cells",
       "In-vitro glucose-uptake (GLUT4 translocation) studies in cultured skeletal-muscle cell lines",
@@ -288,7 +288,7 @@ const CATALOG: ProductSeed[] = [
     category: "longevity",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Synthetic mitochondria-accumulating tetrapeptide (D-Arg-Dmt-Lys-Phe-NH2) supplied as a 10-vial kit for in-vitro study of anionic phospholipid binding and isolated-mitochondria bioenergetics. For laboratory research use only.",
+      "Synthetic mitochondria-accumulating tetrapeptide (D-Arg-Dmt-Lys-Phe-NH2) for in-vitro study of anionic phospholipid binding and isolated-mitochondria bioenergetics. For laboratory research use only.",
     researchUses: [
       "In-vitro binding assays against cardiolipin-containing liposomes and anionic model membranes (surface potential, lipid packing)",
       "Bioenergetic assays in isolated mitochondria and permeabilized fibers (respiration, ATP synthesis rate, ADP sensitivity)",
@@ -304,7 +304,7 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Copper(II) complex of the tripeptide glycyl-L-histidyl-L-lysine (GHK-Cu; INCI copper tripeptide-1), CAS 89030-95-5, supplied as a 10-vial kit for in-vitro extracellular matrix and fibroblast culture research. For laboratory research use only.",
+      "Copper(II) complex of the tripeptide glycyl-L-histidyl-L-lysine (GHK-Cu; INCI copper tripeptide-1), CAS 89030-95-5, for in-vitro extracellular matrix and fibroblast culture research. For laboratory research use only.",
     featured: true,
     researchUses: [
       "In-vitro collagen synthesis assays in cultured dermal fibroblasts",
@@ -319,7 +319,7 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "AHK-Cu (L-alanyl-L-histidyl-L-lysine copper(II) complex) 10-vial kit for in-vitro dermal papilla cell and ex-vivo hair follicle organ-culture research. For laboratory research use only.",
+      "AHK-Cu (L-alanyl-L-histidyl-L-lysine copper(II) complex) for in-vitro dermal papilla cell and ex-vivo hair follicle organ-culture research. For laboratory research use only.",
     researchUses: [
       "Dermal papilla cell proliferation and viability assays (MTT)",
       "Ex-vivo human hair follicle organ-culture elongation studies",
@@ -335,7 +335,7 @@ const CATALOG: ProductSeed[] = [
     category: "other",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Melanotan-1 (afamelanotide; [Nle4,D-Phe7]-alpha-MSH), a synthetic alpha-MSH analog and potent melanocortin receptor agonist, 10-vial kit for in-vitro MC1R binding and melanogenesis research. For laboratory research use only.",
+      "Melanotan-1 (afamelanotide; [Nle4,D-Phe7]-alpha-MSH), a synthetic alpha-MSH analog and potent melanocortin receptor agonist, for in-vitro MC1R binding and melanogenesis research. For laboratory research use only.",
     researchUses: [
       "MC1R receptor binding / competition assays (NDP-MSH is a standard high-affinity reference agonist)",
       "In-vitro melanogenesis and melanocyte pigmentation studies (tyrosinase/melanin induction)",
@@ -349,7 +349,7 @@ const CATALOG: ProductSeed[] = [
     category: "other",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Melanotan-2 (MT-II), a synthetic lactam-bridged cyclic heptapeptide analog of alpha-MSH and non-selective melanocortin (MC1R/MC3R/MC4R/MC5R) receptor agonist, supplied as a 10-vial kit for in-vitro receptor and melanogenesis research. For laboratory research use only.",
+      "Melanotan-2 (MT-II), a synthetic lactam-bridged cyclic heptapeptide analog of alpha-MSH and non-selective melanocortin (MC1R/MC3R/MC4R/MC5R) receptor agonist, for in-vitro receptor and melanogenesis research. For laboratory research use only.",
     researchUses: [
       "In-vitro melanocortin receptor (MC1R/MC3R/MC4R/MC5R) binding and cAMP signaling assays",
       "In-vitro melanogenesis / melanin-content studies in cultured melanocyte or B16 melanoma cell lines",
@@ -363,7 +363,7 @@ const CATALOG: ProductSeed[] = [
     category: "other",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Bremelanotide (PT-141), a synthetic cyclic heptapeptide non-selective melanocortin receptor agonist, supplied as a 10-vial kit for in-vitro melanocortin (MC1R/MC3R/MC4R) receptor binding and signaling research. For laboratory research use only.",
+      "Bremelanotide (PT-141), a synthetic cyclic heptapeptide non-selective melanocortin receptor agonist, for in-vitro melanocortin (MC1R/MC3R/MC4R) receptor binding and signaling research. For laboratory research use only.",
     researchUses: [
       "MC4R and MC3R receptor binding and functional (cAMP/PKA) activation assays in vitro",
       "In-vitro melanocortin receptor signaling and selectivity/structure-activity profiling",
@@ -377,7 +377,7 @@ const CATALOG: ProductSeed[] = [
     category: "other",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Kisspeptin-10 (KP-10) decapeptide, 10-vial kit, for in-vitro study of KISS1R/GPR54 receptor binding and signaling. For laboratory research use only.",
+      "Kisspeptin-10 (KP-10) decapeptide, for in-vitro study of KISS1R/GPR54 receptor binding and signaling. For laboratory research use only.",
     researchUses: [
       "KISS1R/GPR54 radioligand binding and receptor-affinity assays",
       "In-vitro GPR54 signaling readouts (Gq/11-mediated Ca2+ flux, IP accumulation, ERK1/2 phosphorylation) in receptor-expressing cell lines",
@@ -412,7 +412,7 @@ const CATALOG: ProductSeed[] = [
     category: "metabolic",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "5-Amino-1-methylquinolinium (5-Amino-1MQ), a methylquinolinium-class small-molecule inhibitor of nicotinamide N-methyltransferase (NNMT) acting at the enzyme's nicotinamide substrate site, reported biochemical IC50 approximately 1.2 uM. Supplied as a 10-vial kit with per-lot COA stating salt form and salt-corrected mass. For laboratory research use only.",
+      "5-Amino-1-methylquinolinium (5-Amino-1MQ), a methylquinolinium-class small-molecule inhibitor of nicotinamide N-methyltransferase (NNMT) acting at the enzyme's nicotinamide substrate site, reported biochemical IC50 approximately 1.2 uM. Supplied with a per-lot COA stating salt form and salt-corrected mass. For laboratory research use only.",
     researchUses: [
       "In-vitro NNMT biochemical inhibition assays and IC50 determination against recombinant enzyme",
       "Quantitation of intracellular 1-methylnicotinamide, NAD+ and S-adenosylmethionine in cultured 3T3-L1 adipocytes",
@@ -431,7 +431,7 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Four-component research blend of KPV (alpha-MSH 11-13), GHK-Cu (copper(II) complex of glycyl-L-histidyl-L-lysine; INCI copper tripeptide-1), BPC-157 and TB-500 (thymosin beta-4 17-23 fragment), supplied as a 10-vial kit. Component identities, per-component masses and salt forms are stated on the lot COA. For laboratory research use only.",
+      "Four-component research blend of KPV (alpha-MSH 11-13), GHK-Cu (copper(II) complex of glycyl-L-histidyl-L-lysine; INCI copper tripeptide-1), BPC-157 and TB-500 (thymosin beta-4 17-23 fragment). Component identities, per-component masses and salt forms are stated on the lot COA. For laboratory research use only.",
     researchUses: [
       "In-vitro combination-peptide co-signaling assays in cultured cells",
       "Comparative in-vitro studies of NF-kB / IL-1beta pathway modulation (KPV component)",
@@ -445,7 +445,7 @@ const CATALOG: ProductSeed[] = [
     category: "recovery",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Three-component research blend of GHK-Cu (copper(II) complex of glycyl-L-histidyl-L-lysine; INCI copper tripeptide-1), BPC-157 and TB-500 (thymosin beta-4 17-23 fragment), supplied as a 10-vial kit. Component identities, per-component masses and salt forms are stated on the lot COA. For laboratory research use only.",
+      "Three-component research blend of GHK-Cu (copper(II) complex of glycyl-L-histidyl-L-lysine; INCI copper tripeptide-1), BPC-157 and TB-500 (thymosin beta-4 17-23 fragment). Component identities, per-component masses and salt forms are stated on the lot COA. For laboratory research use only.",
     researchUses: [
       "GHK-Cu component: collagen and glycosaminoglycan synthesis assays in cultured dermal fibroblasts",
       "BPC-157 component: tendon-fibroblast explant outgrowth, transwell migration, and FAK/paxillin phosphorylation assays",
@@ -462,7 +462,7 @@ const CATALOG: ProductSeed[] = [
     category: "metabolic",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "AOD-9604, a synthetic peptide corresponding to residues 176-191 of the C-terminus of human growth hormone (hGH), supplied as a 10-vial kit for in-vitro lipolysis and adipocyte-metabolism research. For laboratory research use only.",
+      "AOD-9604, a synthetic peptide corresponding to residues 176-191 of the C-terminus of human growth hormone (hGH), for in-vitro lipolysis and adipocyte-metabolism research. For laboratory research use only.",
     researchUses: [
       "In-vitro lipolysis assays in cultured 3T3-L1 adipocytes (glycerol release)",
       "In-vitro lipogenesis-inhibition assays in adipocyte cell models",
@@ -476,7 +476,7 @@ const CATALOG: ProductSeed[] = [
     category: "cognitive",
     sourcingPath: "asia_warehouse",
     shortDescription:
-      "Delta sleep-inducing peptide (DSIP), a synthetic nonapeptide (Trp-Ala-Gly-Gly-Asp-Ala-Ser-Gly-Glu), supplied as a 10-vial kit for in-vitro neuropeptide-stability and receptor research. For laboratory research use only.",
+      "Delta sleep-inducing peptide (DSIP), a synthetic nonapeptide (Trp-Ala-Gly-Gly-Asp-Ala-Ser-Gly-Glu), for in-vitro neuropeptide-stability and receptor research. For laboratory research use only.",
     researchUses: [
       "In-vitro peptidase-resistance and plasma-stability characterization (LC-MS/MS)",
       "Exploratory receptor-binding and neuronal cell-culture signaling studies",
@@ -490,7 +490,7 @@ const CATALOG: ProductSeed[] = [
     category: "metabolic",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Methylcobalamin, the methylated coenzyme form of vitamin B12 (cobalamin), supplied as a 10-vial kit for in-vitro biochemistry and cell-culture research. For laboratory research use only.",
+      "Methylcobalamin, the methylated coenzyme form of vitamin B12 (cobalamin), for in-vitro biochemistry and cell-culture research. For laboratory research use only.",
     researchUses: [
       "Cofactor supplementation in methionine synthase and one-carbon-metabolism enzyme assays",
       "Cell-culture media supplementation studies",
@@ -504,7 +504,7 @@ const CATALOG: ProductSeed[] = [
     category: "longevity",
     sourcingPath: "usa_domestic",
     shortDescription:
-      "Reduced L-glutathione (GSH), the endogenous gamma-glutamyl-cysteinyl-glycine tripeptide antioxidant, supplied as a 10-vial kit for in-vitro redox and oxidative-stress research. For laboratory research use only.",
+      "Reduced L-glutathione (GSH), the endogenous gamma-glutamyl-cysteinyl-glycine tripeptide antioxidant, for in-vitro redox and oxidative-stress research. For laboratory research use only.",
     researchUses: [
       "In-vitro antioxidant / reactive-oxygen-species scavenging assays in cell culture",
       "Glutathione-dependent enzyme (glutathione peroxidase / S-transferase) activity assays",
