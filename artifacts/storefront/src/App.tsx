@@ -30,10 +30,6 @@ import { WholesaleAccountPage } from "@/pages/WholesaleAccountPage";
 import { ContactPage } from "@/pages/ContactPage";
 import { LegalPage } from "@/pages/legal/LegalPage";
 
-// Homepage design previews, pending a chosen direction
-import { HomeVariantA } from "@/pages/previews/HomeVariantA";
-import { HomeVariantB } from "@/pages/previews/HomeVariantB";
-
 // Retail (B2C) portal
 import { RetailShopPage } from "@/pages/retail/RetailShopPage";
 import { RetailProductPage } from "@/pages/retail/RetailProductPage";
@@ -53,8 +49,6 @@ function StorefrontRouter() {
       <main className="flex-1">
         <Switch>
           <Route path="/" component={HomePage} />
-          <Route path="/preview/home-a" component={HomeVariantA} />
-          <Route path="/preview/home-b" component={HomeVariantB} />
           <Route path="/shop">
             <RuoGate channel="wholesale">
               <ProductsPage />
