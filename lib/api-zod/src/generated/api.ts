@@ -495,9 +495,9 @@ export const CreateOrderBody = zod.object({
     )
     .min(1),
   paymentMethod: zod
-    .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"])
+    .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle", "pay_by_bank"])
     .describe(
-      "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
+      "Payment rail. Crypto-first (BTCPay) + bank rails only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders. pay_by_bank is an open-banking ACH debit through Link Money.",
     ),
   discountCode: zod
     .string()
@@ -560,9 +560,16 @@ export const QuoteOrderBody = zod
       )
       .min(1),
     paymentMethod: zod
-      .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"])
+      .enum([
+        "crypto_btc",
+        "crypto_usdc",
+        "ach",
+        "wire",
+        "zelle",
+        "pay_by_bank",
+      ])
       .describe(
-        "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
+        "Payment rail. Crypto-first (BTCPay) + bank rails only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders. pay_by_bank is an open-banking ACH debit through Link Money.",
       ),
     discountCode: zod.string().max(quoteOrderBodyDiscountCodeMax).nullish(),
     channel: zod.enum(["retail", "wholesale"]).optional(),
@@ -621,9 +628,16 @@ export const GetOrderResponse = zod
       .describe("Slot-B (crypto payment incentive) amount."),
     totalCents: zod.number(),
     paymentMethod: zod
-      .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"])
+      .enum([
+        "crypto_btc",
+        "crypto_usdc",
+        "ach",
+        "wire",
+        "zelle",
+        "pay_by_bank",
+      ])
       .describe(
-        "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
+        "Payment rail. Crypto-first (BTCPay) + bank rails only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders. pay_by_bank is an open-banking ACH debit through Link Money.",
       ),
     status: zod.enum([
       "pending",
@@ -793,6 +807,34 @@ export const CreateAchInstructionsResponse = zod
   );
 
 /**
+ * Creates (or returns an existing unexpired) Link Money hosted session and a pending payment_records row, and moves the order to awaiting_payment. Valid only for paymentMethod pay_by_bank. Withheld with 503 until Link Money credentials and the webhook secret are provisioned. No money moves on this call: the debit is initiated by Link once the buyer links an account, and settlement is applied only by the verified webhook.
+ * @summary Open a Link Money Pay by Bank session for an order
+ */
+export const CreatePayByBankSessionParams = zod.object({
+  id: zod.coerce.string(),
+});
+
+export const CreatePayByBankSessionResponse = zod
+  .object({
+    paymentRecordId: zod.string(),
+    orderId: zod.string(),
+    sessionUrl: zod
+      .string()
+      .describe(
+        "Hosted Link Money URL for this session. Single-use and order-scoped.",
+      ),
+    environment: zod.enum(["sandbox", "production"]),
+    amountCents: zod.number(),
+    amount: zod.string(),
+    currency: zod.enum(["USD"]),
+    status: zod.enum(["pending"]),
+    expiresAt: zod.date(),
+  })
+  .describe(
+    "A Link Money hosted session the buyer is redirected to in order to authorise an ACH debit.",
+  );
+
+/**
  * Settles the order's pending ACH payment_records row (status=confirmed) and sets the order status to confirmed. Requires x-admin-key header.
  * @summary Admin — confirm an ACH / wire payment as received
  */
@@ -853,7 +895,14 @@ export const GetPaymentMethodsResponse = zod.object({
   channel: zod.enum(["retail", "wholesale"]),
   methods: zod.array(
     zod.object({
-      method: zod.enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"]),
+      method: zod.enum([
+        "crypto_btc",
+        "crypto_usdc",
+        "ach",
+        "wire",
+        "zelle",
+        "pay_by_bank",
+      ]),
       label: zod.string(),
       available: zod.boolean(),
     }),
@@ -1677,7 +1726,14 @@ export const AdminDeletePriceTierParams = zod.object({
  */
 export const AdminListPaymentMethodsResponseItem = zod
   .object({
-    method: zod.enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"]),
+    method: zod.enum([
+      "crypto_btc",
+      "crypto_usdc",
+      "ach",
+      "wire",
+      "zelle",
+      "pay_by_bank",
+    ]),
     label: zod.string(),
     configLabel: zod
       .string()
@@ -1744,7 +1800,14 @@ export const AdminPatchPaymentMethodBody = zod.object({
 
 export const AdminPatchPaymentMethodResponse = zod
   .object({
-    method: zod.enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"]),
+    method: zod.enum([
+      "crypto_btc",
+      "crypto_usdc",
+      "ach",
+      "wire",
+      "zelle",
+      "pay_by_bank",
+    ]),
     label: zod.string(),
     configLabel: zod
       .string()
@@ -1856,9 +1919,9 @@ export const AdminListOrdersResponseItem = zod.object({
   shippingEmail: zod.string(),
   accountId: zod.string().nullable(),
   paymentMethod: zod
-    .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"])
+    .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle", "pay_by_bank"])
     .describe(
-      "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
+      "Payment rail. Crypto-first (BTCPay) + bank rails only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders. pay_by_bank is an open-banking ACH debit through Link Money.",
     ),
 });
 export const AdminListOrdersResponse = zod.array(AdminListOrdersResponseItem);
@@ -1906,9 +1969,16 @@ export const AdminGetOrderResponse = zod
       .describe("Slot-B (crypto payment incentive) amount."),
     totalCents: zod.number(),
     paymentMethod: zod
-      .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"])
+      .enum([
+        "crypto_btc",
+        "crypto_usdc",
+        "ach",
+        "wire",
+        "zelle",
+        "pay_by_bank",
+      ])
       .describe(
-        "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
+        "Payment rail. Crypto-first (BTCPay) + bank rails only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders. pay_by_bank is an open-banking ACH debit through Link Money.",
       ),
     channel: zod.enum(["retail", "wholesale"]),
     accountId: zod.string().nullable(),
@@ -2076,9 +2146,16 @@ export const AdminPatchOrderResponse = zod
       .describe("Slot-B (crypto payment incentive) amount."),
     totalCents: zod.number(),
     paymentMethod: zod
-      .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"])
+      .enum([
+        "crypto_btc",
+        "crypto_usdc",
+        "ach",
+        "wire",
+        "zelle",
+        "pay_by_bank",
+      ])
       .describe(
-        "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
+        "Payment rail. Crypto-first (BTCPay) + bank rails only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders. pay_by_bank is an open-banking ACH debit through Link Money.",
       ),
     channel: zod.enum(["retail", "wholesale"]),
     accountId: zod.string().nullable(),
@@ -2221,9 +2298,16 @@ export const AdminRefundOrderResponse = zod
       .describe("Slot-B (crypto payment incentive) amount."),
     totalCents: zod.number(),
     paymentMethod: zod
-      .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"])
+      .enum([
+        "crypto_btc",
+        "crypto_usdc",
+        "ach",
+        "wire",
+        "zelle",
+        "pay_by_bank",
+      ])
       .describe(
-        "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
+        "Payment rail. Crypto-first (BTCPay) + bank rails only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders. pay_by_bank is an open-banking ACH debit through Link Money.",
       ),
     channel: zod.enum(["retail", "wholesale"]),
     accountId: zod.string().nullable(),
@@ -2799,9 +2883,9 @@ export const ListCustomerOrdersResponseItem = zod.object({
   ]),
   channel: zod.enum(["retail", "wholesale"]),
   paymentMethod: zod
-    .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"])
+    .enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle", "pay_by_bank"])
     .describe(
-      "Payment rail. Crypto-first (BTCPay) + ACH\/wire\/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.",
+      "Payment rail. Crypto-first (BTCPay) + bank rails only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders. pay_by_bank is an open-banking ACH debit through Link Money.",
     ),
   subtotalCents: zod.number(),
   discountCents: zod.number(),

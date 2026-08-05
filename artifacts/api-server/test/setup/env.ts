@@ -22,6 +22,14 @@ process.env.BTCPAYSERVER_API_KEY = "test-api-key";
 process.env.BTCPAYSERVER_STORE_ID = "test-store";
 process.env.BTCPAYSERVER_WEBHOOK_SECRET = "test-webhook-secret";
 
+// Link Money (Pay by Bank): throwaway values so the webhook signature and
+// session paths are exercisable. Tests needing the UNPROVISIONED behaviour
+// delete these in their own process.
+process.env.LINKMONEY_CLIENT_ID = "test-link-client";
+process.env.LINKMONEY_CLIENT_SECRET = "test-link-secret";
+process.env.LINKMONEY_WEBHOOK_SECRET = "test-link-webhook-secret";
+process.env.LINKMONEY_REDIRECT_URL = "https://example.test/pay-by-bank/return";
+
 // Admin break-glass credentials used by the admin route tests.
 process.env.ADMIN_SECRET = "test-admin-secret";
 

@@ -7,7 +7,7 @@
  */
 
 /**
- * Payment rail. Crypto-first (BTCPay) + ACH/wire/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.
+ * Payment rail. Crypto-first (BTCPay) + bank rails only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders. pay_by_bank is an open-banking ACH debit through Link Money.
  */
 export type PaymentMethod = (typeof PaymentMethod)[keyof typeof PaymentMethod];
 
@@ -17,4 +17,5 @@ export const PaymentMethod = {
   ach: "ach",
   wire: "wire",
   zelle: "zelle",
+  pay_by_bank: "pay_by_bank",
 } as const;

@@ -22,6 +22,11 @@ delete process.env.BTCPAYSERVER_STORE_ID;
 delete process.env.ACH_BANK_NAME;
 delete process.env.ACH_ROUTING_NUMBER;
 delete process.env.ACH_ACCOUNT_NUMBER;
+// Link Money likewise reads env at call time.
+delete process.env.LINKMONEY_CLIENT_ID;
+delete process.env.LINKMONEY_CLIENT_SECRET;
+delete process.env.LINKMONEY_WEBHOOK_SECRET;
+delete process.env.LINKMONEY_REDIRECT_URL;
 
 const { default: app } = await import("../src/app");
 
@@ -69,6 +74,24 @@ test("unconfigured BTCPay returns 503 and writes no payment record", async () =>
 
   // The critical assertion: no half-created payment record, and therefore no
   // fabricated pay-to address anywhere in the system.
+  const records = await db.select().from(paymentRecordsTable);
+  assert.equal(records.length, 0);
+});
+
+// Pay by Bank fails closed for a different reason than the manual rails: an
+// unconfigured session call could not be verified afterwards, so a buyer could
+// be walked into a hosted flow whose outcome we could never learn.
+test("unprovisioned Pay by Bank returns 503 and writes no payment record", async () => {
+  const { variant } = await makeVariant();
+  const orderId = await createOrder(variant.id, "pay_by_bank");
+
+  const res = await fetch(`${url}/api/orders/${orderId}/pay-by-bank-session`, {
+    method: "POST",
+  });
+
+  assert.equal(res.status, 503);
+  assert.equal(((await res.json()) as { error: string }).error, "payment_unavailable");
+
   const records = await db.select().from(paymentRecordsTable);
   assert.equal(records.length, 0);
 });

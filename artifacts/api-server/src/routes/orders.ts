@@ -23,7 +23,7 @@ import {
   type WholesaleAccount,
 } from "../lib/wholesaleSession";
 import { quoteRateLimit, createOrderRateLimit } from "../lib/rateLimit";
-import { isPaymentMethodEnabled } from "../lib/paymentMethods";
+import { isPaymentMethodEnabled, type PaymentMethodId } from "../lib/paymentMethods";
 import {
   evaluateShippingDestination,
   resolveShippingPolicy,
@@ -41,6 +41,10 @@ import {
   buildZelleInstructions,
   ACH_EXPIRY_DAYS,
 } from "../services/ach";
+import {
+  linkMoneyService,
+  linkMoneyEnvironment,
+} from "../services/linkMoney";
 import { PAYABLE_ORDER_STATUSES } from "../lib/orderStatus";
 import { notifyOnOrderPlaced } from "../lib/fulfillment";
 
@@ -146,7 +150,7 @@ const createOrderSchema = z.object({
   lineItems: z.array(lineItemInputSchema).min(1).max(50),
   ruoAffirmed: z.boolean(),
   signerName: z.string().min(1).max(200),
-  paymentMethod: z.enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"]),
+  paymentMethod: z.enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle", "pay_by_bank"]),
   discountCode: z.string().max(64).nullish(),
   // Wholesale intent (account-unification). New clients send this + a Bearer
   // session; the legacy accountId+token body is still accepted in the window.
@@ -165,7 +169,7 @@ const createOrderSchema = z.object({
 // identical pipeline with no writes.
 const quoteOrderSchema = z.object({
   lineItems: z.array(lineItemInputSchema).min(1).max(50),
-  paymentMethod: z.enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle"]),
+  paymentMethod: z.enum(["crypto_btc", "crypto_usdc", "ach", "wire", "zelle", "pay_by_bank"]),
   discountCode: z.string().max(64).nullish(),
   channel: z.enum(["retail", "wholesale"]).optional(),
 });
@@ -208,7 +212,7 @@ async function priceOrderRequest(input: {
   // Pre-authenticated by the handler (legacy body token OR session). null = retail.
   wholesaleAccount?: WholesaleAccount | null;
   lineItems: Array<{ variantId: number; quantity: number }>;
-  paymentMethod: "crypto_btc" | "crypto_usdc" | "ach" | "wire" | "zelle";
+  paymentMethod: PaymentMethodId;
   discountCode?: string | null;
 }): Promise<PricedOrder | PricingError> {
   const variantIds = input.lineItems.map((li) => li.variantId);
@@ -1000,6 +1004,161 @@ router.post("/orders/:id/ach-instructions", async (req, res) => {
     instructions: isZelle
       ? buildZelleInstructions(referenceCode)
       : buildBankInstructions(referenceCode),
+  });
+});
+
+/**
+ * Opens a Pay by Bank session for an order and returns the hosted URL the buyer
+ * is sent to. The debit is initiated by Link once the buyer finishes linking, so
+ * nothing here holds bank credentials and no money moves on this request.
+ *
+ * PAY_BY_BANK_EXPIRY_MINUTES bounds how long the session is treated as live: an
+ * abandoned session must not keep an order parked in awaiting_payment forever.
+ */
+const PAY_BY_BANK_EXPIRY_MINUTES = 60;
+
+router.post("/orders/:id/pay-by-bank-session", async (req, res) => {
+  const order = await db.query.ordersTable.findFirst({
+    where: eq(ordersTable.id, req.params.id),
+  });
+  if (!order) {
+    res.status(404).json({ error: "not_found", message: "Order not found" });
+    return;
+  }
+  if (!(await canReadOrder(req, order))) {
+    res.status(403).json(FORBIDDEN);
+    return;
+  }
+  if (order.paymentMethod !== "pay_by_bank") {
+    res.status(400).json({
+      error: "invalid_payment_method",
+      message: "This order does not use Pay by Bank",
+    });
+    return;
+  }
+  // Fail closed while unprovisioned, exactly as the other rails do — an
+  // unconfigured rail must never produce a half-real payment flow.
+  if (!linkMoneyService.configured) {
+    res.status(503).json({
+      error: "payment_unavailable",
+      message: "Pay by Bank is temporarily unavailable. Please try again later.",
+    });
+    return;
+  }
+  if (rejectIfNotPayable(order.status, res)) return;
+
+  // Idempotent: an unexpired pending session is returned as-is. Minting a second
+  // one would create a second Link requestKey for the same order, which is how
+  // a buyer ends up debited twice.
+  const existing = await db.query.paymentRecordsTable.findFirst({
+    where: eq(paymentRecordsTable.orderId, order.id),
+    orderBy: [desc(paymentRecordsTable.createdAt)],
+  });
+  if (
+    existing &&
+    existing.status === "pending" &&
+    existing.method === "pay_by_bank" &&
+    existing.paymentUrl &&
+    existing.expiresAt > new Date()
+  ) {
+    res.status(200).json({
+      paymentRecordId: existing.id,
+      orderId: order.id,
+      sessionUrl: existing.paymentUrl,
+      environment: linkMoneyEnvironment(),
+      amountCents: existing.amountCents,
+      amount: existing.amount,
+      currency: existing.currency,
+      status: existing.status,
+      expiresAt: existing.expiresAt.toISOString(),
+    });
+    return;
+  }
+
+  const recordId = randomUUID();
+  const [firstName, ...rest] = order.shippingName.trim().split(/\s+/);
+  const amount = (order.totalCents / 100).toFixed(2);
+  const expiresAt = new Date(Date.now() + PAY_BY_BANK_EXPIRY_MINUTES * 60 * 1000);
+
+  let session;
+  try {
+    session = await linkMoneyService.createSession({
+      orderId: order.id,
+      paymentRecordId: recordId,
+      amountCents: order.totalCents,
+      firstName: firstName ?? order.shippingName,
+      lastName: rest.join(" ") || firstName || order.shippingName,
+      email: order.shippingEmail,
+      guestCheckout: order.customerUserId === null,
+      customerRef: order.customerUserId ?? order.accountId ?? order.shippingEmail,
+    });
+  } catch (err) {
+    if (err instanceof PaymentRailUnavailableError) {
+      res.status(err.statusCode).json({
+        error: "payment_unavailable",
+        message: err.message,
+      });
+      return;
+    }
+    throw err;
+  }
+
+  // The Link round trip takes seconds, so the status read above is stale by now.
+  // Re-assert payability on the UPDATE and insert the record in the same
+  // transaction, so a crash cannot leave a live session attached to an order
+  // that has since been refunded or confirmed elsewhere.
+  const minted = await db.transaction(async (tx) => {
+    const [movedOrder] = await tx
+      .update(ordersTable)
+      .set({ status: "awaiting_payment", updatedAt: new Date() })
+      .where(
+        and(
+          eq(ordersTable.id, order.id),
+          inArray(ordersTable.status, PAYABLE_ORDER_STATUSES)
+        )
+      )
+      .returning();
+
+    if (!movedOrder) return false;
+
+    await tx.insert(paymentRecordsTable).values({
+      id: recordId,
+      orderId: order.id,
+      currency: "USD",
+      amount,
+      amountCents: order.totalCents,
+      method: "pay_by_bank",
+      paymentUrl: session.sessionUrl,
+      linkSessionKey: session.sessionKey,
+      expiresAt,
+      status: "pending",
+    });
+
+    return true;
+  });
+
+  if (!minted) {
+    console.warn(
+      `[orders] discarded Link Money session for order ${order.id}: it left a ` +
+        `payable status while the session was being created`
+    );
+    res.status(409).json({
+      error: "conflict",
+      message: "Order status changed while creating the session; please retry",
+    });
+    return;
+  }
+
+  res.status(201).json({
+    paymentRecordId: recordId,
+    orderId: order.id,
+    sessionUrl: session.sessionUrl,
+    environment: linkMoneyEnvironment(),
+    amountCents: order.totalCents,
+    amount,
+    currency: "USD",
+    status: "pending",
+    expiresAt: expiresAt.toISOString(),
   });
 });
 

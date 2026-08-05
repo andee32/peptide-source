@@ -435,7 +435,7 @@ export interface CreateOrderLineItem {
 }
 
 /**
- * Payment rail. Crypto-first (BTCPay) + ACH/wire/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders.
+ * Payment rail. Crypto-first (BTCPay) + bank rails only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders. pay_by_bank is an open-banking ACH debit through Link Money.
  */
 export type PaymentMethod = (typeof PaymentMethod)[keyof typeof PaymentMethod];
 
@@ -445,6 +445,7 @@ export const PaymentMethod = {
   ach: "ach",
   wire: "wire",
   zelle: "zelle",
+  pay_by_bank: "pay_by_bank",
 } as const;
 
 /**
@@ -722,6 +723,44 @@ export interface CreateOrderRequest {
   shippingCountry?: string;
 }
 
+export type PayByBankSessionEnvironment =
+  (typeof PayByBankSessionEnvironment)[keyof typeof PayByBankSessionEnvironment];
+
+export const PayByBankSessionEnvironment = {
+  sandbox: "sandbox",
+  production: "production",
+} as const;
+
+export type PayByBankSessionCurrency =
+  (typeof PayByBankSessionCurrency)[keyof typeof PayByBankSessionCurrency];
+
+export const PayByBankSessionCurrency = {
+  USD: "USD",
+} as const;
+
+export type PayByBankSessionStatus =
+  (typeof PayByBankSessionStatus)[keyof typeof PayByBankSessionStatus];
+
+export const PayByBankSessionStatus = {
+  pending: "pending",
+} as const;
+
+/**
+ * A Link Money hosted session the buyer is redirected to in order to authorise an ACH debit.
+ */
+export interface PayByBankSession {
+  paymentRecordId: string;
+  orderId: string;
+  /** Hosted Link Money URL for this session. Single-use and order-scoped. */
+  sessionUrl: string;
+  environment: PayByBankSessionEnvironment;
+  amountCents: number;
+  amount: string;
+  currency: PayByBankSessionCurrency;
+  status: PayByBankSessionStatus;
+  expiresAt: string;
+}
+
 /**
  * Slot-A promotion source; null when no promotion applied.
  */
@@ -937,6 +976,7 @@ export const PaymentMethodStateMethod = {
   ach: "ach",
   wire: "wire",
   zelle: "zelle",
+  pay_by_bank: "pay_by_bank",
 } as const;
 
 /**
@@ -975,6 +1015,7 @@ export const PublicPaymentMethodMethod = {
   ach: "ach",
   wire: "wire",
   zelle: "zelle",
+  pay_by_bank: "pay_by_bank",
 } as const;
 
 export interface PublicPaymentMethod {

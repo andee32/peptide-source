@@ -1,8 +1,9 @@
 import { Router, type Request } from "express";
 import { eq, and, inArray } from "drizzle-orm";
 import { db } from "@app/db";
-import { ordersTable, paymentRecordsTable } from "@app/db/schema";
+import { ordersTable, paymentRecordsTable, type Order } from "@app/db/schema";
 import { btcpayService } from "../services/btcpay";
+import { linkMoneyService } from "../services/linkMoney";
 import { SETTLEABLE_ORDER_STATUSES } from "../lib/orderStatus";
 import { notifyOnOrderConfirmed } from "../lib/fulfillment";
 import { sendPaymentFailedEmail } from "../services/email";
@@ -240,6 +241,211 @@ router.post("/webhooks/btcpay", async (req: RequestWithRawBody, res) => {
   }
 
   res.status(200).json({ received: true });
+});
+
+/**
+ * Link Money (Pay by Bank) payment events.
+ *
+ * Settlement rule mirrors the BTCPay route: the payload is only a nudge. The
+ * transaction is read back from Link and must itself report SUCCEEDED before
+ * anything is confirmed — Link's own verdict is the only thing that means the
+ * buyer's account was actually debited. `payment.authorized` deliberately does
+ * NOT confirm the order: an authorized ACH debit can still be returned days
+ * later, and confirming there would ship goods against money that never landed.
+ */
+router.post("/webhooks/linkmoney", async (req: RequestWithRawBody, res) => {
+  const presented =
+    (req.headers["x-link-signature"] as string | undefined) ??
+    (req.headers["x-linkmoney-signature"] as string | undefined) ??
+    (req.headers["x-webhook-secret"] as string | undefined) ??
+    "";
+
+  // A signature is only meaningful over the exact bytes Link signed; app.ts
+  // captures those only for application/json. Re-serialising req.body would
+  // verify against bytes we invented, so reject instead.
+  const rawBody = req.rawBody;
+  if (!Buffer.isBuffer(rawBody)) {
+    res.status(400).json({ error: "missing_raw_body" });
+    return;
+  }
+
+  if (!linkMoneyService.verifyWebhookSignature(rawBody, presented)) {
+    res.status(401).json({ error: "invalid_signature" });
+    return;
+  }
+
+  const event = req.body as {
+    eventType?: string;
+    metadata?: {
+      resourceId?: string;
+      resourceType?: string;
+      clientReferenceId?: string;
+      achReturnCode?: string;
+    };
+  };
+
+  const eventType = event.eventType ?? "";
+  const transactionId = event.metadata?.resourceId;
+  const orderId = event.metadata?.clientReferenceId;
+
+  if (!eventType.startsWith("payment.") || !transactionId || !orderId) {
+    res.status(200).json({ received: true, note: "ignored" });
+    return;
+  }
+
+  const payment = await db.query.paymentRecordsTable.findFirst({
+    where: and(
+      eq(paymentRecordsTable.orderId, orderId),
+      eq(paymentRecordsTable.method, "pay_by_bank")
+    ),
+  });
+
+  if (!payment) {
+    res.status(200).json({ received: true, note: "unknown_payment" });
+    return;
+  }
+
+  // First event carrying the transaction id binds it to our record. A DIFFERENT
+  // id later means two Link transactions exist against one order — never
+  // silently rebind, because the read-back below would then be pointed at a
+  // transaction the order did not authorise.
+  if (payment.linkPaymentId && payment.linkPaymentId !== transactionId) {
+    console.error(
+      `[webhook] order ${orderId} already bound to Link transaction ` +
+        `${payment.linkPaymentId} but event names ${transactionId}; ignoring`
+    );
+    res.status(200).json({ received: true, note: "transaction_mismatch" });
+    return;
+  }
+  if (!payment.linkPaymentId) {
+    await db
+      .update(paymentRecordsTable)
+      .set({ linkPaymentId: transactionId })
+      .where(eq(paymentRecordsTable.id, payment.id));
+  }
+
+  async function settle(
+    paymentStatus: "confirmed" | "failed",
+    orderStatus: "confirmed" | "failed",
+    extra: { confirmedAt?: Date } = {}
+  ): Promise<{ moved: boolean; movedOrder: Order | null }> {
+    return db.transaction(async (tx) => {
+      const [movedPayment] = await tx
+        .update(paymentRecordsTable)
+        .set({ status: paymentStatus, ...extra })
+        .where(
+          and(
+            eq(paymentRecordsTable.id, payment!.id),
+            eq(paymentRecordsTable.status, "pending")
+          )
+        )
+        .returning();
+
+      if (!movedPayment) return { moved: false, movedOrder: null };
+
+      const [movedOrder] = await tx
+        .update(ordersTable)
+        .set({ status: orderStatus, updatedAt: new Date() })
+        .where(
+          and(
+            eq(ordersTable.id, payment!.orderId),
+            inArray(ordersTable.status, SETTLEABLE_ORDER_STATUSES)
+          )
+        )
+        .returning();
+
+      if (!movedOrder) {
+        console.error(
+          `[webhook] payment ${payment!.id} moved to ${paymentStatus} but order ` +
+            `${payment!.orderId} was not in a webhook-mutable status; needs manual review`
+        );
+      }
+
+      return { moved: true, movedOrder: movedOrder ?? null };
+    });
+  }
+
+  if (eventType === "payment.succeeded" || eventType === "payment.disbursed") {
+    let transaction;
+    try {
+      transaction = await linkMoneyService.getTransaction(transactionId);
+    } catch (err) {
+      // Fail closed and 503 so Link retries: settle nothing we could not verify.
+      console.error(
+        `[webhook] could not verify Link transaction ${transactionId}:`,
+        err
+      );
+      res.status(503).json({ error: "verification_unavailable" });
+      return;
+    }
+
+    if (transaction.transactionStatus !== "SUCCEEDED") {
+      console.warn(
+        `[webhook] refusing to settle ${transactionId}: Link reports ` +
+          `"${transaction.transactionStatus}"`
+      );
+      res.status(200).json({ received: true, note: "not_settled" });
+      return;
+    }
+
+    // The debit must be for at least what the order requires, in USD. A short
+    // or foreign-denominated debit is not payment for this order.
+    if (transaction.amount && transaction.amount.currency !== "USD") {
+      console.error(
+        `[webhook] transaction ${transactionId} is denominated in ` +
+          `${transaction.amount.currency}, not USD; refusing to settle`
+      );
+      res.status(200).json({ received: true, note: "currency_mismatch" });
+      return;
+    }
+    const paidCents = Math.round((transaction.amount?.value ?? 0) * 100);
+    if (!Number.isFinite(paidCents) || paidCents < payment.amountCents) {
+      console.error(
+        `[webhook] transaction ${transactionId} debited ${paidCents} cents but ` +
+          `order ${payment.orderId} requires ${payment.amountCents}; refusing to settle`
+      );
+      res.status(200).json({ received: true, note: "amount_mismatch" });
+      return;
+    }
+
+    const result = await settle("confirmed", "confirmed", { confirmedAt: new Date() });
+    if (result.movedOrder) {
+      void notifyOnOrderConfirmed(result.movedOrder).catch((err) =>
+        console.error("notifyOnOrderConfirmed error:", err)
+      );
+    } else if (!result.moved) {
+      console.warn(
+        `[webhook] payment.succeeded for ${transactionId} did not move payment ` +
+          `${payment.id} (already ${payment.status}); may need reconciliation`
+      );
+    }
+
+    res.status(200).json({ received: true, settled: result.moved });
+    return;
+  }
+
+  if (eventType === "payment.failed" || eventType === "payment.canceled") {
+    const result = await settle("failed", "failed");
+    if (result.movedOrder) {
+      void sendPaymentFailedEmail({
+        to: result.movedOrder.shippingEmail,
+        orderId: result.movedOrder.id,
+        reason: "failed",
+      }).catch((err) => console.error("sendPaymentFailedEmail error:", err));
+    }
+    if (event.metadata?.achReturnCode) {
+      console.warn(
+        `[webhook] Link transaction ${transactionId} failed with ACH return code ` +
+          `${event.metadata.achReturnCode}`
+      );
+    }
+    res.status(200).json({ received: true, settled: result.moved });
+    return;
+  }
+
+  // Everything else (created / pending / authorized / scheduled / initiated) is
+  // progress, not settlement. Recorded in the log only.
+  res.status(200).json({ received: true, note: "payment_progress" });
 });
 
 export default router;

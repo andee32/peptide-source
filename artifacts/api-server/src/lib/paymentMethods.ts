@@ -3,8 +3,15 @@ import { db } from "@app/db";
 import { paymentMethodsTable } from "@app/db/schema";
 import { btcpayService } from "../services/btcpay";
 import { isAchProvisioned, isZelleProvisioned } from "../services/ach";
+import { isLinkMoneyProvisioned } from "../services/linkMoney";
 
-export type PaymentMethodId = "crypto_btc" | "crypto_usdc" | "ach" | "wire" | "zelle";
+export type PaymentMethodId =
+  | "crypto_btc"
+  | "crypto_usdc"
+  | "ach"
+  | "wire"
+  | "zelle"
+  | "pay_by_bank";
 export type OrderChannel = "retail" | "wholesale";
 
 /** A single required config key and whether it is set — NEVER its value. */
@@ -37,6 +44,12 @@ const ZELLE_ITEMS = (): ConfigItem[] => [
   item("Recipient handle", "ZELLE_RECIPIENT"),
   item("Recipient name", "ZELLE_RECIPIENT_NAME"),
 ];
+const LINKMONEY_ITEMS = (): ConfigItem[] => [
+  item("Client ID", "LINKMONEY_CLIENT_ID"),
+  item("Client secret", "LINKMONEY_CLIENT_SECRET"),
+  item("Webhook secret", "LINKMONEY_WEBHOOK_SECRET"),
+  item("Redirect URL", "LINKMONEY_REDIRECT_URL"),
+];
 
 interface CatalogEntry {
   method: PaymentMethodId;
@@ -58,6 +71,7 @@ export const PAYMENT_METHOD_CATALOG: CatalogEntry[] = [
   { method: "ach", label: "ACH transfer", configLabel: "Bank details", configured: isAchProvisioned, configItems: BANK_ITEMS, retailAllowed: true },
   { method: "wire", label: "Wire transfer", configLabel: "Bank details", configured: isAchProvisioned, configItems: BANK_ITEMS, retailAllowed: true },
   { method: "zelle", label: "Zelle", configLabel: "Zelle recipient", configured: isZelleProvisioned, configItems: ZELLE_ITEMS, retailAllowed: false },
+  { method: "pay_by_bank", label: "Pay by Bank", configLabel: "Link Money", configured: isLinkMoneyProvisioned, configItems: LINKMONEY_ITEMS, retailAllowed: true },
 ];
 
 const CATALOG_BY_METHOD = new Map(PAYMENT_METHOD_CATALOG.map((c) => [c.method, c]));

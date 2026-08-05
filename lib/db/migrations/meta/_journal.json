@@ -36,6 +36,13 @@
       "when": 1785802931065,
       "tag": "0004_solid_black_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1785960504082,
+      "tag": "0005_blushing_star_brand",
+      "breakpoints": true
     }
   ]
 }

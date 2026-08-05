@@ -519,6 +519,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/ApiError"
 
+  /orders/{id}/pay-by-bank-session:
+    post:
+      operationId: createPayByBankSession
+      tags: [orders]
+      summary: Open a Link Money Pay by Bank session for an order
+      description: "Creates (or returns an existing unexpired) Link Money hosted session and a pending payment_records row, and moves the order to awaiting_payment. Valid only for paymentMethod pay_by_bank. Withheld with 503 until Link Money credentials and the webhook secret are provisioned. No money moves on this call: the debit is initiated by Link once the buyer links an account, and settlement is applied only by the verified webhook."
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayByBankSession"
+        "200":
+          description: Existing pending session returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayByBankSession"
+        "400":
+          description: Order does not use Pay by Bank
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: Pay by Bank is not provisioned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
   /admin/orders/{id}/confirm-ach:
     post:
       operationId: adminConfirmAch
@@ -3149,8 +3193,46 @@ components:
 
     PaymentMethod:
       type: string
-      description: "Payment rail. Crypto-first (BTCPay) + ACH/wire/Zelle only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders."
-      enum: [crypto_btc, crypto_usdc, ach, wire, zelle]
+      description: "Payment rail. Crypto-first (BTCPay) + bank rails only; never a card processor. zelle is wholesale-only and rejected server-side on retail orders. pay_by_bank is an open-banking ACH debit through Link Money."
+      enum: [crypto_btc, crypto_usdc, ach, wire, zelle, pay_by_bank]
+
+    PayByBankSession:
+      type: object
+      description: A Link Money hosted session the buyer is redirected to in order to authorise an ACH debit.
+      properties:
+        paymentRecordId:
+          type: string
+        orderId:
+          type: string
+        sessionUrl:
+          type: string
+          description: Hosted Link Money URL for this session. Single-use and order-scoped.
+        environment:
+          type: string
+          enum: [sandbox, production]
+        amountCents:
+          type: integer
+        amount:
+          type: string
+        currency:
+          type: string
+          enum: [USD]
+        status:
+          type: string
+          enum: [pending]
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - paymentRecordId
+        - orderId
+        - sessionUrl
+        - environment
+        - amountCents
+        - amount
+        - currency
+        - status
+        - expiresAt
 
     OrderSummary:
       type: object
@@ -3454,7 +3536,7 @@ components:
       properties:
         method:
           type: string
-          enum: [crypto_btc, crypto_usdc, ach, wire, zelle]
+          enum: [crypto_btc, crypto_usdc, ach, wire, zelle, pay_by_bank]
         label:
           type: string
         configLabel:
@@ -3506,7 +3588,7 @@ components:
       properties:
         method:
           type: string
-          enum: [crypto_btc, crypto_usdc, ach, wire, zelle]
+          enum: [crypto_btc, crypto_usdc, ach, wire, zelle, pay_by_bank]
         label:
           type: string
         available:

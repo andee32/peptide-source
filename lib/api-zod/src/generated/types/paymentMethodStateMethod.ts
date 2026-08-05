@@ -15,4 +15,5 @@ export const PaymentMethodStateMethod = {
   ach: "ach",
   wire: "wire",
   zelle: "zelle",
+  pay_by_bank: "pay_by_bank",
 } as const;

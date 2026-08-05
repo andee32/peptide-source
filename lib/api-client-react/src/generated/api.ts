@@ -81,6 +81,7 @@ import type {
   PatchReviewerSubmissionRequest,
   PatchStoreSettingsRequest,
   PatchVariantRequest,
+  PayByBankSession,
   PaymentMethodState,
   PriceTier,
   Product,
@@ -1609,6 +1610,91 @@ export const useCreateAchInstructions = <
   TContext
 > => {
   return useMutation(getCreateAchInstructionsMutationOptions(options));
+};
+
+/**
+ * Creates (or returns an existing unexpired) Link Money hosted session and a pending payment_records row, and moves the order to awaiting_payment. Valid only for paymentMethod pay_by_bank. Withheld with 503 until Link Money credentials and the webhook secret are provisioned. No money moves on this call: the debit is initiated by Link once the buyer links an account, and settlement is applied only by the verified webhook.
+ * @summary Open a Link Money Pay by Bank session for an order
+ */
+export const getCreatePayByBankSessionUrl = (id: string) => {
+  return `/api/orders/${id}/pay-by-bank-session`;
+};
+
+export const createPayByBankSession = async (
+  id: string,
+  options?: RequestInit,
+): Promise<PayByBankSession> => {
+  return customFetch<PayByBankSession>(getCreatePayByBankSessionUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getCreatePayByBankSessionMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPayByBankSession>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPayByBankSession>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  const mutationKey = ["createPayByBankSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPayByBankSession>>,
+    { id: string }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return createPayByBankSession(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreatePayByBankSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPayByBankSession>>
+>;
+
+export type CreatePayByBankSessionMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Open a Link Money Pay by Bank session for an order
+ */
+export const useCreatePayByBankSession = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPayByBankSession>>,
+    TError,
+    { id: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPayByBankSession>>,
+  TError,
+  { id: string },
+  TContext
+> => {
+  return useMutation(getCreatePayByBankSessionMutationOptions(options));
 };
 
 /**
