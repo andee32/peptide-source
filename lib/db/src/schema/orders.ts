@@ -20,12 +20,16 @@ import { discountCodesTable } from "./discountCodes";
 // public storefront would publish a direct line to the operating bank account,
 // and it has no dispute mechanism in either direction. Restricting it to
 // approved B2B accounts keeps it to counterparties we already know.
+// pay_by_bank is an open-banking ACH debit initiated in Link Money's hosted
+// flow. Still a bank rail: the buyer authenticates at their own institution and
+// we never hold their credentials or account number.
 export const paymentMethodEnum = pgEnum("payment_method", [
   "crypto_btc",
   "crypto_usdc",
   "ach",
   "wire",
   "zelle",
+  "pay_by_bank",
 ]);
 
 export const orderChannelEnum = pgEnum("order_channel", ["retail", "wholesale"]);
@@ -118,6 +122,12 @@ export const paymentRecordsTable = pgTable("payment_records", {
   method: text("method"),
   referenceCode: text("reference_code"),
   bankLast4: text("bank_last4"),
+  // Pay by Bank (Link Money). linkPaymentId is Link's transaction id, which the
+  // webhook resolves back to this record; linkCustomerId is the linked-account
+  // handle Link returns, retained for future payments and refunds.
+  linkPaymentId: text("link_payment_id"),
+  linkCustomerId: text("link_customer_id"),
+  linkSessionKey: text("link_session_key"),
   txHash: text("tx_hash"),
   confirmedAt: timestamp("confirmed_at"),
   expiresAt: timestamp("expires_at").notNull(),

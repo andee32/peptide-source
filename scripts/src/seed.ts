@@ -814,6 +814,7 @@ async function seed() {
       { method: "ach", enabledRetail: false, enabledWholesale: false, sortOrder: 3 },
       { method: "wire", enabledRetail: false, enabledWholesale: false, sortOrder: 4 },
       { method: "zelle", enabledRetail: false, enabledWholesale: true, sortOrder: 5 },
+      { method: "pay_by_bank", enabledRetail: false, enabledWholesale: false, sortOrder: 6 },
     ])
     .onConflictDoNothing({ target: paymentMethodsTable.method });
   console.log("Ensured payment method rows");

@@ -37,21 +37,26 @@ app.use(
   })
 );
 
-app.use(
-  "/api/webhooks/btcpay",
-  express.raw({ type: "application/json" }),
-  (req: Request, _res: Response, next: NextFunction) => {
-    if (Buffer.isBuffer(req.body)) {
-      (req as Request & { rawBody: Buffer }).rawBody = req.body;
-      try {
-        req.body = JSON.parse(req.body.toString("utf8"));
-      } catch {
-        req.body = {};
+// Webhook signatures cover the exact bytes the provider sent, so these routes
+// keep the raw buffer alongside the parsed body. express.json() below would
+// otherwise consume the stream and leave only a re-serialised approximation.
+for (const path of ["/api/webhooks/btcpay", "/api/webhooks/linkmoney"]) {
+  app.use(
+    path,
+    express.raw({ type: "application/json" }),
+    (req: Request, _res: Response, next: NextFunction) => {
+      if (Buffer.isBuffer(req.body)) {
+        (req as Request & { rawBody: Buffer }).rawBody = req.body;
+        try {
+          req.body = JSON.parse(req.body.toString("utf8"));
+        } catch {
+          req.body = {};
+        }
       }
+      next();
     }
-    next();
-  }
-);
+  );
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
