@@ -1589,9 +1589,12 @@ function ProductImageField({
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  // Bumped after an upload so the <img> refetches: the path is stable, so
-  // without this the browser keeps showing the previous image.
+  // Appended to the preview src after an upload or remove so the <img>
+  // refetches: the public path is stable and cacheable, so without this the
+  // browser keeps showing the previous bytes. A timestamp rather than a
+  // counter, so it still busts the cache if this field is remounted.
   const [version, setVersion] = useState(0);
+  const bustCache = () => setVersion(Date.now());
 
   const upload = async (file: File) => {
     if (productId === null) return;
@@ -1613,7 +1616,7 @@ function ProductImageField({
       }
       const data = (await res.json()) as { imageUrl: string };
       onImageUrlChange(data.imageUrl);
-      setVersion((v) => v + 1);
+      bustCache();
       onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
@@ -1634,7 +1637,7 @@ function ProductImageField({
         method: "DELETE",
       });
       onImageUrlChange("");
-      setVersion((v) => v + 1);
+      bustCache();
       onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Remove failed");
@@ -1767,21 +1770,27 @@ function ProductDialog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Seed the form when the dialog opens on a product — keyed on identity, not
+  // on the object. An image upload refetches the catalog, so depending on
+  // `product` would re-seed mid-edit from a row that may not reflect the
+  // upload yet, discarding what the user just did.
+  const productRef = useRef(product);
+  productRef.current = product;
   useEffect(() => {
-    if (open) {
-      setName(product?.name ?? "");
-      setSlug(product?.slug ?? "");
-      setCategory(product?.category ?? "other");
-      setSourcingPath(product?.sourcingPath ?? "");
-      setShortDesc(product?.shortDescription ?? "");
-      setLongDesc(product?.longDescription ?? "");
-      setImageUrl(product?.imageUrl ?? "");
-      setResearchUses((product?.researchUses ?? []).join(", "));
-      setFeatured(product?.featured ?? false);
-      setPublished(product?.published ?? true);
-      setError("");
-    }
-  }, [open, product]);
+    if (!open) return;
+    const p = productRef.current;
+    setName(p?.name ?? "");
+    setSlug(p?.slug ?? "");
+    setCategory(p?.category ?? "other");
+    setSourcingPath(p?.sourcingPath ?? "");
+    setShortDesc(p?.shortDescription ?? "");
+    setLongDesc(p?.longDescription ?? "");
+    setImageUrl(p?.imageUrl ?? "");
+    setResearchUses((p?.researchUses ?? []).join(", "));
+    setFeatured(p?.featured ?? false);
+    setPublished(p?.published ?? true);
+    setError("");
+  }, [open, product?.id]);
 
   const handleNameChange = (val: string) => {
     setName(val);
